@@ -1,8 +1,26 @@
-"""Stock price fetcher using yfinance."""
+"""Stock price fetcher using yfinance.
+
+Yahoo Finance blocks many cloud/datacenter IPs when yfinance makes requests
+with its default session. We use `curl_cffi` to impersonate a real Chrome
+browser, which reliably works from Render/Fly/etc.
+"""
 from __future__ import annotations
 
 import pandas as pd
 import yfinance as yf
+
+try:
+    from curl_cffi import requests as curl_requests
+
+    _SESSION = curl_requests.Session(impersonate="chrome")
+except Exception:  # noqa: BLE001
+    _SESSION = None
+
+
+def _ticker(symbol: str) -> yf.Ticker:
+    if _SESSION is not None:
+        return yf.Ticker(symbol, session=_SESSION)
+    return yf.Ticker(symbol)
 
 
 def fetch_stock(ticker: str, start: str, end: str) -> pd.DataFrame:
@@ -10,7 +28,7 @@ def fetch_stock(ticker: str, start: str, end: str) -> pd.DataFrame:
 
     Output columns: date (str), close (float).
     """
-    t = yf.Ticker(ticker)
+    t = _ticker(ticker)
     df = t.history(start=start, end=end, auto_adjust=True, actions=False)
     if df.empty:
         return pd.DataFrame(columns=["date", "close"])
@@ -28,7 +46,7 @@ def resolve_ticker(ticker: str) -> dict:
     itself if yfinance has no metadata.
     """
     try:
-        t = yf.Ticker(ticker)
+        t = _ticker(ticker)
         info = t.info or {}
     except Exception as exc:  # noqa: BLE001
         print(f"[resolve] {ticker}: {exc}")

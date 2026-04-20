@@ -83,15 +83,13 @@ def generate():
     if not ticker:
         return jsonify({"error": "ticker is required"}), 400
 
-    # Auto-resolve company name from yfinance if not provided.
+    # Auto-resolve company name from yfinance if not provided. If the lookup
+    # fails (Yahoo sometimes blocks cloud IPs or the symbol is unusual), we
+    # fall back to the ticker itself and keep going — all other sources still
+    # work without the company name.
     if not company:
         info = resolve_ticker(ticker)
-        if not info["ok"]:
-            return jsonify({
-                "error": f"Could not look up company name for {ticker}. "
-                         "Try toggling 'Advanced' and entering it manually."
-            }), 400
-        company = info["name"]
+        company = info["name"] if info.get("ok") else ticker
 
     search_term = custom_term or company
 

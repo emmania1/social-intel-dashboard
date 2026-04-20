@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Social Intelligence Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ cb }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/moment@2.30.1/moment.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@1.0.1/dist/chartjs-adapter-moment.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Social Intelligence Dashboard</h1>
+    <p>Cross-platform demand signals vs. stock price. Works for any ticker.</p>
+  </header>
+  <main>
+    <section class="card">
+      <h2>Inputs</h2>
+      <form id="inputs">
+        <div class="simple-row">
+          <div class="ticker-field">
+            <label for="ticker">Ticker</label>
+            <input id="ticker" type="text" placeholder="EAT" autocomplete="off" required>
+            <div id="resolved" class="muted-hint"></div>
+          </div>
+          <button id="run" type="submit">Generate dashboard</button>
+          <button id="toggle-advanced" type="button" class="secondary">Advanced</button>
+        </div>
+        <div id="advanced" class="input-grid hidden" style="margin-top:14px;">
+          <div>
+            <label for="company">Company name (override)</label>
+            <input id="company" type="text" placeholder="auto-filled from ticker" autocomplete="off">
+          </div>
+          <div>
+            <label for="custom_term">Custom search term</label>
+            <input id="custom_term" type="text" placeholder="e.g. Triple Dipper" autocomplete="off">
+          </div>
+          <div>
+            <label for="start">Start date</label>
+            <input id="start" type="date">
+          </div>
+          <div>
+            <label for="end">End date</label>
+            <input id="end" type="date">
+          </div>
+        </div>
+        <div style="margin-top:10px;"><span id="status"></span></div>
+      </form>
+    </section>
+
+    <div id="low-signal" class="card hidden" style="background:rgba(243,184,74,0.08); border-color:var(--warn); color:var(--warn);"></div>
+    <div id="results" class="hidden">
+      <section class="kpi-row">
+        <div class="kpi" id="kpi-score"><div class="label"></div><div class="value">—</div><div class="sub"></div></div>
+        <div class="kpi" id="kpi-stock"><div class="label"></div><div class="value">—</div><div class="sub"></div></div>
+        <div class="kpi" id="kpi-trends"><div class="label"></div><div class="value">—</div><div class="sub"></div></div>
+        <div class="kpi" id="kpi-reddit"><div class="label"></div><div class="value">—</div><div class="sub"></div></div>
+      </section>
+
+      <section class="card">
+        <h2>Summary</h2>
+        <p id="summaryLine" class="summary-line"></p>
+      </section>
+
+      <section class="card">
+        <h2>Master timeline — Stock × Google Trends</h2>
+        <div class="chart-wrap tall"><canvas id="masterChart"></canvas></div>
+        <div class="toolbar">
+          <button class="secondary" id="dl-master">Download PNG</button>
+          <button class="secondary" id="csv-aligned">Aligned weekly CSV</button>
+          <button class="secondary" id="csv-stock">Stock CSV</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Peak detection</h2>
+        <table id="summaryTable">
+          <thead>
+            <tr>
+              <th>Metric</th><th>Peak date</th><th class="num">Peak value</th>
+              <th>Current date</th><th class="num">Current</th>
+              <th class="num">% vs peak</th><th>12w trend</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+
+      <div class="chart-row chart-row-2">
+        <section class="card">
+          <h2>Google Trends</h2>
+          <div class="chart-wrap"><canvas id="trendsChart"></canvas></div>
+          <div class="toolbar">
+            <button class="secondary" id="dl-trends">PNG</button>
+            <button class="secondary" id="csv-trends">CSV</button>
+          </div>
+        </section>
+        <section class="card">
+          <h2>Reddit</h2>
+          <div class="muted-hint" style="margin-bottom:10px;">
+            Subreddits searched: <code id="subreddits-searched"></code><br>
+            Queries: <code id="reddit-queries"></code>
+          </div>
+          <div class="chart-wrap"><canvas id="redditChart"></canvas></div>
+          <div class="toolbar">
+            <button class="secondary" id="dl-reddit">PNG</button>
+            <button class="secondary" id="csv-reddit">CSV</button>
+          </div>
+        </section>
+      </div>
+      <div class="chart-row chart-row-2">
+        <section class="card">
+          <h2>YouTube <span class="muted-hint" style="margin-left:8px;">searches: <code id="youtube-queries"></code></span></h2>
+          <div class="chart-wrap"><canvas id="youtubeChart"></canvas></div>
+          <div class="toolbar">
+            <button class="secondary" id="dl-youtube">PNG</button>
+            <button class="secondary" id="csv-youtube">CSV</button>
+          </div>
+        </section>
+        <section class="card">
+          <h2>StockTwits <span class="muted-hint" style="margin-left:8px;">$<span id="st-symbol"></span> stream — recent-weighted (API caps historical depth)</span></h2>
+          <div class="chart-wrap"><canvas id="stocktwitsChart"></canvas></div>
+          <div class="toolbar">
+            <button class="secondary" id="dl-stocktwits">PNG</button>
+            <button class="secondary" id="csv-stocktwits">CSV</button>
+          </div>
+        </section>
+      </div>
+      <div class="chart-row chart-row-2">
+        <section class="card">
+          <h2>Wikipedia pageviews <span class="muted-hint" style="margin-left:8px;">article: <code id="wiki-title"></code></span></h2>
+          <div class="chart-wrap"><canvas id="wikipediaChart"></canvas></div>
+          <div class="toolbar">
+            <button class="secondary" id="dl-wikipedia">PNG</button>
+            <button class="secondary" id="csv-wikipedia">CSV</button>
+          </div>
+        </section>
+        <section class="card">
+          <h2>SEC EDGAR filings <span class="muted-hint" style="margin-left:8px;">8-K, 10-Q, 10-K, Form 4, etc per week</span></h2>
+          <div class="chart-wrap"><canvas id="secChart"></canvas></div>
+          <div class="toolbar">
+            <button class="secondary" id="dl-sec">PNG</button>
+            <button class="secondary" id="csv-sec">CSV</button>
+          </div>
+        </section>
+      </div>
+      <section class="card">
+        <h2>Previous runs for this ticker
+          <span class="muted-hint" style="margin-left:8px;">each generate saves to disk — build your own longitudinal dataset</span></h2>
+        <div id="snapshots-body">
+          <p class="muted-hint" id="snapshots-empty">No previous runs yet for this ticker. Run this dashboard again in a few weeks to start building history.</p>
+          <table id="snapshots-table" class="hidden">
+            <thead><tr>
+              <th>Captured (UTC)</th><th>Company</th><th class="num">Health score</th><th class="num">Size</th><th></th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+  <script src="{{ url_for('static', filename='dashboard.js') }}?v={{ cb }}"></script>
+</body>
+</html>

@@ -1,0 +1,92 @@
+:root {
+  --bg: #0f1116;
+  --panel: #171a22;
+  --border: #262a35;
+  --text: #e7ecf3;
+  --muted: #8b93a7;
+  --accent: #4ea1ff;
+  --good: #49c774;
+  --bad: #ff6b6b;
+  --warn: #f3b84a;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0; background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+  font-size: 14px; line-height: 1.5;
+}
+header { padding: 20px 28px; border-bottom: 1px solid var(--border); }
+header h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+main { padding: 24px 28px; max-width: 1280px; margin: 0 auto; }
+
+.card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 10px; padding: 18px 20px; margin-bottom: 18px;
+}
+.card h2 { margin: 0 0 14px; font-size: 15px; font-weight: 600; }
+
+form.input-grid, #advanced.input-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+}
+form .full { grid-column: 1 / -1; }
+.simple-row {
+  display: flex; align-items: flex-end; gap: 12px;
+}
+.ticker-field { flex: 0 0 240px; }
+.muted-hint { font-size: 12px; color: var(--muted); margin-top: 4px; min-height: 16px; }
+#toggle-advanced { margin-left: auto; }
+label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+input[type=text], input[type=date] {
+  width: 100%; padding: 8px 10px; background: #0c0e13; color: var(--text);
+  border: 1px solid var(--border); border-radius: 6px; font-size: 14px;
+  font-family: inherit;
+}
+input:focus { outline: none; border-color: var(--accent); }
+button {
+  background: var(--accent); color: #0a0d14; font-weight: 600;
+  border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer;
+  font-size: 14px; font-family: inherit;
+}
+button:hover { filter: brightness(1.1); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+button.secondary { background: transparent; color: var(--text); border: 1px solid var(--border); font-weight: 400; }
+
+.kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
+.kpi { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+.kpi .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.kpi .value { font-size: 26px; font-weight: 600; margin-top: 4px; }
+.kpi .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+th { color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.chart-wrap { position: relative; height: 320px; }
+.chart-wrap.tall { height: 380px; }
+.chart-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px; }
+.chart-row.chart-row-2 { grid-template-columns: repeat(2, 1fr); }
+.chart-row .card { margin-bottom: 0; }
+code { background: #0c0e13; padding: 1px 6px; border-radius: 4px; font-size: 11px; }
+
+.pill { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
+.pill.rising { background: rgba(73,199,116,0.18); color: var(--good); }
+.pill.falling { background: rgba(255,107,107,0.18); color: var(--bad); }
+.pill.flat { background: rgba(243,184,74,0.18); color: var(--warn); }
+.pill.insufficient-data { background: rgba(139,147,167,0.18); color: var(--muted); }
+
+.toolbar { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+.summary-line { font-size: 14px; line-height: 1.6; }
+.summary-line strong { color: var(--accent); }
+
+.loading { color: var(--muted); font-style: italic; }
+.error { color: var(--bad); }
+.hidden { display: none; }
+
+@media (max-width: 900px) {
+  form.input-grid { grid-template-columns: repeat(2, 1fr); }
+  .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .chart-row { grid-template-columns: 1fr; }
+}

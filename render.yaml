@@ -1,0 +1,18 @@
+# Render Blueprint — one-click deploy for this Flask app.
+# See https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: social-intel-dashboard
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    # 4-minute worker timeout: YouTube quota-heavy first runs can take 60-90s
+    # and the default gunicorn timeout (30s) kills them mid-request.
+    startCommand: gunicorn app:app --timeout 240 --workers 1 --bind 0.0.0.0:$PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: YOUTUBE_API_KEY
+        sync: false   # ← you paste this into the Render dashboard (never committed)
+      - key: REDDIT_USER_AGENT
+        value: social-intel-dashboard/1.0 (Render deploy)

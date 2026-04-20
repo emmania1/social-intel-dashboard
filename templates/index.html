@@ -50,6 +50,11 @@
 
     <div id="low-signal" class="card hidden" style="background:rgba(243,184,74,0.08); border-color:var(--warn); color:var(--warn);"></div>
     <div id="results" class="hidden">
+      <section class="card" id="narrative-card" style="border-left:3px solid var(--accent);">
+        <h2 id="narrative-headline" style="font-size:17px; line-height:1.4; margin-bottom:8px;">—</h2>
+        <p id="narrative-paragraph" class="summary-line" style="color:var(--muted);"></p>
+      </section>
+
       <section class="kpi-row">
         <div class="kpi" id="kpi-score"><div class="label"></div><div class="value">—</div><div class="sub"></div></div>
         <div class="kpi" id="kpi-stock"><div class="label"></div><div class="value">—</div><div class="sub"></div></div>
@@ -57,13 +62,8 @@
         <div class="kpi" id="kpi-reddit"><div class="label"></div><div class="value">—</div><div class="sub"></div></div>
       </section>
 
-      <section class="card">
-        <h2>Summary</h2>
-        <p id="summaryLine" class="summary-line"></p>
-      </section>
-
-      <section class="card">
-        <h2>Master timeline — Stock × Google Trends</h2>
+      <section class="card" id="master-card">
+        <h2 id="master-title">Master timeline</h2>
         <div class="chart-wrap tall"><canvas id="masterChart"></canvas></div>
         <div class="toolbar">
           <button class="secondary" id="dl-master">Download PNG</button>

@@ -110,6 +110,7 @@
   }
 
   function render(data) {
+    renderNarrative(data);
     renderKPIs(data);
     renderSummaryTable(data.summaries);
     renderSummaryLine(data);
@@ -196,6 +197,21 @@
     });
   }
 
+  function renderNarrative(data) {
+    const n = data.narrative || {};
+    const head = $("#narrative-headline");
+    const para = $("#narrative-paragraph");
+    if (!head || !para) return;
+    head.textContent = n.headline || "";
+    para.textContent = n.paragraph || "";
+    // Color the left border to reflect direction
+    const card = $("#narrative-card");
+    if (card) {
+      const colorMap = { declining: "var(--bad)", rising: "var(--good)", mixed: "var(--warn)", flat: "var(--muted)", unclear: "var(--muted)" };
+      card.style.borderLeftColor = colorMap[n.direction] || "var(--accent)";
+    }
+  }
+
   function maybeWarnLowSignal(data) {
     const redditRows = (data.series.reddit || []).length;
     const ytRows = (data.series.youtube || []).length;
@@ -248,23 +264,55 @@
     };
   }
 
+  // Map hero key → human label, series path, value column, color
+  const HERO_CONFIG = {
+    trends: { label: "Google Trends (0-100)", series: "trends", col: "value", color: "#f3b84a" },
+    reddit: { label: "Reddit posts/week", series: "reddit", col: "count", color: "#ff6b6b" },
+    youtube_views: { label: "YouTube views/week", series: "youtube", col: "views", color: "#49c774" },
+    stocktwits: { label: "StockTwits msgs/week", series: "stocktwits", col: "count", color: "#4ea1ff" },
+    wikipedia: { label: "Wikipedia views/week", series: "wikipedia", col: "views", color: "#b489ff" },
+    sec: { label: "SEC filings/week", series: "sec", col: "count", color: "#49c774" },
+  };
+
   function renderMaster(data) {
+    const card = $("#master-card");
+    const title = $("#master-title");
+    const hero = data.hero;
+    if (!hero || !hero.key || !HERO_CONFIG[hero.key]) {
+      // No signal rich enough — hide the master chart entirely
+      if (card) card.classList.add("hidden");
+      return;
+    }
+    if (card) card.classList.remove("hidden");
+    const cfg = HERO_CONFIG[hero.key];
+    if (title) title.textContent = `Master timeline — Stock × ${cfg.label}`;
+
     const stock = (data.series.stock || []).map(r => ({ x: r.date, y: r.close }));
-    const trends = (data.series.trends || []).map(r => ({ x: r.date, y: r.value }));
+    const heroPts = (data.series[cfg.series] || []).map(r => ({ x: r.date, y: r[cfg.col] }));
     mkChart("masterChart", {
       type: "line",
       data: {
         datasets: [
           dataset("Stock price", stock, "#4ea1ff", "y"),
-          dataset("Google Trends (0-100)", trends, "#f3b84a", "y2"),
+          dataset(cfg.label, heroPts, cfg.color, "y2"),
         ],
       },
-      options: masterOptions(),
+      options: masterOptions("Stock ($)", cfg.label),
     });
   }
 
   function renderIndividual(id, rows, xKey, yKey, label, color) {
-    const points = (rows || []).map(r => ({ x: r[xKey], y: r[yKey] }));
+    const canvas = document.getElementById(id);
+    if (!canvas) return;
+    const card = canvas.closest(".card");
+    const rowsArr = rows || [];
+    const hasData = rowsArr.length > 0 && rowsArr.some(r => Number(r[yKey]) > 0);
+    if (!hasData) {
+      if (card) card.classList.add("hidden");
+      return;
+    }
+    if (card) card.classList.remove("hidden");
+    const points = rowsArr.map(r => ({ x: r[xKey], y: r[yKey] }));
     mkChart(id, {
       type: "line",
       data: { datasets: [dataset(label, points, color)] },
@@ -273,8 +321,17 @@
   }
 
   function renderYoutube(rows) {
-    const views = (rows || []).map(r => ({ x: r.date, y: r.views }));
-    const videos = (rows || []).map(r => ({ x: r.date, y: r.videos }));
+    const canvas = document.getElementById("youtubeChart");
+    const card = canvas ? canvas.closest(".card") : null;
+    const rowsArr = rows || [];
+    const hasData = rowsArr.length > 0 && rowsArr.some(r => Number(r.views) > 0);
+    if (!hasData) {
+      if (card) card.classList.add("hidden");
+      return;
+    }
+    if (card) card.classList.remove("hidden");
+    const views = rowsArr.map(r => ({ x: r.date, y: r.views }));
+    const videos = rowsArr.map(r => ({ x: r.date, y: r.videos }));
     mkChart("youtubeChart", {
       type: "line",
       data: {

@@ -78,6 +78,174 @@ def summarise_series(metric: str, df: pd.DataFrame, value_col: str) -> MetricSum
     )
 
 
+def signal_quality(df: pd.DataFrame, col: str) -> float:
+    """How informative is this series? Higher = richer signal.
+
+    Combines density (non-zero rows) and dynamic range (peak/mean ratio). A
+    series with 50 rows where most are ~1 scores lower than 50 rows with a
+    clear peak of 1000 and a mean of 50.
+    """
+    if df is None or df.empty or col not in df.columns:
+        return 0.0
+    values = pd.to_numeric(df[col], errors="coerce").dropna()
+    if values.empty:
+        return 0.0
+    nonzero = (values > 0).sum()
+    if nonzero < 4:
+        return 0.0
+    mean = float(values.mean()) or 1.0
+    peak = float(values.max())
+    range_score = min(peak / mean, 10.0)  # cap so crazy outliers don't dominate
+    return float(nonzero) * range_score
+
+
+def pick_hero_signal(
+    series: dict[str, pd.DataFrame],
+    columns: dict[str, str],
+) -> tuple[str, str] | None:
+    """Pick the single best non-stock source to pair with stock on the main chart.
+
+    Returns (source_key, value_col) or None if nothing qualifies.
+    """
+    candidates = [
+        k for k in series
+        if k != "stock" and not series[k].empty
+    ]
+    if not candidates:
+        return None
+    scored = [(k, signal_quality(series[k], columns[k])) for k in candidates]
+    scored = [(k, s) for k, s in scored if s > 0]
+    if not scored:
+        return None
+    scored.sort(key=lambda x: x[1], reverse=True)
+    best = scored[0][0]
+    return best, columns[best]
+
+
+_LABELS = {
+    "Stock price": "stock price",
+    "Google Trends": "Google search interest",
+    "Reddit posts/wk": "Reddit chatter",
+    "YouTube views/wk": "YouTube views",
+    "YouTube videos/wk": "YouTube publishing",
+    "StockTwits msgs/wk": "StockTwits chatter",
+    "Wikipedia views/wk": "Wikipedia pageviews",
+    "SEC filings/wk": "SEC filing activity",
+}
+
+
+def build_narrative(summaries: list[MetricSummary], hero_key: str | None) -> dict:
+    """Human-readable synthesis of what the data shows.
+
+    Returns dict with:
+      headline: one-line takeaway
+      paragraph: 2-3 sentence explanation
+      strong: list of metric names with usable data
+      weak:   list of metric names that returned ~nothing
+      direction: "declining" | "rising" | "mixed" | "unclear"
+    """
+    strong, weak = [], []
+    pct_changes = []
+    trends = []
+    for s in summaries:
+        if s.metric == "Stock price":
+            continue
+        if s.peak_value is None or s.current_value is None:
+            weak.append(s.metric)
+            continue
+        strong.append(s)
+        if s.pct_from_peak is not None:
+            pct_changes.append(s.pct_from_peak)
+        trends.append(s.trend_12w)
+
+    if not strong:
+        return {
+            "headline": "No meaningful demand signal across any platform yet.",
+            "paragraph": (
+                "Stock data loaded, but every social/news source returned sparse or empty results. "
+                "This usually means the ticker is too obscure for retail chatter, or the company "
+                "name resolved to a holding entity. Try overriding the company name in Advanced."
+            ),
+            "strong": [],
+            "weak": weak,
+            "direction": "unclear",
+        }
+
+    avg_pct = sum(pct_changes) / len(pct_changes) if pct_changes else None
+    rising = trends.count("rising")
+    falling = trends.count("falling")
+    flat = trends.count("flat")
+
+    if rising > falling and rising > flat:
+        direction = "rising"
+    elif falling > rising and falling > flat:
+        direction = "declining"
+    elif rising and falling and abs(rising - falling) <= 1:
+        direction = "mixed"
+    else:
+        direction = "flat"
+
+    stock_s = next((s for s in summaries if s.metric == "Stock price"), None)
+    stock_pct = stock_s.pct_from_peak if stock_s else None
+
+    # Headline
+    avg_txt = f"{avg_pct:+.0f}%" if avg_pct is not None else "unclear"
+    strong_names = [_LABELS.get(s.metric, s.metric) for s in strong]
+    if len(strong_names) <= 2:
+        names_txt = " and ".join(strong_names)
+    else:
+        names_txt = ", ".join(strong_names[:-1]) + f", and {strong_names[-1]}"
+
+    if direction == "declining":
+        headline = f"Demand signals across {len(strong)} sources are trending down — on average {avg_txt} from peak."
+    elif direction == "rising":
+        headline = f"Demand signals across {len(strong)} sources are rebounding — averaging {avg_txt} from peak with upward 12-week trends."
+    elif direction == "mixed":
+        headline = f"Mixed picture: {rising} source(s) rising, {falling} falling across {len(strong)} usable signals."
+    else:
+        headline = f"{len(strong)} usable signals, mostly flat — averaging {avg_txt} from peak."
+
+    # Body paragraph: name the strongest sources, quote specific peaks
+    strong_sorted = sorted(strong, key=lambda s: abs(s.pct_from_peak or 0), reverse=True)
+    top = strong_sorted[0]
+    top_name = _LABELS.get(top.metric, top.metric)
+    body_parts = [
+        f"The most informative source is {top_name}: peaked on {top.peak_date} at {_fmt(top.peak_value)} and is now {_fmt(top.current_value)} ({top.pct_from_peak:+.0f}%)."
+    ]
+    if stock_s and stock_pct is not None:
+        body_parts.append(
+            f"Stock is {stock_pct:+.0f}% vs its {stock_s.peak_date} peak of ${stock_s.peak_value}."
+        )
+    if weak:
+        weak_labels = [_LABELS.get(m, m) for m in weak]
+        body_parts.append(
+            f"Low-signal sources for this ticker: {', '.join(weak_labels)}."
+        )
+    paragraph = " ".join(body_parts)
+
+    return {
+        "headline": headline,
+        "paragraph": paragraph,
+        "strong": [s.metric for s in strong],
+        "weak": weak,
+        "direction": direction,
+    }
+
+
+def _fmt(n) -> str:
+    if n is None:
+        return "—"
+    if isinstance(n, (int, float)):
+        if abs(n) >= 1_000_000:
+            return f"{n/1_000_000:.2f}M"
+        if abs(n) >= 1_000:
+            return f"{n/1_000:.1f}K"
+        if abs(n) < 10:
+            return f"{n:.2f}"
+        return f"{int(round(n)):,}"
+    return str(n)
+
+
 def social_health_score(summaries: list[MetricSummary], exclude: tuple[str, ...] = ("Stock price",)) -> float | None:
     """Average % distance from peak across social metrics (not stock).
 

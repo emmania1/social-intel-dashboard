@@ -19,6 +19,8 @@ from flask import Flask, Response, jsonify, render_template, request
 
 from lib.analysis import (
     align_weekly,
+    build_narrative,
+    pick_hero_signal,
     social_health_score,
     summarise_series,
 )
@@ -151,6 +153,28 @@ def generate():
 
     health = social_health_score(summaries)
 
+    # Pick the single best non-stock source to pair with stock on the master chart
+    hero = pick_hero_signal(
+        {
+            "trends": trends_df,
+            "reddit": reddit_df,
+            "youtube_views": yt_df,
+            "stocktwits": st_weekly,
+            "wikipedia": wiki_weekly,
+            "sec": sec_df,
+        },
+        {
+            "trends": "value",
+            "reddit": "count",
+            "youtube_views": "views",
+            "stocktwits": "count",
+            "wikipedia": "views",
+            "sec": "count",
+        },
+    )
+    hero_key = hero[0] if hero else None
+    narrative = build_narrative(summaries, hero_key)
+
     aligned = align_weekly(
         {
             "stock": (stock_df, "close"),
@@ -189,6 +213,8 @@ def generate():
         "aligned_weekly": aligned.to_dict(orient="records"),
         "summaries": [s.to_dict() for s in summaries],
         "health_score": health,
+        "hero": {"key": hero_key, "col": hero[1] if hero else None} if hero else None,
+        "narrative": narrative,
     }
 
     # Persist snapshot so the user builds their own longitudinal dataset

@@ -7,6 +7,7 @@ Run:
 """
 from __future__ import annotations
 
+import datetime
 import io
 import json
 import os
@@ -46,7 +47,9 @@ try:
 except AttributeError:  # pragma: no cover
     pass
 
-DEFAULT_WINDOW_DAYS = 3 * 365
+# 2-year default (was 3) — shorter window = faster fetches = fewer timeouts on
+# Render's free tier. Users can extend via the Advanced panel.
+DEFAULT_WINDOW_DAYS = 2 * 365
 
 
 def _resolve_dates(start: str | None, end: str | None) -> tuple[str, str]:
@@ -62,6 +65,14 @@ def index():
     # from previous versions of the app.
     import time as _t
     return render_template("index.html", cb=str(int(_t.time())))
+
+
+@app.route("/api/health")
+def health():
+    """Fast endpoint with no external calls — used by the UI to detect
+    cold-start wake-ups. Answering within 100ms once the container is warm.
+    """
+    return jsonify({"ok": True, "time": datetime.datetime.utcnow().isoformat() + "Z"})
 
 
 @app.route("/api/resolve")

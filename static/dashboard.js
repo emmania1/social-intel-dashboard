@@ -8,14 +8,66 @@
 
   const charts = {}; // keyed by canvas id
 
-  // Default date range: last 3 years
+  // Default date range: last 2 years (shorter = less chance of timeout on Render free tier)
   (function initDates() {
     const end = new Date();
     const start = new Date();
-    start.setFullYear(end.getFullYear() - 3);
+    start.setFullYear(end.getFullYear() - 2);
     $("#end").value = end.toISOString().slice(0, 10);
     $("#start").value = start.toISOString().slice(0, 10);
   })();
+
+  // On page load, ping /api/health. If it takes more than 2s, we're probably
+  // cold-starting — show a warming banner with a progress indicator so users
+  // know the first generate will be slow but not broken.
+  (async function prewarm() {
+    const banner = $("#wakeup-banner");
+    const bar = banner.querySelector(".wakeup-bar");
+    const ctrl = new AbortController();
+    const slowTimer = setTimeout(() => {
+      banner.classList.remove("hidden");
+      // Animate a fake progress bar up to 90% over 40s so it feels responsive
+      let pct = 0;
+      const tick = setInterval(() => {
+        pct = Math.min(pct + 2, 90);
+        bar.style.width = pct + "%";
+        if (!banner.classList.contains("hidden") && pct >= 90) clearInterval(tick);
+      }, 900);
+      banner._tick = tick;
+    }, 2000);
+    try {
+      const t0 = performance.now();
+      await fetch("/api/health", { signal: ctrl.signal });
+      const ms = Math.round(performance.now() - t0);
+      console.log("[prewarm] health in", ms, "ms");
+    } catch (e) {
+      console.warn("[prewarm] health check failed", e);
+    } finally {
+      clearTimeout(slowTimer);
+      if (banner._tick) clearInterval(banner._tick);
+      bar.style.width = "100%";
+      setTimeout(() => banner.classList.add("hidden"), 400);
+    }
+  })();
+
+  // Fetch with timeout + one retry on network/abort errors. Returns Response.
+  async function fetchWithRetry(url, options = {}, timeoutMs = 220000) {
+    const attempt = async () => {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+      try {
+        return await fetch(url, { ...options, signal: ctrl.signal });
+      } finally {
+        clearTimeout(timer);
+      }
+    };
+    try {
+      return await attempt();
+    } catch (e) {
+      console.warn("fetch failed, retrying once:", e);
+      return await attempt();
+    }
+  }
 
   // "Advanced" toggle
   $("#toggle-advanced").addEventListener("click", () => {
@@ -61,30 +113,39 @@
       return;
     }
     runBtn.disabled = true;
-    setStatus("Fetching data — stock, trends, reddit, youtube (this can take 30-90s)...", "loading");
+    setStatus("Fetching 7 data sources in parallel — typically 30–90s...", "loading");
     results.classList.add("hidden");
+    const t0 = performance.now();
     try {
-      const res = await fetch("/api/generate", {
+      const res = await fetchWithRetry("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+      const elapsed = Math.round((performance.now() - t0) / 1000);
       const rawText = await res.text();
       let data;
       try {
         data = JSON.parse(rawText);
       } catch (parseErr) {
         const preview = rawText.slice(0, 200).replace(/\n/g, " ");
-        throw new Error(`Server returned non-JSON (HTTP ${res.status}): ${preview}`);
+        throw new Error(`Server returned non-JSON (HTTP ${res.status} after ${elapsed}s): ${preview}`);
       }
-      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status} after ${elapsed}s`);
       window.__lastData = data;
       render(data);
       setStatus("", "");
       results.classList.remove("hidden");
     } catch (e) {
       console.error(e);
-      setStatus(`Error: ${e.message}`, "error");
+      const elapsed = Math.round((performance.now() - t0) / 1000);
+      let friendly = e.message || String(e);
+      if (friendly.includes("aborted") || friendly.includes("timed out")) {
+        friendly = `Request timed out after ${elapsed}s. Render's free tier has a ~100s request limit — try a shorter date range (e.g. 1 year) in Advanced, or try again in a few seconds.`;
+      } else if (friendly.includes("Failed to fetch") || friendly.includes("NetworkError")) {
+        friendly = `Network error after ${elapsed}s. The service may have gone back to sleep — click Generate again, it'll wake up.`;
+      }
+      setStatus(`Error: ${friendly}`, "error");
     } finally {
       runBtn.disabled = false;
     }

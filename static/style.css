@@ -85,6 +85,21 @@ code { background: #0c0e13; padding: 1px 6px; border-radius: 4px; font-size: 11p
 .error { color: var(--bad); }
 .hidden { display: none; }
 
+.wakeup {
+  padding: 14px 28px;
+  background: rgba(243,184,74,0.10);
+  border-bottom: 1px solid rgba(243,184,74,0.30);
+  color: var(--warn);
+  font-size: 13px;
+}
+.wakeup-progress {
+  margin-top: 8px; height: 3px; background: rgba(243,184,74,0.15); border-radius: 2px; overflow: hidden;
+}
+.wakeup-bar {
+  height: 100%; width: 0%; background: var(--warn);
+  transition: width 1s linear;
+}
+
 @media (max-width: 900px) {
   form.input-grid { grid-template-columns: repeat(2, 1fr); }
   .kpi-row { grid-template-columns: repeat(2, 1fr); }

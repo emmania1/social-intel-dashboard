@@ -184,7 +184,23 @@ def generate():
         },
     )
     hero_key = hero[0] if hero else None
-    narrative = build_narrative(summaries, hero_key)
+    _narrative_series = {
+        "trends": trends_df,
+        "reddit": reddit_df,
+        "youtube": yt_df,
+        "stocktwits": st_weekly,
+        "wikipedia": wiki_weekly,
+        "sec": sec_df,
+    }
+    _narrative_cols = {
+        "trends": "value",
+        "reddit": "count",
+        "youtube": "views",
+        "stocktwits": "count",
+        "wikipedia": "views",
+        "sec": "count",
+    }
+    narrative = build_narrative(summaries, hero_key, _narrative_series, _narrative_cols)
 
     aligned = align_weekly(
         {

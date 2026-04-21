@@ -134,16 +134,37 @@ _LABELS = {
 }
 
 
-def build_narrative(summaries: list[MetricSummary], hero_key: str | None) -> dict:
+def build_narrative(
+    summaries: list[MetricSummary],
+    hero_key: str | None,
+    series: dict[str, pd.DataFrame] | None = None,
+    columns: dict[str, str] | None = None,
+) -> dict:
     """Human-readable synthesis of what the data shows.
 
+    Only counts a source as "strong" if it has meaningful density — at least
+    4 weeks of non-zero data AND a signal_quality score above a noise floor.
+    This prevents a single pageview or a bit of pytrends noise on a garbage
+    query from being declared as a "demand signal".
+
     Returns dict with:
-      headline: one-line takeaway
-      paragraph: 2-3 sentence explanation
-      strong: list of metric names with usable data
-      weak:   list of metric names that returned ~nothing
-      direction: "declining" | "rising" | "mixed" | "unclear"
+      headline, paragraph, strong (metric names), weak (metric names),
+      direction ("declining" | "rising" | "mixed" | "flat" | "unclear")
     """
+    # Map metric → (series_key, value_col) for quality lookup
+    series = series or {}
+    columns = columns or {}
+    metric_to_series = {
+        "Google Trends": ("trends", "value"),
+        "Reddit posts/wk": ("reddit", "count"),
+        "YouTube views/wk": ("youtube", "views"),
+        "YouTube videos/wk": ("youtube", "videos"),
+        "StockTwits msgs/wk": ("stocktwits", "count"),
+        "Wikipedia views/wk": ("wikipedia", "views"),
+        "SEC filings/wk": ("sec", "count"),
+    }
+    QUALITY_FLOOR = 10.0  # empirical: noise/near-empty series score < ~5
+
     strong, weak = [], []
     pct_changes = []
     trends = []
@@ -153,6 +174,13 @@ def build_narrative(summaries: list[MetricSummary], hero_key: str | None) -> dic
         if s.peak_value is None or s.current_value is None:
             weak.append(s.metric)
             continue
+        # Signal-quality gate — rejects thin/noisy series from "strong"
+        skey = metric_to_series.get(s.metric)
+        if skey and skey[0] in series:
+            q = signal_quality(series[skey[0]], skey[1])
+            if q < QUALITY_FLOOR:
+                weak.append(s.metric)
+                continue
         strong.append(s)
         if s.pct_from_peak is not None:
             pct_changes.append(s.pct_from_peak)
@@ -160,15 +188,33 @@ def build_narrative(summaries: list[MetricSummary], hero_key: str | None) -> dic
 
     if not strong:
         return {
-            "headline": "No meaningful demand signal across any platform yet.",
+            "headline": "Not enough demand signal to draw conclusions.",
             "paragraph": (
-                "Stock data loaded, but every social/news source returned sparse or empty results. "
-                "This usually means the ticker is too obscure for retail chatter, or the company "
-                "name resolved to a holding entity. Try overriding the company name in Advanced."
+                "All social, news, and filings sources returned sparse or noise-level data for "
+                "this ticker. This usually means the company is too obscure, newly listed, "
+                "delisted, or the ticker doesn't exist. If you typed a real brand, try overriding "
+                "the company name in Advanced — small holding-co tickers often need a manual override."
             ),
             "strong": [],
             "weak": weak,
             "direction": "unclear",
+        }
+
+    if len(strong) == 1:
+        # Only one signal above the noise floor — acknowledge the uncertainty
+        s = strong[0]
+        name = _LABELS.get(s.metric, s.metric)
+        return {
+            "headline": f"Only one substantial signal ({name}) — interpret with caution.",
+            "paragraph": (
+                f"{name} peaked on {s.peak_date} at {_fmt(s.peak_value)} and is now "
+                f"{_fmt(s.current_value)} ({s.pct_from_peak:+.0f}%). Every other source "
+                "returned sparse/noise-level data, so treat this as a single-source read rather "
+                "than cross-platform consensus."
+            ),
+            "strong": [s.metric],
+            "weak": weak,
+            "direction": s.trend_12w if s.trend_12w != "insufficient-data" else "unclear",
         }
 
     avg_pct = sum(pct_changes) / len(pct_changes) if pct_changes else None

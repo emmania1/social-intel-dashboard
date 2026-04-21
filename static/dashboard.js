@@ -174,7 +174,6 @@
     renderNarrative(data);
     renderKPIs(data);
     renderSummaryTable(data.summaries);
-    renderSummaryLine(data);
     maybeWarnLowSignal(data);
     renderMaster(data);
     renderIndividual("trendsChart", data.series.trends, "date", "value", "Google Trends", "#f3b84a");
@@ -287,27 +286,6 @@
     } else {
       el.classList.add("hidden");
     }
-  }
-
-  function renderSummaryLine(data) {
-    const byName = Object.fromEntries(data.summaries.map(s => [s.metric, s]));
-    const score = data.health_score;
-    const socialPcts = data.summaries
-      .filter(s => s.metric !== "Stock price" && s.pct_from_peak !== null)
-      .map(s => s.pct_from_peak);
-    const avgPct = socialPcts.length
-      ? socialPcts.reduce((a, b) => a + b, 0) / socialPcts.length
-      : null;
-
-    // Majority trend direction across social metrics
-    const trends = data.summaries.filter(s => s.metric !== "Stock price").map(s => s.trend_12w);
-    const counts = trends.reduce((m, t) => ((m[t] = (m[t] || 0) + 1), m), {});
-    const primary = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || "unclear";
-
-    $("#summaryLine").innerHTML =
-      `Social metrics average <strong>${pctFmt(avgPct)}</strong> from peak. ` +
-      `Trend direction (last 12 weeks): <strong>${primary}</strong>. ` +
-      `Social Health Score: <strong>${score ?? "—"}/100</strong>.`;
   }
 
   function dataset(label, points, color, yAxisID = "y") {

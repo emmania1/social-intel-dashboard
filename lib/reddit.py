@@ -199,7 +199,7 @@ def fetch_reddit_weekly(
     end_epoch = _iso_to_epoch(end)
 
     all_rows: list[dict] = []
-    # 1) Post titles + bodies (high-signal, all queries)
+    # 1) Post titles + bodies (high-signal, all queries, all subs)
     for sub in subs:
         for q in clean_queries:
             all_rows.extend(
@@ -208,16 +208,21 @@ def fetch_reddit_weekly(
             all_rows.extend(
                 _fetch_one(sub, q, start_epoch, end_epoch, field="selftext", max_pages=25)
             )
-    # 2) Comment search (one query only — the most specific, to bound volume)
-    #    Skipping comments keeps runtime reasonable on high-chatter tickers.
-    most_specific = clean_queries[-1] if len(clean_queries) > 1 else clean_queries[0]
-    for sub in subs:
-        all_rows.extend(
-            _fetch_one(
-                sub, most_specific, start_epoch, end_epoch,
-                field="body", max_pages=15, endpoint=ARCTIC_COMMENTS, id_key="id",
+    # 2) Comment search — ONLY in the auto-discovered company subs. Arctic
+    #    Shift's comments endpoint times out on large general subs (r/stocks
+    #    has millions of comments to scan), so we limit this to brand-specific
+    #    communities (r/crocs, r/starbucks, etc.) where it actually works.
+    general_subs_lower = {s.lower() for s in subreddits}
+    narrow_subs = [s for s in subs if s.lower() not in general_subs_lower]
+    if narrow_subs:
+        most_specific = clean_queries[-1] if len(clean_queries) > 1 else clean_queries[0]
+        for sub in narrow_subs:
+            all_rows.extend(
+                _fetch_one(
+                    sub, most_specific, start_epoch, end_epoch,
+                    field="body", max_pages=15, endpoint=ARCTIC_COMMENTS, id_key="id",
+                )
             )
-        )
 
     if not all_rows:
         return pd.DataFrame(columns=["date", "count", "posts", "comments"])

@@ -9,6 +9,7 @@ a "mentions per week" chart.
 """
 from __future__ import annotations
 
+import time
 from datetime import datetime
 
 import pandas as pd
@@ -30,14 +31,17 @@ def fetch_news_weekly(ticker: str, company: str, start: str, end: str) -> pd.Dat
     """
     ticker = (ticker or "").strip().upper()
     company = (company or "").strip()
-    terms = []
-    if ticker:
-        terms.append(f'"{ticker}"')
-    if company and company.upper() != ticker:
-        terms.append(f'"{company}"')
-    if not terms:
+    # GDELT rejects short/ambiguous phrases ("CROX" = "too short"), and
+    # complex OR queries get rate-limited more aggressively. Strategy: prefer
+    # the distinctive company name (quoted for phrase match). Only fall back
+    # to the ticker if we have nothing else. This means extremely short
+    # companies with no name still won't match but that's a rare edge case.
+    if company and len(company) >= 5 and company.upper() != ticker:
+        query = f'"{company}"'
+    elif ticker and len(ticker) >= 5:
+        query = f'"{ticker}"'
+    else:
         return pd.DataFrame(columns=["date", "count"])
-    query = " OR ".join(terms)
 
     params = {
         "query": query,
@@ -49,11 +53,17 @@ def fetch_news_weekly(ticker: str, company: str, start: str, end: str) -> pd.Dat
         # "TIMELINEVOLRAW" gives actual article counts per day in the window.
         "timelinesmooth": 7,  # 7-day smoothing
     }
+    # Polite delay — GDELT's free endpoint asks for <1 req/5s per requester
+    time.sleep(1.0)
     try:
         r = requests.get(GDELT_URL, params=params, headers={"User-Agent": UA}, timeout=45)
         r.raise_for_status()
     except requests.RequestException as exc:
         print(f"[news/gdelt] {query!r}: {exc}")
+        return pd.DataFrame(columns=["date", "count"])
+    # GDELT sometimes returns a text rate-limit message with HTTP 200
+    if "limit requests" in r.text[:200].lower() or "too short" in r.text[:200].lower():
+        print(f"[news/gdelt] rate/query rejected: {r.text[:150]}")
         return pd.DataFrame(columns=["date", "count"])
 
     # GDELT sometimes returns HTML when the query errors; guard the json parse

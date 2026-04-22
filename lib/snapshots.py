@@ -1,11 +1,10 @@
-"""Snapshot caching — build your own longitudinal dataset over time.
+"""Snapshot caching.
 
-Each time a user generates a dashboard, we save the full response JSON to
-`data/{TICKER}/{YYYY-MM-DD_HHMMSS}.json`. Over weeks/months of use you
-accumulate a time-series of dashboards per ticker that no single API gives
-you — particularly valuable for the "recent-weighted" sources (StockTwits,
-YouTube view counts, current-state metrics) whose historical depth is
-truncated.
+Each generate attempts to save a copy to `data/{TICKER}/{timestamp}.json`
+so you can reload past runs. On Render's free tier the `data/` directory is
+**ephemeral** — every redeploy wipes it — so for true persistence the UI
+also exposes download-to-disk and upload-from-disk so users can keep
+snapshots on their own machine (or commit them to a repo).
 """
 from __future__ import annotations
 

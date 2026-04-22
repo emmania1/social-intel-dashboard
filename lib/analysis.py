@@ -125,12 +125,14 @@ def pick_hero_signal(
 _LABELS = {
     "Stock price": "stock price",
     "Google Trends": "Google search interest",
-    "Reddit posts/wk": "Reddit chatter",
+    "Reddit mentions/wk": "Reddit chatter",
+    "Reddit posts/wk": "Reddit chatter",  # legacy name
     "YouTube views/wk": "YouTube views",
     "YouTube videos/wk": "YouTube publishing",
     "StockTwits msgs/wk": "StockTwits chatter",
     "Wikipedia views/wk": "Wikipedia pageviews",
     "SEC filings/wk": "SEC filing activity",
+    "News articles/wk": "global news coverage",
 }
 
 
@@ -156,12 +158,14 @@ def build_narrative(
     columns = columns or {}
     metric_to_series = {
         "Google Trends": ("trends", "value"),
+        "Reddit mentions/wk": ("reddit", "count"),
         "Reddit posts/wk": ("reddit", "count"),
         "YouTube views/wk": ("youtube", "views"),
         "YouTube videos/wk": ("youtube", "videos"),
         "StockTwits msgs/wk": ("stocktwits", "count"),
         "Wikipedia views/wk": ("wikipedia", "views"),
         "SEC filings/wk": ("sec", "count"),
+        "News articles/wk": ("news", "count"),
     }
     QUALITY_FLOOR = 10.0  # empirical: noise/near-empty series score < ~5
 

@@ -25,6 +25,7 @@ from lib.analysis import (
     social_health_score,
     summarise_series,
 )
+from lib.news import fetch_news_weekly
 from lib.reddit import fetch_reddit_weekly
 from lib.sec import fetch_sec_filings_weekly
 from lib.snapshots import list_snapshots, load_snapshot, save_snapshot
@@ -121,7 +122,7 @@ def generate():
     company_sub_names = [d["name"] for d in discovered]
 
     # Run all fetchers in parallel (all I/O bound)
-    with ThreadPoolExecutor(max_workers=8) as pool:
+    with ThreadPoolExecutor(max_workers=9) as pool:
         f_stock = pool.submit(fetch_stock, ticker, start, end)
         f_trends = pool.submit(fetch_trends, search_term, start, end)
         f_reddit = pool.submit(
@@ -136,6 +137,7 @@ def generate():
         f_st = pool.submit(fetch_stocktwits_daily, ticker, start, end)
         f_wiki = pool.submit(fetch_wikipedia_daily, company, start, end)
         f_sec = pool.submit(fetch_sec_filings_weekly, ticker, start, end)
+        f_news = pool.submit(fetch_news_weekly, ticker, company, start, end)
 
         stock_df = _safe(f_stock, "stock")
         trends_df = _safe(f_trends, "trends")
@@ -144,22 +146,25 @@ def generate():
         st_df = _safe(f_st, "stocktwits")
         wiki_result = _safe(f_wiki, "wikipedia", default=(pd.DataFrame(), None))
         sec_df = _safe(f_sec, "sec")
+        news_df = _safe(f_news, "news")
 
     wiki_df, wiki_title = wiki_result if isinstance(wiki_result, tuple) else (wiki_result, None)
 
     # Roll daily sources into weekly buckets so they align with the rest.
-    st_weekly = _daily_to_weekly(st_df, "count")
+    # StockTwits: sum count/bullish/bearish; recompute ratio on weekly.
+    st_weekly = _stocktwits_to_weekly(st_df)
     wiki_weekly = _daily_to_weekly(wiki_df, "views")
 
     summaries = [
         summarise_series("Stock price", stock_df, "close"),
         summarise_series("Google Trends", trends_df, "value"),
-        summarise_series("Reddit posts/wk", reddit_df, "count"),
+        summarise_series("Reddit mentions/wk", reddit_df, "count"),
         summarise_series("YouTube views/wk", yt_df, "views"),
         summarise_series("YouTube videos/wk", yt_df, "videos"),
         summarise_series("StockTwits msgs/wk", st_weekly, "count"),
         summarise_series("Wikipedia views/wk", wiki_weekly, "views"),
         summarise_series("SEC filings/wk", sec_df, "count"),
+        summarise_series("News articles/wk", news_df, "count"),
     ]
 
     health = social_health_score(summaries)
@@ -173,6 +178,7 @@ def generate():
             "stocktwits": st_weekly,
             "wikipedia": wiki_weekly,
             "sec": sec_df,
+            "news": news_df,
         },
         {
             "trends": "value",
@@ -181,6 +187,7 @@ def generate():
             "stocktwits": "count",
             "wikipedia": "views",
             "sec": "count",
+            "news": "count",
         },
     )
     hero_key = hero[0] if hero else None
@@ -191,6 +198,7 @@ def generate():
         "stocktwits": st_weekly,
         "wikipedia": wiki_weekly,
         "sec": sec_df,
+        "news": news_df,
     }
     _narrative_cols = {
         "trends": "value",
@@ -199,6 +207,7 @@ def generate():
         "stocktwits": "count",
         "wikipedia": "views",
         "sec": "count",
+        "news": "count",
     }
     narrative = build_narrative(summaries, hero_key, _narrative_series, _narrative_cols)
 
@@ -210,8 +219,10 @@ def generate():
             "youtube_views": (yt_df, "views"),
             "youtube_videos": (yt_df, "videos"),
             "stocktwits": (st_weekly, "count"),
+            "stocktwits_bullish_ratio": (st_weekly, "bullish_ratio"),
             "wikipedia": (wiki_weekly, "views"),
             "sec": (sec_df, "count"),
+            "news": (news_df, "count"),
         }
     )
 
@@ -236,6 +247,7 @@ def generate():
             "stocktwits": st_weekly.to_dict(orient="records"),
             "wikipedia": wiki_weekly.to_dict(orient="records"),
             "sec": sec_df.to_dict(orient="records"),
+            "news": news_df.to_dict(orient="records"),
         },
         "aligned_weekly": aligned.to_dict(orient="records"),
         "summaries": [s.to_dict() for s in summaries],
@@ -261,6 +273,19 @@ def _daily_to_weekly(df: pd.DataFrame, col: str) -> pd.DataFrame:
     d = d.set_index("date").resample("W-SUN").sum(numeric_only=True)
     d.index = d.index.strftime("%Y-%m-%d")
     return d.reset_index()
+
+
+def _stocktwits_to_weekly(df: pd.DataFrame) -> pd.DataFrame:
+    """StockTwits needs special weekly rollup: sum counts, recompute ratio."""
+    if df is None or df.empty:
+        return pd.DataFrame(columns=["date", "count", "bullish", "bearish", "bullish_ratio"])
+    d = df.copy()
+    d["date"] = pd.to_datetime(d["date"])
+    agg = d.set_index("date")[["count", "bullish", "bearish"]].resample("W-SUN").sum()
+    tagged = agg["bullish"] + agg["bearish"]
+    agg["bullish_ratio"] = (agg["bullish"] / tagged.where(tagged > 0)).round(3)
+    agg.index = agg.index.strftime("%Y-%m-%d")
+    return agg.reset_index()
 
 
 def _safe(future, label, default=None):

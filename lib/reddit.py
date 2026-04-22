@@ -18,6 +18,7 @@ import pandas as pd
 import requests
 
 ARCTIC_BASE = "https://arctic-shift.photon-reddit.com/api/posts/search"
+ARCTIC_COMMENTS = "https://arctic-shift.photon-reddit.com/api/comments/search"
 USER_AGENT = os.environ.get(
     "REDDIT_USER_AGENT", "social-intel-dashboard/1.0 (+local)"
 )
@@ -104,25 +105,35 @@ def discover_company_subreddits(ticker: str, company: str) -> list[dict]:
     return results
 
 
-def _fetch_one(sub: str, query: str, start_epoch: int, end_epoch: int) -> list[dict]:
+def _fetch_one(
+    sub: str,
+    query: str,
+    start_epoch: int,
+    end_epoch: int,
+    field: str = "title",
+    max_pages: int = 40,
+    endpoint: str = ARCTIC_BASE,
+    id_key: str = "id",
+) -> list[dict]:
+    """Page through Arctic Shift for one sub × one query × one field."""
     rows: list[dict] = []
     after = start_epoch
     page = 0
-    while after < end_epoch and page < 40:
+    while after < end_epoch and page < max_pages:
         params = {
             "subreddit": sub,
-            "title": query,
+            field: query,
             "limit": 100,
             "after": after,
             "sort": "asc",
         }
         try:
             r = requests.get(
-                ARCTIC_BASE, params=params, headers={"User-Agent": USER_AGENT}, timeout=30
+                endpoint, params=params, headers={"User-Agent": USER_AGENT}, timeout=30
             )
             r.raise_for_status()
         except requests.RequestException as exc:
-            print(f"[reddit] {sub!r} q={query!r} page {page}: {exc}")
+            print(f"[reddit] {sub!r} {field}={query!r} p{page}: {exc}")
             break
         data = r.json().get("data", [])
         if not data:
@@ -134,9 +145,10 @@ def _fetch_one(sub: str, query: str, start_epoch: int, end_epoch: int) -> list[d
                 continue
             rows.append(
                 {
-                    "post_id": row.get("id") or f"{sub}_{ts}",
+                    "item_id": row.get(id_key) or f"{sub}_{ts}",
                     "created_utc": ts,
                     "subreddit": row.get("subreddit", sub),
+                    "kind": "comment" if endpoint == ARCTIC_COMMENTS else "post",
                 }
             )
             newest_ts = max(newest_ts, ts)
@@ -187,16 +199,43 @@ def fetch_reddit_weekly(
     end_epoch = _iso_to_epoch(end)
 
     all_rows: list[dict] = []
+    # 1) Post titles + bodies (high-signal, all queries)
     for sub in subs:
         for q in clean_queries:
-            all_rows.extend(_fetch_one(sub, q, start_epoch, end_epoch))
+            all_rows.extend(
+                _fetch_one(sub, q, start_epoch, end_epoch, field="title", max_pages=40)
+            )
+            all_rows.extend(
+                _fetch_one(sub, q, start_epoch, end_epoch, field="selftext", max_pages=25)
+            )
+    # 2) Comment search (one query only — the most specific, to bound volume)
+    #    Skipping comments keeps runtime reasonable on high-chatter tickers.
+    most_specific = clean_queries[-1] if len(clean_queries) > 1 else clean_queries[0]
+    for sub in subs:
+        all_rows.extend(
+            _fetch_one(
+                sub, most_specific, start_epoch, end_epoch,
+                field="body", max_pages=15, endpoint=ARCTIC_COMMENTS, id_key="id",
+            )
+        )
 
     if not all_rows:
-        return pd.DataFrame(columns=["date", "count"])
+        return pd.DataFrame(columns=["date", "count", "posts", "comments"])
 
-    df = pd.DataFrame(all_rows).drop_duplicates(subset=["subreddit", "post_id"])
+    df = pd.DataFrame(all_rows).drop_duplicates(subset=["subreddit", "item_id", "kind"])
     df["dt"] = pd.to_datetime(df["created_utc"], unit="s", utc=True)
     df["week"] = df["dt"].dt.to_period("W-SUN").dt.end_time.dt.strftime("%Y-%m-%d")
-    weekly = df.groupby("week").size().reset_index(name="count")
-    weekly.columns = ["date", "count"]
+    weekly = (
+        df.groupby(["week", "kind"]).size().unstack(fill_value=0).reset_index()
+    )
+    weekly.columns.name = None
+    weekly = weekly.rename(columns={"week": "date"})
+    if "post" not in weekly:
+        weekly["post"] = 0
+    if "comment" not in weekly:
+        weekly["comment"] = 0
+    weekly["posts"] = weekly["post"].astype(int)
+    weekly["comments"] = weekly["comment"].astype(int)
+    weekly["count"] = weekly["posts"] + weekly["comments"]
+    weekly = weekly[["date", "count", "posts", "comments"]]
     return weekly.sort_values("date").reset_index(drop=True)

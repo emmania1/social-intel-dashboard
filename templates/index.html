@@ -148,11 +148,34 @@
           </div>
         </section>
       </div>
+      <div class="chart-row chart-row-2">
+        <section class="card">
+          <h2>News article coverage <span class="muted-hint" style="margin-left:8px;">GDELT global news index \u2014 articles/week matching ticker OR company</span></h2>
+          <div class="chart-wrap"><canvas id="newsChart"></canvas></div>
+          <div class="toolbar">
+            <button class="secondary" id="dl-news">PNG</button>
+            <button class="secondary" id="csv-news">CSV</button>
+          </div>
+        </section>
+        <section class="card">
+          <h2>StockTwits sentiment <span class="muted-hint" style="margin-left:8px;">user-tagged bullish / bearish ratio \u2014 1.0 = all bullish, 0.0 = all bearish</span></h2>
+          <div class="chart-wrap"><canvas id="sentimentChart"></canvas></div>
+          <div class="toolbar">
+            <button class="secondary" id="dl-sentiment">PNG</button>
+            <button class="secondary" id="csv-sentiment">CSV</button>
+          </div>
+        </section>
+      </div>
       <section class="card">
-        <h2>Previous runs for this ticker
-          <span class="muted-hint" style="margin-left:8px;">each generate saves to disk — build your own longitudinal dataset</span></h2>
+        <h2>Snapshots
+          <span class="muted-hint" style="margin-left:8px;">download the full run to your computer for longitudinal tracking \u2014 Render's free disk gets wiped on redeploy</span></h2>
+        <div class="toolbar" style="justify-content:flex-start; margin-top:0; margin-bottom:14px; gap:8px;">
+          <button class="secondary" id="dl-snapshot">\u2B07 Download current snapshot (.json)</button>
+          <button class="secondary" id="upload-snapshot-btn">\u2B06 Load snapshot from file</button>
+          <input type="file" id="upload-snapshot-input" accept="application/json" style="display:none">
+        </div>
         <div id="snapshots-body">
-          <p class="muted-hint" id="snapshots-empty">No previous runs yet for this ticker. Run this dashboard again in a few weeks to start building history.</p>
+          <p class="muted-hint" id="snapshots-empty">Server-side cache (ephemeral on Render free): no previous runs yet for this ticker.</p>
           <table id="snapshots-table" class="hidden">
             <thead><tr>
               <th>Captured (UTC)</th><th>Company</th><th class="num">Health score</th><th class="num">Size</th><th></th>

@@ -21,10 +21,14 @@ MAX_PAGES = 30
 
 
 def fetch_stocktwits_daily(ticker: str, start: str, end: str) -> pd.DataFrame:
-    """Daily message counts for a ticker. Columns: date, count."""
+    """Daily message counts AND sentiment for a ticker.
+
+    Columns: date, count, bullish, bearish, bullish_ratio.
+    bullish_ratio = bullish / (bullish + bearish), or None if no sentiment tags.
+    """
     ticker = ticker.strip().upper()
     if not ticker:
-        return pd.DataFrame(columns=["date", "count"])
+        return pd.DataFrame(columns=["date", "count", "bullish", "bearish", "bullish_ratio"])
     start_dt = datetime.strptime(start, "%Y-%m-%d").replace(tzinfo=timezone.utc)
     end_dt = datetime.strptime(end, "%Y-%m-%d").replace(tzinfo=timezone.utc)
 
@@ -68,9 +72,15 @@ def fetch_stocktwits_daily(ticker: str, start: str, end: str) -> pd.DataFrame:
                 )
             except (TypeError, ValueError):
                 continue
-            rows.append({"id": mid, "ts": ts})
+            # Extract user-tagged sentiment if present. StockTwits puts it in
+            # entities.sentiment.basic = "Bullish" | "Bearish" | null
+            sentiment = None
+            ent = m.get("entities") or {}
+            sent = (ent.get("sentiment") or {}).get("basic") if isinstance(ent.get("sentiment"), dict) else None
+            if sent in ("Bullish", "Bearish"):
+                sentiment = sent.lower()
+            rows.append({"id": mid, "ts": ts, "sentiment": sentiment})
             oldest_seen = min(oldest_seen, mid) if oldest_seen else mid
-        # stop once the oldest message in this page is before our start window
         if oldest_seen is None:
             break
         oldest_ts = min(r["ts"] for r in rows[-len(messages):])
@@ -80,12 +90,20 @@ def fetch_stocktwits_daily(ticker: str, start: str, end: str) -> pd.DataFrame:
         time.sleep(0.4)
 
     if not rows:
-        return pd.DataFrame(columns=["date", "count"])
+        return pd.DataFrame(columns=["date", "count", "bullish", "bearish", "bullish_ratio"])
 
     df = pd.DataFrame(rows).drop_duplicates(subset=["id"])
     df = df[(df["ts"] >= start_dt) & (df["ts"] <= end_dt)]
     if df.empty:
-        return pd.DataFrame(columns=["date", "count"])
+        return pd.DataFrame(columns=["date", "count", "bullish", "bearish", "bullish_ratio"])
     df["date"] = df["ts"].dt.strftime("%Y-%m-%d")
-    daily = df.groupby("date").size().reset_index(name="count")
+    df["bullish"] = (df["sentiment"] == "bullish").astype(int)
+    df["bearish"] = (df["sentiment"] == "bearish").astype(int)
+    daily = (
+        df.groupby("date")
+        .agg(count=("id", "size"), bullish=("bullish", "sum"), bearish=("bearish", "sum"))
+        .reset_index()
+    )
+    tagged = daily["bullish"] + daily["bearish"]
+    daily["bullish_ratio"] = (daily["bullish"] / tagged.where(tagged > 0)).round(3)
     return daily.sort_values("date").reset_index(drop=True)

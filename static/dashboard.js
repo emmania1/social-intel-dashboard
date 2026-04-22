@@ -182,6 +182,8 @@
     renderIndividual("stocktwitsChart", data.series.stocktwits, "date", "count", "StockTwits msgs/week", "#4ea1ff");
     renderIndividual("wikipediaChart", data.series.wikipedia, "date", "views", "Wikipedia pageviews/week", "#b489ff");
     renderIndividual("secChart", data.series.sec, "date", "count", "SEC filings/week", "#49c774");
+    renderIndividual("newsChart", data.series.news, "date", "count", "News articles/week", "#f37a4a");
+    renderSentiment(data.series.stocktwits);
     // Show which queries were used
     const rq = $("#reddit-queries");
     if (rq) rq.textContent = (data.inputs.reddit_queries || []).join(", ");
@@ -306,11 +308,12 @@
   // Map hero key → human label, series path, value column, color
   const HERO_CONFIG = {
     trends: { label: "Google Trends (0-100)", series: "trends", col: "value", color: "#f3b84a" },
-    reddit: { label: "Reddit posts/week", series: "reddit", col: "count", color: "#ff6b6b" },
+    reddit: { label: "Reddit mentions/week", series: "reddit", col: "count", color: "#ff6b6b" },
     youtube_views: { label: "YouTube views/week", series: "youtube", col: "views", color: "#49c774" },
     stocktwits: { label: "StockTwits msgs/week", series: "stocktwits", col: "count", color: "#4ea1ff" },
     wikipedia: { label: "Wikipedia views/week", series: "wikipedia", col: "views", color: "#b489ff" },
     sec: { label: "SEC filings/week", series: "sec", col: "count", color: "#49c774" },
+    news: { label: "News articles/week", series: "news", col: "count", color: "#f37a4a" },
   };
 
   function renderMaster(data) {
@@ -356,6 +359,45 @@
       type: "line",
       data: { datasets: [dataset(label, points, color)] },
       options: singleAxisOptions(label),
+    });
+  }
+
+  function renderSentiment(rows) {
+    const canvas = document.getElementById("sentimentChart");
+    const card = canvas ? canvas.closest(".card") : null;
+    const rowsArr = rows || [];
+    // Only render if we actually have bullish/bearish-tagged messages
+    const tagged = rowsArr.filter(r => (Number(r.bullish) || 0) + (Number(r.bearish) || 0) > 0);
+    if (tagged.length < 4) {
+      if (card) card.classList.add("hidden");
+      return;
+    }
+    if (card) card.classList.remove("hidden");
+    const ratio = tagged.map(r => ({ x: r.date, y: r.bullish_ratio }));
+    const vol = tagged.map(r => ({ x: r.date, y: (Number(r.bullish) || 0) + (Number(r.bearish) || 0) }));
+    mkChart("sentimentChart", {
+      type: "line",
+      data: {
+        datasets: [
+          { ...dataset("Bullish ratio (0-1)", ratio, "#49c774", "y"), fill: false },
+          { ...dataset("Tagged messages/wk", vol, "#8b93a7", "y2"), borderDash: [3, 3] },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: { legend: { labels: { color: "#e7ecf3" } } },
+        scales: {
+          ...baseScales("Bullish ratio"),
+          y: { ...baseScales("Bullish ratio").y, min: 0, max: 1 },
+          y2: {
+            position: "right", grid: { drawOnChartArea: false },
+            ticks: { color: "#8b93a7" },
+            title: { display: true, text: "Tagged volume", color: "#8b93a7" },
+          },
+        },
+      },
     });
   }
 
@@ -492,6 +534,8 @@
     bindPng("dl-stocktwits", "stocktwitsChart", `${data.inputs.ticker}_stocktwits.png`);
     bindPng("dl-wikipedia", "wikipediaChart", `${data.inputs.ticker}_wikipedia.png`);
     bindPng("dl-sec", "secChart", `${data.inputs.ticker}_sec.png`);
+    bindPng("dl-news", "newsChart", `${data.inputs.ticker}_news.png`);
+    bindPng("dl-sentiment", "sentimentChart", `${data.inputs.ticker}_sentiment.png`);
 
     const bindCsv = (btnId, rows, filename) => {
       const b = document.getElementById(btnId);
@@ -517,6 +561,46 @@
     bindCsv("csv-stocktwits", data.series.stocktwits, `${data.inputs.ticker}_stocktwits.csv`);
     bindCsv("csv-wikipedia", data.series.wikipedia, `${data.inputs.ticker}_wikipedia.csv`);
     bindCsv("csv-sec", data.series.sec, `${data.inputs.ticker}_sec.csv`);
+    bindCsv("csv-news", data.series.news, `${data.inputs.ticker}_news.csv`);
+    bindCsv("csv-sentiment", data.series.stocktwits, `${data.inputs.ticker}_sentiment.csv`);
     bindCsv("csv-aligned", data.aligned_weekly, `${data.inputs.ticker}_aligned_weekly.csv`);
+
+    // Snapshot download: save entire response as JSON to user's machine
+    const dlSnap = document.getElementById("dl-snapshot");
+    if (dlSnap) {
+      dlSnap.onclick = () => {
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+        a.href = url;
+        a.download = `${data.inputs.ticker}_snapshot_${ts}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+    }
+    // Snapshot upload: reload a previously downloaded JSON
+    const upBtn = document.getElementById("upload-snapshot-btn");
+    const upInput = document.getElementById("upload-snapshot-input");
+    if (upBtn && upInput) {
+      upBtn.onclick = () => upInput.click();
+      upInput.onchange = async () => {
+        const file = upInput.files && upInput.files[0];
+        if (!file) return;
+        try {
+          const text = await file.text();
+          const loaded = JSON.parse(text);
+          if (!loaded || !loaded.series) throw new Error("Not a valid snapshot file");
+          window.__lastData = loaded;
+          render(loaded);
+          setStatus(`Loaded snapshot: ${file.name}`, "");
+          results.classList.remove("hidden");
+        } catch (e) {
+          setStatus(`Upload failed: ${e.message}`, "error");
+        } finally {
+          upInput.value = "";
+        }
+      };
+    }
   }
 })();

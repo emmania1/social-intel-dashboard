@@ -183,6 +183,8 @@
     renderIndividual("wikipediaChart", data.series.wikipedia, "date", "views", "Wikipedia pageviews/week", "#b489ff");
     renderIndividual("secChart", data.series.sec, "date", "count", "SEC filings/week", "#49c774");
     renderIndividual("newsChart", data.series.news, "date", "count", "News articles/week", "#f37a4a");
+    const nsrc = $("#news-source");
+    if (nsrc) nsrc.textContent = `source: ${data.inputs.news_source || "unknown"}`;
     renderSentiment(data.series.stocktwits);
     // Show which queries were used
     const rq = $("#reddit-queries");

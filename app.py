@@ -25,7 +25,7 @@ from lib.analysis import (
     social_health_score,
     summarise_series,
 )
-from lib.news import fetch_news_weekly
+from lib.news import fetch_news_with_fallback
 from lib.reddit import fetch_reddit_weekly
 from lib.sec import fetch_sec_filings_weekly
 from lib.snapshots import list_snapshots, load_snapshot, save_snapshot
@@ -137,7 +137,7 @@ def generate():
         f_st = pool.submit(fetch_stocktwits_daily, ticker, start, end)
         f_wiki = pool.submit(fetch_wikipedia_daily, company, start, end)
         f_sec = pool.submit(fetch_sec_filings_weekly, ticker, start, end)
-        f_news = pool.submit(fetch_news_weekly, ticker, company, start, end)
+        f_news = pool.submit(fetch_news_with_fallback, ticker, company, start, end)
 
         stock_df = _safe(f_stock, "stock")
         trends_df = _safe(f_trends, "trends")
@@ -146,7 +146,9 @@ def generate():
         st_df = _safe(f_st, "stocktwits")
         wiki_result = _safe(f_wiki, "wikipedia", default=(pd.DataFrame(), None))
         sec_df = _safe(f_sec, "sec")
-        news_df = _safe(f_news, "news")
+        news_result = _safe(f_news, "news", default=(pd.DataFrame(), "unavailable"))
+
+    news_df, news_source = news_result if isinstance(news_result, tuple) else (news_result, "unknown")
 
     wiki_df, wiki_title = wiki_result if isinstance(wiki_result, tuple) else (wiki_result, None)
 
@@ -234,6 +236,7 @@ def generate():
             "reddit_queries": reddit_queries,
             "youtube_queries": youtube_queries,
             "wikipedia_title": wiki_title,
+            "news_source": news_source,
             "start": start,
             "end": end,
             "discovered_subreddits": discovered,

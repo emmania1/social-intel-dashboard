@@ -1,16 +1,16 @@
-"""News article volume via GDELT Project.
+"""News article volume.
 
-GDELT's Doc 2.0 API provides a free, no-auth timeline of news article volume
-matching a query over time. Coverage: ~2015-present, global news sources.
+Primary: GDELT Project Doc 2.0 timeline (global news, deep history, free).
+Fallback: yfinance.Ticker(symbol).news — recent Yahoo Finance headlines
+only (~30 most recent), used when GDELT rate-limits Render's cloud IPs.
 
-TimelineVolRaw gives weekly article counts matching the query without the
-normalization that TimelineVol applies, which is what we actually want for
-a "mentions per week" chart.
+For tickers where neither works we return an empty frame; the UI hides the
+chart cleanly.
 """
 from __future__ import annotations
 
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pandas as pd
 import requests
@@ -95,3 +95,68 @@ def fetch_news_weekly(ticker: str, company: str, start: str, end: str) -> pd.Dat
     # GDELT returns float; cast to int to keep the JSON clean
     weekly["count"] = weekly["count"].round().astype(int)
     return weekly.sort_values("date").reset_index(drop=True)
+
+
+def _yahoo_news_weekly(ticker: str, start: str, end: str) -> pd.DataFrame:
+    """Fallback: count recent Yahoo Finance news items per week via yfinance.
+
+    Yahoo caps the feed at ~30 most recent items, so this only covers the
+    last 2-6 weeks of activity for most tickers. Still better than 0 when
+    GDELT is blocked.
+    """
+    try:
+        from lib.stock import _ticker as _make_ticker
+    except ImportError:
+        return pd.DataFrame(columns=["date", "count"])
+    try:
+        items = _make_ticker(ticker).news or []
+    except Exception as exc:  # noqa: BLE001
+        print(f"[news/yahoo] {ticker}: {exc}")
+        return pd.DataFrame(columns=["date", "count"])
+    if not items:
+        return pd.DataFrame(columns=["date", "count"])
+    start_dt = datetime.strptime(start, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    end_dt = datetime.strptime(end, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+
+    rows = []
+    for item in items:
+        # yfinance schema varies: top-level providerPublishTime OR content.pubDate
+        ts = None
+        if item.get("providerPublishTime"):
+            try:
+                ts = datetime.fromtimestamp(int(item["providerPublishTime"]), tz=timezone.utc)
+            except (TypeError, ValueError):
+                pass
+        if ts is None and isinstance(item.get("content"), dict):
+            pub = item["content"].get("pubDate")
+            if pub:
+                try:
+                    ts = datetime.fromisoformat(pub.replace("Z", "+00:00"))
+                except ValueError:
+                    pass
+        if ts is None:
+            continue
+        if not (start_dt <= ts <= end_dt):
+            continue
+        rows.append({"ts": ts})
+    if not rows:
+        return pd.DataFrame(columns=["date", "count"])
+    df = pd.DataFrame(rows)
+    df["week"] = df["ts"].dt.to_period("W-SUN").dt.end_time.dt.strftime("%Y-%m-%d")
+    weekly = df.groupby("week").size().reset_index(name="count")
+    weekly.columns = ["date", "count"]
+    return weekly.sort_values("date").reset_index(drop=True)
+
+
+def fetch_news_with_fallback(ticker: str, company: str, start: str, end: str) -> tuple[pd.DataFrame, str]:
+    """Try GDELT first; if empty (rate-limited, too-short phrase, etc) fall
+    back to Yahoo Finance. Returns (df, source_label) so the UI can show
+    which source was used.
+    """
+    df = fetch_news_weekly(ticker, company, start, end)
+    if not df.empty:
+        return df, "GDELT global news"
+    df = _yahoo_news_weekly(ticker, start, end)
+    if not df.empty:
+        return df, "Yahoo Finance news (recent only)"
+    return pd.DataFrame(columns=["date", "count"]), "no news source available"

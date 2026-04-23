@@ -208,19 +208,31 @@ def fetch_reddit_weekly(
             all_rows.extend(
                 _fetch_one(sub, q, start_epoch, end_epoch, field="selftext", max_pages=25)
             )
-    # 2) Comment search — ONLY in the auto-discovered company subs. Arctic
-    #    Shift's comments endpoint times out on large general subs (r/stocks
-    #    has millions of comments to scan), so we limit this to brand-specific
-    #    communities (r/crocs, r/starbucks, etc.) where it actually works.
+    # 2) Comment search.
+    #    Arctic Shift's /comments/search times out on the BIGGEST general subs
+    #    (r/stocks, r/investing, r/wallstreetbets have millions of comments),
+    #    so we use two tactics:
+    #      a) in the auto-discovered brand sub (e.g. r/crocs), full depth;
+    #      b) in the top-3 general subs, VERY tight page cap (3 pages / ~300
+    #         comments max) so even a timeout-prone sub returns fast.
+    most_specific = clean_queries[-1] if len(clean_queries) > 1 else clean_queries[0]
     general_subs_lower = {s.lower() for s in subreddits}
     narrow_subs = [s for s in subs if s.lower() not in general_subs_lower]
-    if narrow_subs:
-        most_specific = clean_queries[-1] if len(clean_queries) > 1 else clean_queries[0]
-        for sub in narrow_subs:
+    for sub in narrow_subs:
+        all_rows.extend(
+            _fetch_one(
+                sub, most_specific, start_epoch, end_epoch,
+                field="body", max_pages=15, endpoint=ARCTIC_COMMENTS, id_key="id",
+            )
+        )
+    # Tight-cap comment search on the 3 biggest investing subs — we'll
+    # get the most-recent-first chunk and stop before Arctic Shift times out.
+    for sub in ["stocks", "investing", "wallstreetbets"]:
+        if sub.lower() in {s.lower() for s in subs}:
             all_rows.extend(
                 _fetch_one(
                     sub, most_specific, start_epoch, end_epoch,
-                    field="body", max_pages=15, endpoint=ARCTIC_COMMENTS, id_key="id",
+                    field="body", max_pages=3, endpoint=ARCTIC_COMMENTS, id_key="id",
                 )
             )
 

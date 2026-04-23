@@ -114,12 +114,20 @@ def _fetch_one(
     max_pages: int = 40,
     endpoint: str = ARCTIC_BASE,
     id_key: str = "id",
+    deadline: float | None = None,
 ) -> list[dict]:
-    """Page through Arctic Shift for one sub × one query × one field."""
+    """Page through Arctic Shift for one sub × one query × one field.
+
+    `deadline` is a wall-clock time.time() value; if provided, we stop paging
+    once we're past it even if max_pages hasn't been reached. This prevents
+    any single fetch from dominating the caller's overall time budget.
+    """
     rows: list[dict] = []
     after = start_epoch
     page = 0
     while after < end_epoch and page < max_pages:
+        if deadline is not None and time.time() >= deadline:
+            break
         params = {
             "subreddit": sub,
             field: query,
@@ -198,15 +206,27 @@ def fetch_reddit_weekly(
     start_epoch = _iso_to_epoch(start)
     end_epoch = _iso_to_epoch(end)
 
+    # Wall-clock budget — Reddit is the slowest fetcher, protect the caller's
+    # overall /api/generate deadline by stopping paging at 45s even if we
+    # haven't exhausted all subs × queries × pages. Remaining work is skipped
+    # gracefully; partial data still flows through.
+    deadline = time.time() + 45.0
+
     all_rows: list[dict] = []
     # 1) Post titles + bodies (high-signal, all queries, all subs)
     for sub in subs:
+        if time.time() >= deadline:
+            break
         for q in clean_queries:
+            if time.time() >= deadline:
+                break
             all_rows.extend(
-                _fetch_one(sub, q, start_epoch, end_epoch, field="title", max_pages=40)
+                _fetch_one(sub, q, start_epoch, end_epoch, field="title",
+                           max_pages=40, deadline=deadline)
             )
             all_rows.extend(
-                _fetch_one(sub, q, start_epoch, end_epoch, field="selftext", max_pages=25)
+                _fetch_one(sub, q, start_epoch, end_epoch, field="selftext",
+                           max_pages=25, deadline=deadline)
             )
     # 2) Comment search.
     #    Arctic Shift's /comments/search times out on the BIGGEST general subs
@@ -219,20 +239,26 @@ def fetch_reddit_weekly(
     general_subs_lower = {s.lower() for s in subreddits}
     narrow_subs = [s for s in subs if s.lower() not in general_subs_lower]
     for sub in narrow_subs:
+        if time.time() >= deadline:
+            break
         all_rows.extend(
             _fetch_one(
                 sub, most_specific, start_epoch, end_epoch,
                 field="body", max_pages=15, endpoint=ARCTIC_COMMENTS, id_key="id",
+                deadline=deadline,
             )
         )
     # Tight-cap comment search on the 3 biggest investing subs — we'll
     # get the most-recent-first chunk and stop before Arctic Shift times out.
     for sub in ["stocks", "investing", "wallstreetbets"]:
+        if time.time() >= deadline:
+            break
         if sub.lower() in {s.lower() for s in subs}:
             all_rows.extend(
                 _fetch_one(
                     sub, most_specific, start_epoch, end_epoch,
                     field="body", max_pages=3, endpoint=ARCTIC_COMMENTS, id_key="id",
+                    deadline=deadline,
                 )
             )
 

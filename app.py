@@ -11,6 +11,8 @@ import datetime
 import io
 import json
 import os
+import socket
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 
@@ -51,6 +53,16 @@ except AttributeError:  # pragma: no cover
 # 2-year default (was 3) — shorter window = faster fetches = fewer timeouts on
 # Render's free tier. Users can extend via the Advanced panel.
 DEFAULT_WINDOW_DAYS = 2 * 365
+
+# Belt-and-braces: set a global socket default timeout so any library that
+# doesn't expose an explicit timeout (yfinance, googleapiclient) still can't
+# hang forever. Set high enough to not break legit slow responses, low enough
+# to save the request. Units: seconds.
+socket.setdefaulttimeout(60)
+
+# Global deadline for /api/generate. Render's free tier HTTP timeout is ~100s.
+# We target 85s so there's headroom to serialise the response and flush.
+GENERATE_BUDGET_SECONDS = 85.0
 
 
 def _resolve_dates(start: str | None, end: str | None) -> tuple[str, str]:
@@ -121,6 +133,15 @@ def generate():
     discovered = discover_company_subreddits(ticker, company)
     company_sub_names = [d["name"] for d in discovered]
 
+    # Global deadline — every fetcher gets whatever's left of this budget,
+    # and any that don't finish in time are skipped (empty result) so the
+    # response still ships rather than timing out the whole request.
+    deadline = time.time() + GENERATE_BUDGET_SECONDS
+
+    def budget() -> float:
+        """Seconds remaining before the global deadline."""
+        return max(1.0, deadline - time.time())
+
     # Run all fetchers in parallel (all I/O bound)
     with ThreadPoolExecutor(max_workers=9) as pool:
         f_stock = pool.submit(fetch_stock, ticker, start, end)
@@ -139,14 +160,16 @@ def generate():
         f_sec = pool.submit(fetch_sec_filings_weekly, ticker, start, end)
         f_news = pool.submit(fetch_news_with_fallback, ticker, company, start, end)
 
-        stock_df = _safe(f_stock, "stock")
-        trends_df = _safe(f_trends, "trends")
-        reddit_df = _safe(f_reddit, "reddit")
-        yt_df = _safe(f_yt, "youtube")
-        st_df = _safe(f_st, "stocktwits")
-        wiki_result = _safe(f_wiki, "wikipedia", default=(pd.DataFrame(), None))
-        sec_df = _safe(f_sec, "sec")
-        news_result = _safe(f_news, "news", default=(pd.DataFrame(), "unavailable"))
+        # Each fetcher waits up to `budget()` seconds. If the deadline is hit
+        # we return an empty frame and the response ships with partial data.
+        stock_df = _safe(f_stock, "stock", timeout=budget())
+        trends_df = _safe(f_trends, "trends", timeout=budget())
+        reddit_df = _safe(f_reddit, "reddit", timeout=budget())
+        yt_df = _safe(f_yt, "youtube", timeout=budget())
+        st_df = _safe(f_st, "stocktwits", timeout=budget())
+        wiki_result = _safe(f_wiki, "wikipedia", default=(pd.DataFrame(), None), timeout=budget())
+        sec_df = _safe(f_sec, "sec", timeout=budget())
+        news_result = _safe(f_news, "news", default=(pd.DataFrame(), "unavailable"), timeout=budget())
 
     news_df, news_source = news_result if isinstance(news_result, tuple) else (news_result, "unknown")
 
@@ -291,11 +314,18 @@ def _stocktwits_to_weekly(df: pd.DataFrame) -> pd.DataFrame:
     return agg.reset_index()
 
 
-def _safe(future, label, default=None):
+def _safe(future, label, default=None, timeout: float | None = None):
+    """Resolve a future with optional wall-clock timeout.
+
+    If the future doesn't complete within `timeout` seconds we log it and
+    return `default`. The underlying thread keeps running but the response
+    no longer waits on it — the next request starts fresh.
+    """
     try:
-        return future.result()
-    except Exception as exc:  # noqa: BLE001
-        print(f"[{label}] failed: {exc}")
+        return future.result(timeout=timeout)
+    except Exception as exc:  # noqa: BLE001 — intentionally broad
+        kind = "timed out" if "TimeoutError" in type(exc).__name__ else "failed"
+        print(f"[{label}] {kind}: {exc}")
         return default if default is not None else pd.DataFrame()
 
 

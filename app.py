@@ -18,7 +18,7 @@ from datetime import date, timedelta
 
 import pandas as pd
 from dotenv import load_dotenv
-from flask import Flask, Response, jsonify, render_template, request
+from flask import Flask, Response, jsonify, render_template, request  # noqa: F401
 
 from lib.analysis import (
     align_weekly,
@@ -266,16 +266,16 @@ def generate():
             "subreddits_searched": list(DEFAULT_SUBREDDITS) + company_sub_names,
         },
         "series": {
-            "stock": stock_df.to_dict(orient="records"),
-            "trends": trends_df.to_dict(orient="records"),
-            "reddit": reddit_df.to_dict(orient="records"),
-            "youtube": yt_df.to_dict(orient="records"),
-            "stocktwits": st_weekly.to_dict(orient="records"),
-            "wikipedia": wiki_weekly.to_dict(orient="records"),
-            "sec": sec_df.to_dict(orient="records"),
-            "news": news_df.to_dict(orient="records"),
+            "stock": _clean_records(stock_df),
+            "trends": _clean_records(trends_df),
+            "reddit": _clean_records(reddit_df),
+            "youtube": _clean_records(yt_df),
+            "stocktwits": _clean_records(st_weekly),
+            "wikipedia": _clean_records(wiki_weekly),
+            "sec": _clean_records(sec_df),
+            "news": _clean_records(news_df),
         },
-        "aligned_weekly": aligned.to_dict(orient="records"),
+        "aligned_weekly": _clean_records(aligned),
         "summaries": [s.to_dict() for s in summaries],
         "health_score": health,
         "hero": {"key": hero_key, "col": hero[1] if hero else None} if hero else None,
@@ -288,7 +288,36 @@ def generate():
     except Exception as exc:  # noqa: BLE001
         print(f"[snapshot] save failed: {exc}")
 
-    return jsonify(payload)
+    # Safety net: serialize once up front so any remaining NaN/Inf or
+    # un-encodable value raises a clean 500 BEFORE Flask flushes headers,
+    # rather than truncating mid-body and producing a partial-JSON error in
+    # the client.
+    try:
+        body = json.dumps(payload, allow_nan=False)
+    except (ValueError, TypeError) as exc:
+        print(f"[serialize] failed cleanly: {exc}")
+        return jsonify({
+            "error": f"Internal serialization error: {exc}. "
+                     "This is a bug — please report the ticker you used."
+        }), 500
+    return Response(body, mimetype="application/json")
+
+
+def _clean_records(df: pd.DataFrame) -> list[dict]:
+    """Convert a DataFrame to records with NaN/Infinity replaced by None.
+
+    Browsers' strict JSON parsers reject NaN and Infinity tokens; pandas
+    emits them by default via to_dict(). This helper guarantees the output
+    is always strict-JSON-safe, no matter what the upstream calculation did
+    (e.g. dividing by zero in bullish_ratio when no messages are tagged).
+    """
+    if df is None or df.empty:
+        return []
+    import numpy as np
+    out = df.copy()
+    # Replace inf/-inf with NaN first, then NaN with None.
+    out = out.replace([np.inf, -np.inf], np.nan)
+    return out.astype(object).where(out.notna(), None).to_dict(orient="records")
 
 
 def _daily_to_weekly(df: pd.DataFrame, col: str) -> pd.DataFrame:

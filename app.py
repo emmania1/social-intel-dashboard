@@ -27,6 +27,7 @@ from lib.analysis import (
     social_health_score,
     summarise_series,
 )
+from lib.drive_reader import COVERAGE_FILES, DriveAuthError, read_coverage_data
 from lib.news import fetch_news_with_fallback
 from lib.reddit import fetch_reddit_weekly
 from lib.sec import fetch_sec_filings_weekly
@@ -356,6 +357,41 @@ def _safe(future, label, default=None, timeout: float | None = None):
         kind = "timed out" if "TimeoutError" in type(exc).__name__ else "failed"
         print(f"[{label}] {kind}: {exc}")
         return default if default is not None else pd.DataFrame()
+
+
+@app.route("/api/coverage")
+def coverage():
+    """Return all CSVs registered for `ticker` from Google Drive as JSON.
+
+    Response shape:
+        {
+            "ticker": "EAT",
+            "datasets": {
+                "reddit_chilis_monthly_unique": [{...row}, ...],
+                "youtube_chilis_cumulative":    [{...row}, ...],
+                ...
+            }
+        }
+
+    Datasets that fail to download are omitted (errors logged server-side)
+    so the dashboard can still render with partial data — same philosophy
+    as /api/generate.
+    """
+    ticker = (request.args.get("ticker") or "").strip().upper()
+    if not ticker:
+        return jsonify({"error": "ticker required"}), 400
+    if ticker not in COVERAGE_FILES:
+        return jsonify({
+            "error": f"no coverage mapping for {ticker}",
+            "known_tickers": sorted(COVERAGE_FILES),
+        }), 404
+    try:
+        frames = read_coverage_data(ticker)
+    except DriveAuthError as exc:
+        # Config problem on the server, not a client error.
+        return jsonify({"error": str(exc)}), 503
+    datasets = {label: _clean_records(df) for label, df in frames.items()}
+    return jsonify({"ticker": ticker, "datasets": datasets})
 
 
 @app.route("/api/snapshots")

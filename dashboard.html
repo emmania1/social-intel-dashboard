@@ -63,6 +63,13 @@ main{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:28px 40p
 .search-wrap.in-header .search-input{padding:9px 16px 9px 36px;font-size:12px;background:var(--s2);border-radius:8px}
 .search-wrap.in-header .search-icon{left:12px;font-size:13px}
 .search-wrap.in-header .search-results{top:calc(100% + 6px)}
+.lookup-loading{padding:32px 24px;background:var(--s2);border:1px solid var(--b1);border-radius:10px;text-align:center;margin:8px 0 20px}
+.ll-status{font-family:var(--fm);font-size:12px;color:var(--cyan);margin-bottom:14px;letter-spacing:.05em;text-transform:uppercase}
+.ll-bar-bg{background:var(--b1);height:6px;border-radius:3px;overflow:hidden;margin-bottom:14px}
+.ll-bar{height:100%;background:linear-gradient(90deg,var(--cyan),var(--purple));transition:width .8s ease;width:0%}
+.ll-meta{font-family:var(--fm);font-size:10px;color:var(--t3);line-height:1.6}
+.lu-adv-input{background:var(--s1);border:1px solid var(--b2);border-radius:6px;padding:8px 12px;font-family:var(--fm);font-size:11px;color:var(--text);outline:none;flex:1;min-width:180px}
+.lu-adv-input:focus{border-color:var(--cyan)}
 .sr-item{display:flex;align-items:center;gap:12px;padding:10px 16px;cursor:pointer;transition:background .15s}
 .sr-item:hover{background:var(--s2)}
 .sr-ticker{font-family:var(--fm);font-size:12px;font-weight:600;color:var(--cyan);width:48px;flex-shrink:0}
@@ -411,9 +418,17 @@ main{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:28px 40p
 <div class="panel-h"><div class="ptitle">Ticker Lookup</div><span class="badge bc">SIGNAL v6</span></div>
 <div class="panel-b">
 <div style="font-family:var(--fm);font-size:11px;color:var(--t2);margin-bottom:16px;line-height:1.6">Search any ticker for full demand intelligence — financials, Reddit, YouTube, Google Trends, news, SEC filings, AI brief.</div>
-<div style="display:flex;gap:10px;margin-bottom:16px;align-items:center">
-<input id="lookupTicker" style="background:var(--s2);border:1px solid var(--b2);border-radius:8px;padding:11px 16px;font-family:var(--fm);font-size:18px;color:var(--text);outline:none;width:160px;text-transform:uppercase;letter-spacing:.1em;transition:border-color .2s" placeholder="BBW" onkeydown="if(event.key=\'Enter\')runLookup()"/>
+<div style="display:flex;gap:10px;margin-bottom:8px;align-items:center;flex-wrap:wrap">
+<input id="lookupTicker" style="background:var(--s2);border:1px solid var(--b2);border-radius:8px;padding:11px 16px;font-family:var(--fm);font-size:18px;color:var(--text);outline:none;width:160px;text-transform:uppercase;letter-spacing:.1em;transition:border-color .2s" placeholder="BBW" oninput="handleLookupInput(this.value)" onkeydown="if(event.key=='Enter')runLookup()"/>
 <button onclick="runLookup()" style="background:linear-gradient(135deg,var(--cyan),var(--purple));border:none;border-radius:8px;padding:11px 22px;font-family:var(--fd);font-size:12px;font-weight:700;color:#000;cursor:pointer;letter-spacing:.08em" id="lookupBtn">ANALYZE &#8594;</button>
+<button onclick="toggleLookupAdvanced()" id="lookupAdvBtn" style="background:transparent;border:1px solid var(--b2);border-radius:8px;padding:11px 14px;font-family:var(--fm);font-size:11px;color:var(--t2);cursor:pointer;letter-spacing:.05em">Advanced ▾</button>
+<span id="lookupResolved" style="font-family:var(--fm);font-size:11px;color:var(--cyan);min-height:14px"></span>
+</div>
+<div id="lookupAdvanced" style="display:none;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:12px">
+<input id="lookupCompany" class="lu-adv-input" placeholder="Company name override (e.g. Chili's for EAT)"/>
+<input id="lookupTerm" class="lu-adv-input" placeholder="Custom search term (defaults to company)"/>
+<input id="lookupStart" type="date" class="lu-adv-input" style="min-width:140px;flex:0 1 auto" title="Start date (defaults to 2yrs ago)"/>
+<input id="lookupEnd" type="date" class="lu-adv-input" style="min-width:140px;flex:0 1 auto" title="End date (defaults to today)"/>
 </div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">
 <span style="font-family:var(--fm);font-size:10px;color:var(--t3)">Coverage:</span>
@@ -769,6 +784,15 @@ main{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:28px 40p
 const CLAUDE_API='/api/claude';
 const MODEL='claude-sonnet-4-6';
 const RENDER='https://social-intel-dashboard.onrender.com';
+
+// Prewarm: ping /api/health on page load so Render's container is awake
+// before the user runs a lookup. Free-tier services sleep after ~15min
+// idle and cold-start adds 25-35s — we'd rather burn that latency now,
+// in the background, than on the first lookup click.
+(async function luPrewarm(){
+  try { await fetch(RENDER+'/api/health',{signal:AbortSignal.timeout(45000)}); }
+  catch(e){ /* ignore — lookup will still work, just slower */ }
+})();
 
 // Coverage data for cards
 const COVERAGE={
@@ -2084,20 +2108,122 @@ function luSummary(s){
   return {pct:pct,col:col,trend:s.trend,peak:s.peak_value,peakDate:s.peak_date,current:s.current_value};
 }
 
+// -------- LOOKUP helpers (cold-start handling + advanced fields) ----------
+function luBuildParams(ticker){
+  var company=(document.getElementById('lookupCompany')||{}).value||'';
+  var term=(document.getElementById('lookupTerm')||{}).value||'';
+  var start=(document.getElementById('lookupStart')||{}).value||'';
+  var end=(document.getElementById('lookupEnd')||{}).value||'';
+  var p=['ticker='+encodeURIComponent(ticker)];
+  if(company.trim()) p.push('company='+encodeURIComponent(company.trim()));
+  if(term.trim()) p.push('custom_term='+encodeURIComponent(term.trim()));
+  if(start) p.push('start='+start);
+  if(end) p.push('end='+end);
+  return p.join('&');
+}
+
+function luLoadingHtml(ticker){
+  return '<div class="lookup-loading">'
+    +'<div class="ll-status" id="luProgressStatus">Connecting to server…</div>'
+    +'<div class="ll-bar-bg"><div class="ll-bar" id="luProgressBar"></div></div>'
+    +'<div class="ll-meta">Live demand fetch for <b>'+ticker+'</b> — typically 40-60s. Cold-start can add ~30s.</div></div>';
+}
+
+function luStartProgress(){
+  // Animate bar 0 → 92% over ~65s with status messages tracking expected stages.
+  // Won't hit 100% until the real response arrives.
+  var pct=0, lastIdx=-1;
+  var stages=[
+    {at:0,msg:'Waking server…'},
+    {at:10,msg:'Fetching financials…'},
+    {at:25,msg:'Pulling Reddit + YouTube…'},
+    {at:45,msg:'Aligning weekly signals…'},
+    {at:65,msg:'Computing signal health…'},
+    {at:82,msg:'Almost there…'}
+  ];
+  return setInterval(function(){
+    pct=Math.min(pct+1.4,92);
+    var bar=document.getElementById('luProgressBar');
+    if(bar) bar.style.width=pct+'%';
+    for(var i=stages.length-1;i>=0;i--){
+      if(pct>=stages[i].at){
+        if(i!==lastIdx){
+          var s=document.getElementById('luProgressStatus');
+          if(s) s.textContent=stages[i].msg;
+          lastIdx=i;
+        }
+        break;
+      }
+    }
+  },1000);
+}
+
+async function luFetchWithRetry(url){
+  // 180s timeout per attempt + one retry. /api/full takes ~50s warm,
+  // up to ~90s after cold-start. The previous 30s timeout always aborted.
+  var attempt=async function(){
+    var ctrl=new AbortController();
+    var t=setTimeout(function(){ctrl.abort();},180000);
+    try {
+      var r=await fetch(url,{signal:ctrl.signal});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      return await r.json();
+    } finally { clearTimeout(t); }
+  };
+  try { return await attempt(); }
+  catch(e){ console.warn('[lookup] retrying after',e); return await attempt(); }
+}
+
+function handleLookupInput(val){
+  var t=(val||'').trim().toUpperCase();
+  var el=document.getElementById('lookupResolved');
+  if(!el) return;
+  if(!t){ el.textContent=''; return; }
+  clearTimeout(window._lookupResolveTimer);
+  window._lookupResolveTimer=setTimeout(async function(){
+    try {
+      var r=await fetch(RENDER+'/api/resolve?ticker='+encodeURIComponent(t),{signal:AbortSignal.timeout(8000)});
+      var info=await r.json();
+      if(info && info.ok){ el.textContent='→ '+info.name; el.style.color='var(--cyan)'; }
+      else { el.textContent='ticker not found (you can still try)'; el.style.color='var(--t3)'; }
+    } catch(e){ /* ignore — purely advisory */ }
+  },350);
+}
+
+function toggleLookupAdvanced(){
+  var el=document.getElementById('lookupAdvanced');
+  var btn=document.getElementById('lookupAdvBtn');
+  if(!el||!btn) return;
+  var open=el.style.display==='flex';
+  el.style.display=open?'none':'flex';
+  btn.textContent=open?'Advanced ▾':'Advanced ▴';
+}
+// --------------------------------------------------------------------------
+
 async function runLookup(){
   var ticker=document.getElementById('lookupTicker').value.trim().toUpperCase();
   if(!ticker) return;
   var btn=document.getElementById('lookupBtn');
   var result=document.getElementById('lookupResult');
   btn.disabled=true; btn.textContent='ANALYZING...';
-  result.innerHTML='<div style="padding:24px 0;font-family:var(--fm);font-size:11px;color:var(--cyan)">Fetching live data for '+ticker+'...</div>';
 
-  // Fetch from Render
+  var url=RENDER+'/api/full?'+luBuildParams(ticker);
+  result.innerHTML=luLoadingHtml(ticker);
+  var progressTimer=luStartProgress();
+
   var d=null;
   try{
-    var res=await fetch(RENDER+'/api/full?ticker='+ticker,{signal:AbortSignal.timeout(30000)});
-    if(res.ok) d=await res.json();
-  }catch(e){ console.log('Render error:',e.message); }
+    d=await luFetchWithRetry(url);
+  }catch(e){
+    clearInterval(progressTimer);
+    result.innerHTML='<div style="padding:20px;background:var(--s2);border:1px solid var(--red);border-radius:8px;color:var(--red);font-family:var(--fm);font-size:12px">'
+      +'Lookup failed for <b>'+ticker+'</b>: '+(e.message||e)
+      +'<div style="color:var(--t3);font-size:10px;margin-top:8px">If this is the first request after a long idle, the server may still be waking up. Try again in ~30 seconds.</div></div>';
+    btn.disabled=false; btn.textContent='ANALYZE →';
+    return;
+  }
+  clearInterval(progressTimer);
+  var pbar=document.getElementById('luProgressBar'); if(pbar) pbar.style.width='100%';
 
   // Also get Claude brief + news in parallel
   var fins=d?d.financials||{}:{};

@@ -482,7 +482,10 @@ def _fetch_yfinance_financials(ticker: str) -> dict:
                 surprise = row.get("surprisePercent")
                 est_f = float(est) if pd.notna(est) else None
                 act_f = float(act) if pd.notna(act) else None
-                surp_f = float(surprise) if pd.notna(surprise) else None
+                # yfinance returns surprisePercent as a decimal fraction
+                # (0.0328 = 3.28%). Multiply so downstream consumers can
+                # treat the field as a true percentage.
+                surp_f = float(surprise) * 100.0 if pd.notna(surprise) else None
                 beat = act_f > est_f if (est_f is not None and act_f is not None) else None
                 earnings_history.append({
                     "date": str(idx)[:10],

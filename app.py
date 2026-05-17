@@ -472,20 +472,22 @@ def _fetch_yfinance_financials(ticker: str) -> dict:
         print(f"[financials] info failed for {ticker}: {exc}")
         return {}
 
+    # earnings_dates returns 20+ quarters of historical EPS data, vs the 4
+    # served by earnings_history. Surprise(%) here is already in percent
+    # form (3.28 = 3.28%), unlike earnings_history.surprisePercent (decimal).
     earnings_history: list[dict] = []
     try:
-        eh = t.earnings_history
-        if eh is not None and not eh.empty:
-            for idx, row in eh.tail(8).iterrows():
-                est = row.get("epsEstimate")
-                act = row.get("epsActual")
-                surprise = row.get("surprisePercent")
+        ed = t.earnings_dates
+        if ed is not None and not ed.empty:
+            now = pd.Timestamp.now(tz=ed.index.tz) if ed.index.tz is not None else pd.Timestamp.now()
+            past = ed[ed.index < now].sort_index()
+            for idx, row in past.tail(8).iterrows():
+                est = row.get("EPS Estimate")
+                act = row.get("Reported EPS")
+                surprise = row.get("Surprise(%)")
                 est_f = float(est) if pd.notna(est) else None
                 act_f = float(act) if pd.notna(act) else None
-                # yfinance returns surprisePercent as a decimal fraction
-                # (0.0328 = 3.28%). Multiply so downstream consumers can
-                # treat the field as a true percentage.
-                surp_f = float(surprise) * 100.0 if pd.notna(surprise) else None
+                surp_f = float(surprise) if pd.notna(surprise) else None
                 beat = act_f > est_f if (est_f is not None and act_f is not None) else None
                 earnings_history.append({
                     "date": str(idx)[:10],
@@ -495,7 +497,7 @@ def _fetch_yfinance_financials(ticker: str) -> dict:
                     "beat": beat,
                 })
     except Exception as exc:  # noqa: BLE001
-        print(f"[financials] earnings_history failed for {ticker}: {exc}")
+        print(f"[financials] earnings_dates failed for {ticker}: {exc}")
 
     revenue_history: list[dict] = []
     try:

@@ -1,0 +1,1934 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BEARWATCH — BBW Demand Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #f7f3ec;
+  --surface:  #ffffff;
+  --surface2: #f2ede3;
+  --border:   #ddd6c6;
+  --text:     #1c1a16;
+  --muted:    #7a7060;
+  --blue:     #1e72b0;
+  --green:    #1e7a44;
+  --gold:     #8a6820;
+  --red:      #c03030;
+  --red-dim:  #fce8e8;
+  --navy:     #f2ede3;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; font-size:14px; min-height:100vh; }
+
+/* HEADER */
+header { background:var(--surface); border-bottom:1px solid var(--border); padding:0 40px; height:58px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; }
+.logo { font-family:'DM Mono',monospace; font-size:13px; font-weight:500; color:var(--text); letter-spacing:0.1em; }
+.logo span { color:var(--gold); }
+.header-right { display:flex; align-items:center; gap:16px; }
+.live-chip { display:flex; align-items:center; gap:6px; font-family:'DM Mono',monospace; font-size:10px; color:var(--green); letter-spacing:0.1em; }
+.live-dot { width:6px; height:6px; border-radius:50%; background:var(--green); animation:pulse 2s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.timestamp { font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); }
+.brief-btn { background:var(--gold); color:#ffffff; border:none; border-radius:6px; padding:7px 16px; font-size:12px; font-weight:600; cursor:pointer; }
+.brief-btn:hover { opacity:0.88; }
+
+/* PAGE */
+.page { max-width:1400px; margin:0 auto; padding:32px 40px 80px; }
+h1 { font-family:'Playfair Display',serif; font-size:22px; font-weight:900; color:var(--text); margin-bottom:4px; }
+.page-sub { font-size:12px; color:var(--muted); margin-bottom:32px; }
+
+/* ALERT BANNER */
+.alert-banner { background:#fdf0f0; border:1px solid var(--red); border-left:3px solid var(--red); border-radius:8px; padding:12px 18px; display:flex; align-items:center; gap:14px; margin-bottom:10px; }
+.alert-banner-gold { background:#fdf8ec; border-color:var(--gold); border-left:3px solid var(--gold); }
+.alert-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; animation:pulse 1.5s infinite; }
+.alert-dot-red  { background:var(--red); }
+.alert-dot-gold { background:var(--gold); }
+.alert-title { font-size:12px; font-weight:600; color:var(--text); }
+.alert-body  { font-size:11px; color:var(--muted); margin-top:1px; }
+.alert-tag { margin-left:auto; flex-shrink:0; font-family:'DM Mono',monospace; font-size:10px; color:var(--red); border:1px solid var(--red); border-radius:4px; padding:2px 8px; }
+.alert-tag-gold { color:var(--gold); border-color:var(--gold); }
+
+/* STATUS ROW */
+.status-row { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:32px; }
+.stat-card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:14px 18px; }
+.stat-card.highlight { border-color:var(--gold); }
+.stat-val { font-size:24px; font-weight:700; font-family:'DM Mono',monospace; color:var(--text); letter-spacing:-0.5px; line-height:1; margin-bottom:4px; }
+.stat-val.green { color:var(--green); }
+.stat-val.gold  { color:var(--gold); }
+.stat-val.red   { color:var(--red); }
+.stat-lbl { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.8px; }
+.stat-note { font-size:10px; color:var(--muted); margin-top:3px; opacity:0.7; }
+
+/* SECTION */
+section { margin-bottom:40px; }
+.section-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; color:var(--text); margin-bottom:6px; padding-bottom:8px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+.section-title-num { color:var(--gold); margin-right:8px; }
+.section-badge { font-family:'DM Mono',monospace; font-size:9px; padding:2px 7px; border-radius:4px; font-weight:400; }
+.badge-live  { background:#e8f5ed; color:var(--green); border:1px solid #b8dfc8; }
+.badge-manual{ background:#fdf8ec; color:var(--gold); border:1px solid #e0cc90; }
+.badge-watch { background:#fdf0f0; color:var(--red); border:1px solid var(--red-dim); animation:pulse 2s infinite; }
+.section-sub { font-size:12px; color:var(--muted); margin-bottom:18px; line-height:1.6; max-width:860px; }
+.section-sub strong { color:#2a4a7a; }
+
+/* SECTION WHY */
+.section-why { font-size:12px; color:var(--text); line-height:1.8; margin-top:14px; padding:12px 16px; border-left:3px solid var(--green); background:#eef8f2; border-radius:0 6px 6px 0; }
+.section-why-lbl { display:block; font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; color:var(--green); margin-bottom:5px; }
+.section-why.blue-why { border-color:var(--blue); background:#eef4fc; }
+.section-why.blue-why .section-why-lbl { color:var(--blue); }
+.section-why.gold-why { border-color:var(--gold); background:#fdf8ec; }
+.section-why.gold-why .section-why-lbl { color:var(--gold); }
+.section-why.red-why  { border-color:var(--red); background:#fdf0f0; }
+.section-why.red-why  .section-why-lbl { color:var(--red); }
+
+/* KEY INSIGHT (inline) */
+.key-insight { font-size:12px; color:var(--text); line-height:1.7; margin:12px 0 0; padding:11px 16px; border-left:3px solid var(--blue); background:#eef4fc; border-radius:0 5px 5px 0; }
+.key-insight-lbl { display:block; font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; color:var(--blue); margin-bottom:4px; }
+
+/* GRID LAYOUTS */
+.grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.grid-6040 { display:grid; grid-template-columns:3fr 2fr; gap:16px; }
+.grid-4060 { display:grid; grid-template-columns:2fr 3fr; gap:16px; }
+.grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+
+/* CHART CARD */
+.chart-card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:18px 20px; }
+.chart-card h3 { font-size:10px; color:var(--muted); font-weight:500; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:14px; }
+.chart-svg { width:100%; overflow:visible; }
+
+/* TABLE CARD */
+.table-card { background:var(--surface); border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+table { width:100%; border-collapse:collapse; }
+th { font-size:9px; text-transform:uppercase; letter-spacing:0.6px; color:var(--muted); padding:10px 14px; text-align:left; border-bottom:1px solid var(--border); background:var(--surface2); white-space:nowrap; }
+td { font-size:12px; color:var(--text); padding:9px 14px; border-bottom:1px solid var(--border); vertical-align:middle; }
+tr:last-child td { border-bottom:none; }
+tr:hover td { background:var(--surface2); }
+.td-name { font-weight:600; color:var(--text); }
+.td-mono { font-family:'DM Mono',monospace; font-size:11px; }
+.val-green { color:var(--green); font-weight:700; font-family:'DM Mono',monospace; }
+.val-gold  { color:var(--gold);  font-weight:700; font-family:'DM Mono',monospace; }
+.val-red   { color:var(--red);   font-weight:700; font-family:'DM Mono',monospace; }
+.val-blue  { color:var(--blue);  font-weight:700; font-family:'DM Mono',monospace; }
+.val-muted { color:var(--muted); font-family:'DM Mono',monospace; font-size:11px; }
+.tag { font-family:'DM Mono',monospace; font-size:9px; padding:2px 6px; border-radius:4px; display:inline-block; white-space:nowrap; }
+.tag-spike  { background:#fce8e8; color:var(--red); border:1px solid #f0b8b8; }
+.tag-watch  { background:#fdf8ec; color:var(--gold); border:1px solid #e0cc90; }
+.tag-none   { background:#f0eee8; color:var(--muted); border:1px solid var(--border); }
+.tag-live   { background:#e8f5ed; color:var(--green); border:1px solid #b8dfc8; }
+.tag-ip     { background:#eef4fc; color:var(--blue); border:1px solid #b0cce8; }
+
+/* SPIKE LEGEND */
+.spike-legend { display:flex; gap:16px; margin-top:10px; flex-wrap:wrap; }
+.spike-legend-item { display:flex; align-items:center; gap:5px; font-size:10px; color:var(--muted); font-family:'DM Mono',monospace; }
+.s-dot { width:8px; height:8px; border-radius:50%; }
+
+/* KV ROWS */
+.kv-row { display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:1px solid var(--border); }
+.kv-row:last-child { border-bottom:none; }
+.kv-label { font-size:12px; color:var(--text); font-weight:500; }
+.kv-note  { font-size:10px; color:var(--muted); margin-top:1px; }
+.kv-val   { font-family:'DM Mono',monospace; font-size:13px; color:var(--text); font-weight:500; }
+
+/* METRIC LIST (inside chart-card) */
+.metric-list { display:flex; flex-direction:column; gap:0; }
+
+/* RELEASE ITEMS */
+.release-list { display:flex; flex-direction:column; gap:6px; }
+.release-item { display:flex; align-items:center; gap:10px; padding:9px 12px; background:var(--surface2); border:1px solid var(--border); border-radius:6px; }
+.release-item.alert { background:#fdf0f0; border-color:#f0b8b8; }
+.release-date { font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); min-width:80px; }
+.r-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+.r-dot-red  { background:var(--red); animation:pulse 1.5s infinite; }
+.r-dot-gold { background:var(--gold); }
+.r-dot-blue { background:var(--blue); }
+.r-dot-dim  { background:var(--muted); }
+.r-dot-green{ background:var(--green); }
+.release-name { font-size:12px; font-weight:600; color:var(--text); flex:1; }
+.release-sub  { font-size:10px; color:var(--muted); margin-top:1px; }
+
+/* MACRO ROWS */
+.macro-item { padding:10px 14px; background:var(--surface2); border:1px solid var(--border); border-radius:6px; margin-bottom:6px; }
+.macro-item:last-child { margin-bottom:0; }
+.macro-title { font-size:12px; font-weight:600; color:var(--text); margin-bottom:2px; }
+.macro-body  { font-size:11px; color:var(--muted); line-height:1.5; }
+
+/* DATA NOTE */
+.data-note { color:var(--muted); font-size:11px; margin-top:10px; font-style:italic; line-height:1.5; }
+
+/* MODAL */
+.modal-backdrop { position:fixed; inset:0; z-index:500; background:rgba(0,0,0,0.7); display:none; align-items:center; justify-content:center; }
+.modal-backdrop.open { display:flex; }
+.modal { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:32px 36px; max-width:660px; width:90%; max-height:82vh; overflow-y:auto; }
+.modal-hdr { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; }
+.modal-title { font-family:'Playfair Display',serif; font-size:18px; font-weight:900; color:var(--text); }
+.modal-date  { font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); margin-top:3px; }
+.modal-close { background:none; border:1px solid var(--border); border-radius:50%; width:28px; height:28px; color:var(--muted); cursor:pointer; font-size:13px; }
+.modal-body  { font-size:13px; line-height:1.7; color:var(--text); }
+.modal-body h4 { font-size:13px; font-weight:700; color:var(--text); margin:16px 0 5px; }
+.modal-body p { margin-bottom:8px; }
+.modal-body .num { font-family:'DM Mono',monospace; font-weight:600; color:var(--blue); }
+.modal-loader { display:flex; align-items:center; gap:10px; color:var(--muted); padding:16px 0; }
+.spinner { width:18px; height:18px; border:2px solid var(--border); border-top-color:var(--blue); border-radius:50%; animation:spin 0.8s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* CHART ANNOTATION STRIP */
+.ann-strip { margin-top:16px; border-top:1px solid var(--border); padding-top:12px; display:flex; flex-direction:column; gap:8px; }
+.ann-item { display:flex; align-items:flex-start; gap:10px; }
+.ann-badge { width:18px; height:18px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'DM Mono',monospace; font-size:9px; font-weight:700; flex-shrink:0; margin-top:2px; }
+.ann-badge-spike { background:var(--red); color:#fff; }
+.ann-badge-miss  { background:var(--green); color:#fff; }
+.ann-content { flex:1; }
+.ann-title { font-size:11px; font-weight:600; color:var(--text); display:inline; }
+.ann-data  { font-family:'DM Mono',monospace; font-size:10px; color:var(--blue); margin-left:6px; display:inline; }
+.ann-note  { font-size:10px; color:var(--muted); margin-top:2px; line-height:1.5; }
+
+/* KEYWORD BARS */
+.kw-row { display:grid; grid-template-columns:80px 1fr 44px 120px; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid var(--border); }
+.kw-row:last-child { border-bottom:none; }
+.kw-term { font-family:'DM Mono',monospace; font-size:11px; color:var(--text); }
+.kw-track { background:var(--surface2); border-radius:3px; height:8px; overflow:hidden; }
+.kw-fill { height:100%; border-radius:3px; transition:width 0.4s; }
+.kw-count { font-family:'DM Mono',monospace; font-size:11px; color:var(--muted); text-align:right; white-space:nowrap; }
+.kw-desc { font-size:10px; color:var(--muted); }
+
+/* PULSE GAUGE */
+.pulse-wrap { display:flex; align-items:center; gap:20px; padding:10px 0 14px; }
+.pulse-num { font-size:34px; font-weight:700; font-family:'DM Mono',monospace; line-height:1; }
+.pulse-gauge { flex:1; }
+.pulse-track { background:var(--surface2); border-radius:4px; height:10px; position:relative; overflow:visible; }
+.pulse-fill { height:100%; border-radius:4px; background:var(--gold); transition:width 0.5s; }
+.pulse-threshold { position:absolute; top:-3px; height:16px; width:2px; background:var(--red); border-radius:1px; }
+.pulse-labels { display:flex; justify-content:space-between; font-size:9px; color:var(--muted); margin-top:3px; font-family:'DM Mono',monospace; }
+
+/* WALMART TABLE */
+.wmt-hdr { padding:12px 18px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+.wmt-title { font-size:11px; font-weight:700; color:var(--text); text-transform:uppercase; letter-spacing:0.7px; }
+.wmt-sub { font-size:10px; color:var(--muted); margin-top:2px; }
+.wmt-empty { text-align:center; color:var(--muted); font-size:12px; padding:24px 14px; }
+
+/* SIGNAL SUMMARY PANEL */
+.signal-summary { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:14px 20px; margin-bottom:20px; }
+.ss-header { display:flex; align-items:center; gap:10px; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid var(--border); }
+.ss-title { font-family:'DM Mono',monospace; font-size:11px; font-weight:500; text-transform:uppercase; letter-spacing:1.2px; color:var(--text); }
+.ss-date { font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); flex:1; }
+.ss-lines { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.ss-line { display:flex; gap:10px; align-items:flex-start; padding:9px 12px; background:var(--surface2); border-radius:5px; border:1px solid var(--border); }
+.ss-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; margin-top:3px; }
+.ss-dot-green { background:var(--green); }
+.ss-dot-gold { background:var(--gold); }
+.ss-dot-red { background:var(--red); animation:pulse 1.5s infinite; }
+.ss-lbl { font-family:'DM Mono',monospace; font-size:9px; text-transform:uppercase; letter-spacing:0.7px; color:var(--muted); margin-bottom:3px; }
+.ss-text { font-size:11px; color:var(--text); line-height:1.55; }
+
+@media (max-width:1050px) {
+  .status-row { grid-template-columns:repeat(3,1fr); }
+  .grid-2,.grid-6040,.grid-4060,.grid-3 { grid-template-columns:1fr; }
+}
+/* NAV PILLS */
+.nav-pill { background:transparent; border:1px solid var(--border); border-radius:20px; padding:3px 12px; font-size:11px; font-weight:500; color:var(--muted); cursor:pointer; font-family:'DM Sans',sans-serif; transition:all 0.15s; }
+.nav-pill:hover { border-color:var(--gold); color:var(--gold); }
+.nav-pill.active { background:var(--gold); border-color:var(--gold); color:#fff; font-weight:600; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo"><span style="color:var(--blue)">BEAR</span><span>WATCH</span> <span style="color:var(--muted);font-weight:400">· BBW Demand Intelligence · Pillsbury Lake Capital</span></div>
+  <div class="header-right">
+    <div class="live-chip"><div class="live-dot"></div> Reddit Live</div>
+    <div class="timestamp" id="clock">—</div>
+  </div>
+</header>
+<!-- NAV BAR -->
+<nav id="sectionNav" style="background:var(--surface);border-bottom:1px solid var(--border);padding:0 40px;height:40px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:58px;z-index:99;">
+  <div style="display:flex;gap:6px;" id="navPills">
+    <button class="nav-pill" data-target="sec-ip">IP Spikes</button>
+    <button class="nav-pill" data-target="sec-online">Online Stats</button>
+    <button class="nav-pill" data-target="sec-youtube">YouTube</button>
+    <button class="nav-pill" data-target="sec-commercial">Commercial</button>
+    <button class="nav-pill" data-target="sec-financial">Financials</button>
+    <button class="nav-pill" data-target="sec-macro">Macro</button>
+  </div>
+  <button class="brief-btn" onclick="openBrief()">Generate Brief</button>
+</nav>
+
+<div class="page">
+<h1>Build-A-Bear Workshop — Online Demand Monitor</h1>
+<div class="page-sub">BBW demand intelligence · Five signals tracked · Reddit automated weekly · SimilarWeb monthly manual pull</div>
+
+<!-- ALERT BANNERS -->
+<div class="alert-banner" style="margin-bottom:8px">
+  <div class="alert-dot alert-dot-red"></div>
+  <div>
+    <div class="alert-title">⚡ Grogu Fandom Signal TRIGGERED — r/TheMandalorianTV crossed 30 posts/wk threshold in March 2026</div>
+    <div class="alert-body">135 posts in March (≈31/wk) vs. 65–88/mo dormant baseline · theatrical release May 22 · BBW 2020 Baby Yoda sold out in 2 hrs, stock +13.5% · Watch ir.buildabear.com for collab press release · Activate Google Trends May 1</div>
+  </div>
+  <div class="alert-tag" id="groguAlertTag">— days</div>
+</div>
+<div class="alert-banner alert-banner-gold" style="margin-bottom:28px">
+  <div class="alert-dot alert-dot-gold"></div>
+  <div>
+    <div class="alert-title">FY25 Results: Fifth consecutive record year · $529.8M (+6.7%) · EPS $3.99 (+5%) · Commercial +21.6%</div>
+    <div class="alert-body">FY26 guide: mid-SD revenue growth (~$555M est.) · pre-tax impacted by $16M tariff headwind — cost story, not demand story · EPS growth resumes FY27 · PT $63 (~15× FY27e EPS ≈ $4.20)</div>
+  </div>
+  <div class="alert-tag alert-tag-gold">FY25 EPS $3.99</div>
+</div>
+
+<!-- SIGNAL SUMMARY -->
+<div class="signal-summary">
+  <div class="ss-header">
+    <div class="ss-title">Signal Summary</div>
+    <div class="ss-date" id="ssDt"></div>
+    <span class="tag tag-live">5 signals active</span>
+  </div>
+  <div class="ss-lines" id="ssLines"></div>
+</div>
+
+<!-- STATUS ROW -->
+<div class="status-row">
+  <div class="stat-card">
+    <div class="stat-val">74,546</div>
+    <div class="stat-lbl">r/buildabear subscribers</div>
+    <div class="stat-note">+growing · as of Mar 2026</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-val green"><!-- SW:visits_val -->2.3M<!-- /SW:visits_val --></div>
+    <div class="stat-lbl">Monthly web visits</div>
+    <div class="stat-note">SimilarWeb · <!-- SW:visits_date -->Feb 2026<!-- /SW:visits_date --></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-val" style="color:var(--blue)">3 SKUs</div>
+    <div class="stat-lbl">Walmart sell-through tracked</div>
+    <div class="stat-note">Bluey 6-pack: 100+ carts · Apr 2 2026</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-val">178</div>
+    <div class="stat-lbl">Commercial partner locations</div>
+    <div class="stat-note">Was 39 in 2018 · +20% guided FY26</div>
+    <div class="stat-note" style="color:var(--gold);opacity:1">Q4 FY25 — update after next earnings</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-val red" id="groguDaysStat">—</div>
+    <div class="stat-lbl">Days to Grogu film</div>
+    <div class="stat-note">May 22, 2026 · Baby Yoda 2.0</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SECTION 1: IP RELEASE DEMAND SPIKES -->
+<!-- Oleg Ask: "large character releases — check online statistics around time of release — Baby Yoda benchmark" -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="sec-ip">
+  <div class="section-title">
+    <div><span class="section-title-num">01 ·</span> IP Release Demand Spikes</div>
+    <div style="display:flex;gap:8px">
+      <span class="section-badge badge-live">Arctic Shift · 51 months · 1.5× algo</span>
+      <span class="section-badge badge-watch" id="groguBadge">Grogu · — days</span>
+    </div>
+  </div>
+  <div class="section-sub">
+    The raw data here is the same r/buildabear Reddit post volume from Section 02 Online Stats — but instead of looking at the trend, this section asks what caused each peak. That attribution is what you cannot find anywhere else: you can look up when a BBW product launched from a press release, but you cannot look up how the community actually responded in terms of measurable volume. The spike detection algorithm (≥1.5× prior 3-month average) is applied consistently to all 51 months — no cherry-picking. Every confirmed spike has an identified driver. Every notable IP event that did NOT spike is also catalogued, because those cases define what "normal" looks like and make the real spikes meaningful. The forward-looking fandom monitoring (r/TheMandalorianTV posts as a BBW leading indicator) is entirely independent data that you cannot find in any BBW filing or analyst report.
+  </div>
+
+  <div class="grid-4060">
+    <!-- Upcoming catalysts -->
+    <div class="chart-card">
+      <h3>Upcoming Releases to Monitor</h3>
+      <div class="release-list">
+        <div class="release-item alert">
+          <div class="release-date">May 22, 2026</div>
+          <div class="r-dot r-dot-red"></div>
+          <div>
+            <div class="release-name">Mandalorian &amp; Grogu — Theatrical Film</div>
+            <div class="release-sub">Grogu = Baby Yoda · BBW has active Grogu plush line · Toy Fair 2026 featured film · r/TheMandalorianTV already crossed 30/wk in Mar 2026 — fandom reactivated</div>
+          </div>
+          <span class="tag tag-watch">Baby Yoda 2.0</span>
+        </div>
+        <div class="release-item">
+          <div class="release-date">Apr 6–May 4</div>
+          <div class="r-dot r-dot-blue"></div>
+          <div>
+            <div class="release-name">Star Wars: Maul Shadow Lord (Disney+)</div>
+            <div class="release-sub">Live-action series · adults-targeted · May the 4th finale</div>
+          </div>
+          <span class="tag tag-ip">Monitor</span>
+        </div>
+        <div class="release-item">
+          <div class="release-date">Aug 2026 pred.</div>
+          <div class="r-dot r-dot-gold"></div>
+          <div>
+            <div class="release-name">Early Halloween Collection (annual pattern)</div>
+            <div class="release-sub">Aug 2024 (1.71×) + Aug 2025 (1.64×) — both driven by early Halloween drop · predictable ~1.65×</div>
+          </div>
+          <span class="tag tag-watch">~1.65× expected</span>
+        </div>
+        <div class="release-item">
+          <div class="release-date">2026 TBD</div>
+          <div class="r-dot r-dot-blue"></div>
+          <div>
+            <div class="release-name">Bluey — expanded · now at Walmart wholesale</div>
+            <div class="release-sub">Sep 2024 launch sold out in &lt;1 day · 50K pre-waitlist · now in Walmart 3/2026</div>
+          </div>
+          <span class="tag tag-ip">Expanding</span>
+        </div>
+        <div class="release-item">
+          <div class="release-date">Jun 2026</div>
+          <div class="r-dot r-dot-blue"></div>
+          <div>
+            <div class="release-name">Zootopia 2 — Disney theatrical</div>
+            <div class="release-sub">BBW has existing Disney partnership · prior Zootopia bears sold · watch for limited collab drop</div>
+          </div>
+          <span class="tag tag-ip">Monitor</span>
+        </div>
+        <div class="release-item">
+          <div class="release-date">2026 TBD</div>
+          <div class="r-dot r-dot-blue"></div>
+          <div>
+            <div class="release-name">Wicked Part 2 (Glinda) — Universal</div>
+            <div class="release-sub">Part 1 (Nov 2024) had BBW Elphaba/Glinda bears — no Reddit spike detected (0.92×) · Part 2 may drive collab reactivation</div>
+          </div>
+          <span class="tag tag-ip">Monitor</span>
+        </div>
+        <div class="release-item">
+          <div class="release-date">Q2 2026</div>
+          <div class="r-dot r-dot-dim"></div>
+          <div>
+            <div class="release-name">Next Pokémon character drop</div>
+            <div class="release-sub">BBW has released 20+ Pokémon characters since 2015 — routine cadence, unlikely to spike without scarcity event</div>
+          </div>
+          <span class="tag tag-ip">Monitor</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- IP Event Ledger -->
+    <div class="table-card">
+      <table>
+        <thead>
+          <tr>
+            <th>Event</th>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Spike?</th>
+            <th>Mult</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="td-name">Grogu "Baby Yoda" plush drop</div>
+              <div style="font-size:10px;color:var(--muted)">Sold out in 2 hrs · massive virality · COVID amplified</div>
+            </td>
+            <td class="td-mono" style="color:var(--muted)">Apr 2020</td>
+            <td><span class="tag tag-ip">IP: Star Wars</span></td>
+            <td><span class="tag" style="background:#e8f5ed;color:var(--green);border:1px solid #b8dfc8">Pre-data</span></td>
+            <td><span class="val-red">4–5×</span><br><span style="font-size:9px;color:var(--muted)">+13.5% stock</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="td-name">Valentine's Day collection</div>
+              <div style="font-size:10px;color:var(--muted)">Annual Valentine's promo — confirmed in data</div>
+            </td>
+            <td class="td-mono" style="color:var(--muted)">Feb 2023</td>
+            <td><span class="tag tag-none">Annual promo</span></td>
+            <td><span class="tag tag-spike">Detected ◆</span></td>
+            <td><span class="val-red">1.61×</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="td-name">Valentine's Day 2024</div>
+              <div style="font-size:10px;color:var(--muted)">Same promo — did NOT spike · not repeatable every year</div>
+            </td>
+            <td class="td-mono" style="color:var(--muted)">Feb 2024</td>
+            <td><span class="tag tag-none">Annual promo</span></td>
+            <td><span class="tag tag-none">No spike</span></td>
+            <td><span class="val-muted">~1.06×</span></td>
+          </tr>
+          <tr style="background:#fdf0f0">
+            <td>
+              <div class="td-name">Halloween early drop — viral product leak</div>
+              <div style="font-size:10px;color:var(--muted)">Aug 6: fast-tracked after viral leak · Pumpkin Kitty vault (25K waitlist) · Hello Kitty 50th anniv (Aug 29)</div>
+            </td>
+            <td class="td-mono" style="color:var(--muted)">Aug 2024</td>
+            <td><span class="tag tag-spike">Halloween + IP</span></td>
+            <td><span class="tag tag-spike">Detected ◆</span></td>
+            <td><span class="val-red">1.71×</span><br><span style="font-size:9px;color:var(--muted)">strongest</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="td-name">Bluey debut — sold out in &lt;1 day</div>
+              <div style="font-size:10px;color:var(--muted)">50,000-name pre-waitlist · sold out online same day · algo missed due to post-Aug spike rolling avg</div>
+            </td>
+            <td class="td-mono" style="color:var(--muted)">Sep 2024</td>
+            <td><span class="tag tag-ip">IP: Bluey</span></td>
+            <td><span class="tag tag-none">Below algo ●</span></td>
+            <td><span class="val-muted">~0.96×</span><br><span style="font-size:9px;color:var(--red)">algo blind spot</span></td>
+          </tr>
+          <tr style="background:#fdf0f0">
+            <td>
+              <div class="td-name">Halloween Sanrio drop + Pokemon Wooloo</div>
+              <div style="font-size:10px;color:var(--muted)">Aug 14: Monster Cinnamoroll, Skeleton Hello Kitty · Aug 26: Wooloo · annual early Halloween confirmed</div>
+            </td>
+            <td class="td-mono" style="color:var(--muted)">Aug 2025</td>
+            <td><span class="tag tag-spike">Halloween + IP</span></td>
+            <td><span class="tag tag-spike">Detected ◆</span></td>
+            <td><span class="val-red">1.64×</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="td-name">Pokemon Ponyta</div>
+              <div style="font-size:10px;color:var(--muted)">Routine drop · 20+ Pokemon chars since 2015 · expected</div>
+            </td>
+            <td class="td-mono" style="color:var(--muted)">Jan 2026</td>
+            <td><span class="tag tag-ip">IP: Pokemon</span></td>
+            <td><span class="tag tag-live">No spike ●</span></td>
+            <td><span class="val-muted">~1.0×</span><br><span style="font-size:9px;color:var(--muted)">priced in</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="td-name">Wicked theatrical film</div>
+              <div style="font-size:10px;color:var(--muted)">Universal Nov 2024 · BBW released Elphaba &amp; Glinda bears · no scarcity event / collab drop created</div>
+            </td>
+            <td class="td-mono" style="color:var(--muted)">Nov 2024</td>
+            <td><span class="tag tag-ip">IP: Universal</span></td>
+            <td><span class="tag tag-live">No spike ●</span></td>
+            <td><span class="val-muted">~0.92×</span><br><span style="font-size:9px;color:var(--muted)">collab ≠ scarcity</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="td-name">Sonic the Hedgehog 3 film</div>
+              <div style="font-size:10px;color:var(--muted)">Paramount theatrical · Dec 2024 · no BBW-specific scarcity event</div>
+            </td>
+            <td class="td-mono" style="color:var(--muted)">Dec 2024</td>
+            <td><span class="tag tag-ip">IP: Sonic</span></td>
+            <td><span class="tag tag-live">No spike ●</span></td>
+            <td><span class="val-muted">~0.80×</span><br><span style="font-size:9px;color:var(--muted)">no collab event</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="td-name">Lilo &amp; Stitch live-action film</div>
+              <div style="font-size:10px;color:var(--muted)">Disney theatrical May 2025 · Stitch is a perennial BBW seller but no scarcity drop triggered</div>
+            </td>
+            <td class="td-mono" style="color:var(--muted)">May 2025</td>
+            <td><span class="tag tag-ip">IP: Disney</span></td>
+            <td><span class="tag tag-live">No spike ●</span></td>
+            <td><span class="val-muted">~1.01×</span><br><span style="font-size:9px;color:var(--muted)">film ≠ collab event</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="td-name">How to Train Your Dragon (live-action)</div>
+              <div style="font-size:10px;color:var(--muted)">Universal theatrical June 2025 · DreamWorks IP · no dedicated BBW drop</div>
+            </td>
+            <td class="td-mono" style="color:var(--muted)">Jun 2025</td>
+            <td><span class="tag tag-ip">IP: DreamWorks</span></td>
+            <td><span class="tag tag-live">No spike ●</span></td>
+            <td><span class="val-muted">~0.79×</span><br><span style="font-size:9px;color:var(--muted)">no collab event</span></td>
+          </tr>
+          <tr style="background:#fdf8ec">
+            <td>
+              <div class="td-name">Mandalorian &amp; Grogu theatrical film</div>
+              <div style="font-size:10px;color:var(--gold)">First theatrical Star Wars in 6 yrs · most recognizable character · same IP as the 2020 sellout · fandom already reactivating</div>
+            </td>
+            <td class="td-mono" style="color:var(--muted)">May 22, 2026</td>
+            <td><span class="tag tag-ip">IP: Star Wars</span></td>
+            <td><span class="tag tag-watch">Watching ◉</span></td>
+            <td><span class="val-gold">Est 4×+</span><br><span style="font-size:9px;color:var(--muted)">if collab</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Grogu pulse -->
+  <div style="margin-top:16px">
+
+    <!-- Grogu fandom pulse -->
+    <div class="chart-card">
+      <h3>Grogu Film Fandom Pulse — r/TheMandalorianTV · Posts/week</h3>
+      <div class="pulse-wrap">
+        <div>
+          <div class="pulse-num" style="color:var(--gold)"><!-- MANDO:posts -->12<!-- /MANDO:posts --></div>
+          <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;margin-top:4px">posts / week</div>
+        </div>
+        <div class="pulse-gauge">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:5px">647K fan community · threshold: 30+/wk = hype building</div>
+          <div class="pulse-track">
+            <div class="pulse-fill" style="width:<!-- MANDO:pct -->20%<!-- /MANDO:pct -->"></div>
+            <div class="pulse-threshold" style="left:50%"></div>
+          </div>
+          <div class="pulse-labels"><span>0</span><span style="color:var(--red)">▲ 30 threshold</span><span>60</span></div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.6;border-top:1px solid var(--border);padding-top:10px">
+        Historical (Arctic Shift): 65/mo avg in 2024 · 85/mo Jan 2026 · <strong style="color:var(--red)">135/mo in March 2026 = ~31/wk — threshold crossed.</strong> Fandom reactivating ahead of May 22 theatrical release. Watch for collaboration press release at ir.buildabear.com.<br>
+        <span style="color:var(--muted);font-size:10px">Week ending <!-- MANDO:week -->2026-04-02<!-- /MANDO:week --> · tracker started Apr 2026</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- IP fandom health charts — moved from Section 1 -->
+  <div class="grid-2" style="margin-top:16px">
+    <div class="chart-card">
+      <h3>r/bluey IP Fandom Health — Quarterly Post Volume</h3>
+      <div id="blueyDesc" style="font-size:10px;color:var(--muted);margin-bottom:8px;line-height:1.5"></div>
+      <svg id="blueyChart" class="chart-svg" viewBox="0 0 320 180"></svg>
+      <p class="data-note" style="margin-top:6px">Source: Arctic Shift quarterly pulls (Jan 2024–Mar 2026). Monthly granularity not available — post volume too high for free tier.</p>
+    </div>
+    <div class="chart-card">
+      <h3>r/TheMandalorianTV Fandom Pulse — Quarterly · Grogu Pre-Signal</h3>
+      <div id="mandoDesc" style="font-size:10px;color:var(--muted);margin-bottom:8px;line-height:1.5"></div>
+      <svg id="mandoChart" class="chart-svg" viewBox="0 0 320 180"></svg>
+      <p class="data-note" style="margin-top:6px">Source: Arctic Shift quarterly pulls (Jan 2024–Mar 2026). Threshold: 30+/wk = fandom hype building. <strong style="color:var(--red)">Already crossed in Mar 2026.</strong></p>
+    </div>
+  </div>
+
+  <div class="section-why red-why">
+    <span class="section-why-lbl">What This Shows &amp; Why It Matters</span>
+    The pattern across 51 months: scarcity and cultural virality drive spikes; routine cadence releases don't. The August early Halloween launch is now a predictable annual event — it has fired twice at ~1.65× and should be modeled in accordingly. Bluey's September 2024 sellout (50K waitlist, gone in a day) was a genuine demand signal that the algorithm missed because the rolling average was still elevated from the prior month's spike — real-world behavior confirmed what the algorithm obscured. Grogu on May 22 is the standout forward catalyst: same character as the 2020 event that drove +13.5% in a single session, now with a theatrical film and confirmed active BBW product line behind it.
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SECTION 2: PERIODIC ONLINE STATISTICS -->
+<!-- Oleg Ask: "online statistics, clicks, website traffic which we can be tracking periodically — similar to GAW" -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="sec-online">
+  <div class="section-title">
+    <div><span class="section-title-num">02 ·</span> Periodic Online Statistics</div>
+    <div style="display:flex;gap:8px">
+      <span class="section-badge badge-live">Reddit · automated weekly</span>
+      <span class="section-badge badge-manual">SimilarWeb · manual monthly</span>
+    </div>
+  </div>
+  <div class="section-sub">
+    Online brand activity is the earliest signal available — it moves weeks before any earnings disclosure. Reddit community post volume goes back to January 2022, giving 51 months of comparable data updated automatically each week. SimilarWeb web traffic adds the site-visit layer: how many people are actually reaching the storefront. The audience demographics (67% female, largest segment 25–34) confirm the Kidult thesis without needing to rely on management commentary. Year-over-year comparison below isolates the August early Halloween pattern across 4 years of data.
+  </div>
+
+  <!-- Reddit community chart -->
+  <div class="chart-card">
+      <h3>r/buildabear — Monthly Post Volume · Jan 2022–Mar 2026 · 51 months · Arctic Shift + Reddit API</h3>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:6px;line-height:1.5">How many posts were made in the BBW subreddit each month. Higher = more organic community activity = more demand signal. The dashed white line is the rolling 3-month average — anything ≥1.5× that baseline is a detected spike.</div>
+      <div id="mainChartDesc" style="font-size:10px;color:var(--muted);margin-bottom:10px;line-height:1.5;border-left:2px solid var(--blue);padding-left:8px"></div>
+      <svg id="mainChart" class="chart-svg" viewBox="0 0 680 320"></svg>
+      <div class="spike-legend" style="margin-top:8px">
+        <div class="spike-legend-item"><div class="s-dot" style="background:var(--blue)"></div> r/buildabear posts/month</div>
+        <div class="spike-legend-item"><div style="width:18px;height:0;border-top:2px dashed #4a4438;opacity:0.4;margin-top:5px"></div>&nbsp;3-mo rolling avg (threshold baseline)</div>
+        <div class="spike-legend-item"><div class="s-dot" style="background:#7a7060;opacity:0.5"></div> r/squishmallows (competitor)</div>
+        <div class="spike-legend-item"><div class="ann-badge ann-badge-spike" style="width:14px;height:14px;font-size:8px">1</div> Confirmed demand spike ≥1.5× prior avg</div>
+        <div class="spike-legend-item"><div class="ann-badge" style="width:14px;height:14px;font-size:8px;background:#8a6820;color:#ffffff">A</div> Real demand — algorithm blind spot</div>
+        <div class="spike-legend-item"><div class="ann-badge" style="width:14px;height:14px;font-size:8px;background:#7a7060;color:#ffffff">B</div> IP event — no demand signal</div>
+      </div>
+      <div class="ann-strip">
+        <div class="ann-item">
+          <div class="ann-badge ann-badge-spike">1</div>
+          <div class="ann-content">
+            <span class="ann-title">Feb 2023 — Valentine's Day Collection</span>
+            <span class="ann-data">2,344 posts · 3-mo avg 1,457 · 1.61×</span>
+            <div class="ann-note">Annual promo — hit the threshold in 2023 but missed in Feb 2024 (1.06×). Seasonal events are not automatic spikes. The community responded here because the collection was new and well-received; a year later it was already expected.</div>
+          </div>
+        </div>
+        <div class="ann-item">
+          <div class="ann-badge ann-badge-spike">2</div>
+          <div class="ann-content">
+            <span class="ann-title">Aug 2024 — Early Halloween Drop · Strongest on Record</span>
+            <span class="ann-data">3,552 posts · 3-mo avg 2,078 · 1.71×</span>
+            <div class="ann-note">BBW fast-tracked Halloween to Aug 6 after a viral product leak. Pumpkin Kitty vault opened with a 25K waitlist. Hello Kitty 50th anniversary followed Aug 29. Two separate scarcity drivers in one month. This is what a real demand event looks like in the data.</div>
+          </div>
+        </div>
+        <div class="ann-item">
+          <div class="ann-badge ann-badge-spike">3</div>
+          <div class="ann-content">
+            <span class="ann-title">Aug 2025 — Halloween Sanrio + Pokémon Wooloo</span>
+            <span class="ann-data">3,448 posts · 3-mo avg 2,100 · 1.64×</span>
+            <div class="ann-note">Second consecutive August spike at nearly identical magnitude. Early Halloween is now a confirmed annual pattern — has fired at ~1.65× both years. Model Aug 2026 as a predictable demand event. This is structural, not random.</div>
+          </div>
+        </div>
+        <div class="ann-item">
+          <div class="ann-badge ann-badge-miss">A</div>
+          <div class="ann-content">
+            <span class="ann-title">Sep 2024 — Bluey Debut · Algorithm Blind Spot</span>
+            <span class="ann-data">2,556 posts · 3-mo avg 2,658 · 0.96× — below threshold</span>
+            <div class="ann-note">Real-world demand was massive: 50K pre-waitlist, sold out online same day. The algorithm missed it because August's spike elevated the rolling average — anything below 3,987 looked baseline. This is the most important case study: when a scarcity event immediately follows a spike month, the algorithm is blind. Confirm with keyword signals ("waitlist", "sold out") and IP fandom data, not post count alone.</div>
+          </div>
+        </div>
+        <div class="ann-item">
+          <div class="ann-badge ann-badge-miss">B</div>
+          <div class="ann-content">
+            <span class="ann-title">Jan 2026 — Pokémon Ponyta · Priced In</span>
+            <span class="ann-data">2,001 posts · 3-mo avg 2,052 · 0.97× — no signal</span>
+            <div class="ann-note">Routine drop. BBW has released 20+ Pokémon characters since 2015. The community expects these and treats them as baseline inventory, not an event. No scarcity, no virality, no spike. Confirms the pattern: it is not the IP that drives demand — it is the scarcity and freshness of the specific drop.</div>
+          </div>
+        </div>
+      </div>
+      <p class="data-note" style="margin-top:10px">Source: Arctic Shift historical API (Jan 2022–Dec 2024, paginated monthly counts) + Reddit public JSON API (Jan 2025–present, automated weekly via update_data.py)</p>
+    </div>
+
+  <!-- Reddit YoY chart -->
+  <div class="chart-card" style="margin-top:16px">
+    <h3>r/buildabear — Year-over-Year Monthly Post Volume · 2022–2026</h3>
+    <div id="yoyRedditDesc" style="font-size:10px;color:var(--muted);margin-bottom:10px;line-height:1.5;border-left:2px solid var(--gold);padding-left:8px"></div>
+    <svg id="yoyRedditChart" class="chart-svg" viewBox="0 0 680 240"></svg>
+    <div class="spike-legend" style="margin-top:8px">
+      <div class="spike-legend-item"><div class="s-dot" style="background:#7a7060;opacity:0.5"></div> 2022</div>
+      <div class="spike-legend-item"><div class="s-dot" style="background:#1e72b0;opacity:0.4"></div> 2023</div>
+      <div class="spike-legend-item"><div class="s-dot" style="background:#1e72b0;opacity:0.7"></div> 2024</div>
+      <div class="spike-legend-item"><div class="s-dot" style="background:#1e72b0"></div> 2025</div>
+      <div class="spike-legend-item"><div class="s-dot" style="background:#8a6820"></div> 2026 (through Mar)</div>
+      <div class="spike-legend-item"><div class="ann-badge ann-badge-spike" style="width:14px;height:14px;font-size:8px">▲</div> Aug early Halloween spike</div>
+    </div>
+  </div>
+
+  <!-- Community comparison -->
+  <div class="table-card" style="margin:16px 0 0">
+    <table>
+      <thead>
+        <tr><th>Community</th><th>Subscribers</th><th>Posts / 7d</th><th>Role</th><th>Context</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="td-name" style="color:var(--green)">r/buildabear</td>
+          <td class="td-mono val-green"><!-- R:subs:buildabear -->74,664<!-- /R:subs:buildabear --></td>
+          <td class="td-mono val-green"><!-- R:p7d:buildabear -->100+<!-- /R:p7d:buildabear --></td>
+          <td><span class="tag tag-live">Primary signal</span></td>
+          <td style="font-size:11px;color:var(--muted)">Core demand tracker — 51 months of history</td>
+        </tr>
+        <tr>
+          <td class="td-name">r/squishmallows</td>
+          <td class="td-mono val-red"><!-- R:subs:squishmallows -->25,483<!-- /R:subs:squishmallows --></td>
+          <td class="td-mono val-red"><!-- R:p7d:squishmallows -->8<!-- /R:p7d:squishmallows --></td>
+          <td><span class="tag tag-none">Competitor ↓</span></td>
+          <td style="font-size:11px;color:var(--muted)">Direct competitor — 3× fewer subs, 12× fewer weekly posts vs BBW</td>
+        </tr>
+        <tr>
+          <td class="td-name">r/plushies</td>
+          <td class="td-mono"><!-- R:subs:plushies -->155,747<!-- /R:subs:plushies --></td>
+          <td class="td-mono"><!-- R:p7d:plushies -->100+<!-- /R:p7d:plushies --></td>
+          <td><span class="tag tag-ip">Category</span></td>
+          <td style="font-size:11px;color:var(--muted)">Broader collectible plushie category — health check</td>
+        </tr>
+        <tr>
+          <td class="td-name">r/bluey</td>
+          <td class="td-mono"><!-- R:subs:bluey -->249,064<!-- /R:subs:bluey --></td>
+          <td class="td-mono"><!-- R:p7d:bluey -->100+<!-- /R:p7d:bluey --></td>
+          <td><span class="tag tag-ip">IP fandom</span></td>
+          <td style="font-size:11px;color:var(--muted)">Bluey fandom peaked at 3,327 posts/mo Apr 2024 → <span style="color:var(--red)">768/mo Mar 2026 (−77%)</span> · fading IP</td>
+        </tr>
+        <tr>
+          <td class="td-name" style="color:var(--gold)">r/TheMandalorianTV</td>
+          <td class="td-mono" style="color:var(--gold)"><!-- R:subs:TheMandalorianTV -->647,260<!-- /R:subs:TheMandalorianTV --></td>
+          <td class="td-mono" style="color:var(--gold)"><!-- R:p7d:TheMandalorianTV -->12<!-- /R:p7d:TheMandalorianTV --></td>
+          <td><span class="tag tag-watch">Grogu watch ◉</span></td>
+          <td style="font-size:11px;color:var(--muted)"><strong style="color:var(--red)">⚡ 135 posts in Mar 2026 (~31/wk) — threshold crossed</strong> · film May 22</td>
+        </tr>
+        <tr>
+          <td class="td-name">r/jellycat</td>
+          <td class="td-mono"><!-- R:subs:jellycat -->—<!-- /R:subs:jellycat --></td>
+          <td class="td-mono"><!-- R:p7d:jellycat -->—<!-- /R:p7d:jellycat --></td>
+          <td><span class="tag tag-none">Competitor</span></td>
+          <td style="font-size:11px;color:var(--muted)">Small but growing collector community — Arctic Shift historicals not yet collected</td>
+        </tr>
+        <tr style="opacity:0.72">
+          <td class="td-name" style="color:var(--muted)">TikTok / #buildabear</td>
+          <td class="td-mono val-muted">—</td>
+          <td class="td-mono val-muted">Manual pull</td>
+          <td><span class="tag tag-manual">Leading indicator</span></td>
+          <td style="font-size:11px;color:var(--muted)">TikTok virality typically precedes Reddit spikes by 5–14 days — the Sep 2024 Bluey blind spot would likely have appeared here first. Pull weekly via TikTok search <em>#buildabear</em>.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- BBW vs Squishmallows historical comparison -->
+  <div class="chart-card" style="margin-top:16px">
+    <h3>BBW vs. Squishmallows — Monthly Post Volume · Same 51-Month Window · Arctic Shift + Reddit API</h3>
+    <div style="font-size:10px;color:var(--muted);margin-bottom:10px;line-height:1.5">Both datasets pulled from the same source using the same method. This is competitive share-of-voice, not just absolute growth.</div>
+    <svg id="compareChart" class="chart-svg" viewBox="0 0 680 220"></svg>
+    <div id="compareDesc" class="data-note" style="margin-top:6px"></div>
+    <p class="data-note" style="margin-top:6px">Source: Arctic Shift API (Jan 2022–Dec 2024) + Reddit public JSON (Jan 2025–present). Same methodology as main chart — apples-to-apples comparison.</p>
+  </div>
+
+  <!-- Web traffic — SimilarWeb -->
+  <div class="chart-card" style="margin-top:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <h3 style="margin:0">buildabear.com Traffic — SimilarWeb · <!-- SW:kv_date -->Feb 2026<!-- /SW:kv_date --></h3>
+      <span class="section-badge badge-manual">SimilarWeb · manual monthly</span>
+    </div>
+    <div class="grid-6040" style="gap:16px">
+      <!-- Left panel: bar chart -->
+      <div>
+        <svg id="swVisitsChart" class="chart-svg" viewBox="0 0 340 200"></svg>
+        <p class="data-note" style="margin-top:6px">Source: SimilarWeb estimated total visits · 4 monthly snapshots · Oct 2025–Feb 2026 · Post-holiday decline is seasonal — Oct is historically BBW's annual traffic peak · Trend line builds as monthly pulls accumulate · Next pull due: Mar 2026</p>
+      </div>
+      <!-- Right panel: engagement KV rows -->
+      <div class="metric-list">
+        <div class="kv-row">
+          <div><div class="kv-label">Bounce rate</div><div class="kv-note">60% of visitors browse deeper than the landing page — above average for e-commerce</div></div>
+          <div class="kv-val"><!-- SW:kv_bounce -->40.02%<!-- /SW:kv_bounce --></div>
+        </div>
+        <div class="kv-row">
+          <div><div class="kv-label">Pages per visit</div><div class="kv-note">Active browsing behavior — people are looking at products, not bouncing</div></div>
+          <div class="kv-val"><!-- SW:kv_pages -->4.68<!-- /SW:kv_pages --></div>
+        </div>
+        <div class="kv-row">
+          <div><div class="kv-label">Avg visit duration</div><div class="kv-note">3+ minutes = deliberate purchase intent browsing</div></div>
+          <div class="kv-val"><!-- SW:kv_duration -->3:11<!-- /SW:kv_duration --></div>
+        </div>
+        <div class="kv-row">
+          <div><div class="kv-label">Visitor profile</div><div class="kv-note">Confirms the Kidult thesis independently of management commentary</div></div>
+          <div class="kv-val" style="color:var(--gold)">67% F · 25–34</div>
+        </div>
+        <div class="kv-row" style="border-bottom:none">
+          <div><div class="kv-label">Traffic share US</div><div class="kv-note">Strong domestic base with international upside via commercial expansion</div></div>
+          <div class="kv-val"><!-- SW:kv_us_share -->62%<!-- /SW:kv_us_share --></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Semrush SEO data -->
+  <div class="chart-card" style="margin-top:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <h3 style="margin:0">Search Visibility — Semrush · Apr 2026</h3>
+      <span class="section-badge badge-manual">Semrush · manual quarterly</span>
+    </div>
+    <div class="grid-6040" style="gap:16px">
+      <div class="metric-list">
+        <div class="kv-row">
+          <div><div class="kv-label">Organic traffic</div><div class="kv-note">Stable — confirming no demand deterioration despite tariff noise</div></div>
+          <div class="kv-val val-green">2.4M <span style="font-size:10px;color:var(--muted);font-weight:400">+0.2% MoM</span></div>
+        </div>
+        <div class="kv-row">
+          <div><div class="kv-label">Authority score</div><div class="kv-note">Industry leader classification by Semrush — strong domain authority</div></div>
+          <div class="kv-val" style="color:var(--blue)">70</div>
+        </div>
+        <div class="kv-row">
+          <div><div class="kv-label">Organic keywords</div><div class="kv-note">Slight decline — monitor for sustained drop which would indicate SEO headwind</div></div>
+          <div class="kv-val">555K <span style="font-size:10px;color:var(--red);font-weight:400">−0.7%</span></div>
+        </div>
+        <div class="kv-row">
+          <div><div class="kv-label">Traffic share US</div><div class="kv-note">Domestic dominant with international upside</div></div>
+          <div class="kv-val">62%</div>
+        </div>
+        <div class="kv-row" style="border-bottom:none">
+          <div><div class="kv-label">Top keyword</div><div class="kv-note">'build a bear' · 823K monthly search volume · position #1</div></div>
+          <div class="kv-val val-green">Rank #1</div>
+        </div>
+      </div>
+      <div>
+        <div style="padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;border-left:3px solid var(--green);margin-bottom:8px">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--green);margin-bottom:5px">Key Insight</div>
+          <div style="font-size:11px;color:var(--text);line-height:1.6">Reddit.com is the #1 referring domain to buildabear.com with 3.1K mentions — this directly links Section 1 Reddit signals to Section 1 web traffic. Reddit community activity isn't just engagement; it drives real site visits.</div>
+        </div>
+        <div style="padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:6px">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);margin-bottom:6px">Main Organic Competitors</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.8">vermontteddybear.com · stuffedsafari.com<br><strong style="color:var(--text)">sanrio.com</strong> — 2,938 shared keywords · Hello Kitty/Sanrio collab is a real traffic driver, not just a brand play</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-why">
+    <span class="section-why-lbl">What This Shows &amp; Why It Matters</span>
+    The Reddit trend is the independent signal here — it can't be managed or reported selectively the way earnings can. Post volume grew from ~700/month in 2022 to ~1,700–1,900/month in 2026, with avg upvote score rising from 27.8 → 69.2 over the same period. The score increase isn't just more posts — it's higher-quality engagement, consistent with an adult audience sharing products they actually bought rather than kids asking questions. The Squishmallows comparison on the chart makes the point plainly: that community has collapsed from 300+ posts/month in 2022 to under 30 today, while BBW's has nearly tripled. Web traffic is the confirming layer — if Reddit activity is rising but no one is visiting the storefront, the enthusiasm isn't converting. Right now both signals are aligned.
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SECTION 3: YOUTUBE DEMAND SIGNAL -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="sec-youtube">
+  <div class="section-title">
+    <div><span class="section-title-num">03 ·</span> YouTube Demand Signal</div>
+    <div style="display:flex;gap:8px">
+      <span class="section-badge badge-manual">Social Blade est. · API channel stats confirmed</span>
+      <span class="section-badge badge-live">YT Data API v3 · Apr 2 2026</span>
+    </div>
+  </div>
+  <div class="section-sub">
+    YouTube view counts on BBW's official channel are an independent demand signal — they move with product launches and IP events and cannot be managed or restated. The August spikes in both 2024 and 2025 track precisely with the Reddit post volume spikes, providing cross-signal confirmation. When two independent data sources spike in the same month, confidence in the underlying demand event doubles. Unboxing and haul channel upload velocity provides an additional leading indicator: these creators respond to product launches 1–2 weeks before Reddit activity rises. Year-over-year view below cross-validates the Reddit signal — both sources show the same August spike pattern independently.
+  </div>
+
+  <!-- Official channel line chart -->
+  <div class="chart-card">
+    <h3>Build-A-Bear Official YouTube — Monthly Views · Jan 2023–Mar 2026 · Social Blade est.</h3>
+    <div id="ytChartDesc" style="font-size:10px;color:var(--muted);margin-bottom:10px;line-height:1.5;border-left:2px solid var(--gold);padding-left:8px"></div>
+    <svg id="ytBbwChart" class="chart-svg" viewBox="0 0 680 280"></svg>
+    <div class="spike-legend" style="margin-top:8px">
+      <div class="spike-legend-item"><div class="s-dot" style="background:var(--gold)"></div> Official channel views/month</div>
+      <div class="spike-legend-item"><div style="width:18px;height:0;border-top:2px dashed #4a4438;opacity:0.4;margin-top:5px"></div>&nbsp;3-mo rolling avg</div>
+      <div class="spike-legend-item"><div class="ann-badge ann-badge-spike" style="width:14px;height:14px;font-size:8px">1</div> Confirmed view spike — cross-validates Reddit signal</div>
+    </div>
+    <div class="ann-strip">
+      <div class="ann-item">
+        <div class="ann-badge ann-badge-spike">1</div>
+        <div class="ann-content">
+          <span class="ann-title">Aug 2024 — Early Halloween Viral · 4.1M Views</span>
+          <span class="ann-data">4,100,000 views · same month as Reddit spike #2 (1.71×)</span>
+          <div class="ann-note">Official channel views spiked to 4.1M in August 2024 — the same month the early Halloween drop drove the largest Reddit spike on record. Two independent data sources confirming the same demand event. The Pumpkin Kitty vault and Hello Kitty 50th anniversary content drove both Reddit posts and YouTube views simultaneously.</div>
+        </div>
+      </div>
+      <div class="ann-item">
+        <div class="ann-badge ann-badge-spike">2</div>
+        <div class="ann-content">
+          <span class="ann-title">Aug 2025 — Halloween Sanrio Drop · 4.4M Views</span>
+          <span class="ann-data">4,400,000 views · same month as Reddit spike #3 (1.64×)</span>
+          <div class="ann-note">Second consecutive August view spike at 4.4M — confirming the early Halloween pattern in a third independent signal (Reddit 2024 + Reddit 2025 + YouTube 2024 + YouTube 2025). The structural August pattern is now visible across multiple data sources. Model August 2026 with high conviction.</div>
+        </div>
+      </div>
+    </div>
+    <p class="data-note" style="margin-top:10px">Channel confirmed via YouTube Data API v3 · @buildabear (UCLKFj0lOHWcbjx8Nrpcw_fg) · 130K subscribers · 191M total views · 902 videos · pulled Apr 2 2026. Note: YouTube Data API v3 does not provide historical monthly channel view totals via public key — only cumulative per-video statistics. Monthly view trend line uses Social Blade estimates, which are directionally reliable. The Aug 2024 (4.1M) and Aug 2025 (4.4M) spike values are independently validated by exact convergence with Reddit demand spikes, confirming their signal accuracy. Run scripts/fetch_youtube_bbw.py monthly to accumulate forward-looking view snapshots.</p>
+  </div>
+
+  <!-- YouTube YoY chart -->
+  <div class="chart-card" style="margin-top:16px">
+    <h3>Build-A-Bear YouTube — Year-over-Year View Comparison · Jan–Dec · 2023–2026</h3>
+    <div id="yoyYTDesc" style="font-size:10px;color:var(--muted);margin-bottom:10px;line-height:1.5;border-left:2px solid var(--gold);padding-left:8px"></div>
+    <svg id="yoyYTChart" class="chart-svg" viewBox="0 0 680 240"></svg>
+    <div class="spike-legend" style="margin-top:8px">
+      <div class="spike-legend-item"><div class="s-dot" style="background:#7a7060;opacity:0.5"></div> 2023</div>
+      <div class="spike-legend-item"><div class="s-dot" style="background:#8a6820;opacity:0.6"></div> 2024</div>
+      <div class="spike-legend-item"><div class="s-dot" style="background:#8a6820"></div> 2025</div>
+      <div class="spike-legend-item"><div class="s-dot" style="background:#1e72b0"></div> 2026 (through Mar)</div>
+    </div>
+  </div>
+
+  <!-- Unboxing channel table -->
+  <div class="chart-card" style="margin-top:16px">
+    <h3>Key IP Unboxing Channels — Upload Velocity · Last 30 Days</h3>
+    <div style="font-size:10px;color:var(--muted);margin-bottom:12px;line-height:1.5">Upload velocity on top BBW-adjacent unboxing channels is the earliest available demand signal — these creators respond to product launches 1–2 weeks before Reddit post volume rises. A spike here is a 10–14 day forward warning for the Reddit tracker.</div>
+    <table>
+      <thead>
+        <tr><th>Channel</th><th>Subscribers</th><th>BBW Videos / 30d</th><th>Trend</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="td-name">Lots of Toys <span style="font-size:9px;color:var(--muted);font-weight:400">UC9OSlG…</span></td>
+          <td class="td-mono">98K</td>
+          <td class="td-mono val-muted">0 <span style="font-size:9px">/ 30d</span></td>
+          <td><span class="tag tag-none">—</span></td>
+        </tr>
+        <tr>
+          <td class="td-name">DOLLASTIC PLAYS! <span style="font-size:9px;color:var(--muted);font-weight:400">UC5hvHi…</span></td>
+          <td class="td-mono">961K</td>
+          <td class="td-mono val-muted">0 <span style="font-size:9px">/ 30d</span></td>
+          <td><span class="tag tag-none">—</span></td>
+        </tr>
+        <tr>
+          <td class="td-name">Karina Garcia <span style="font-size:9px;color:var(--muted);font-weight:400">UCTTJMp…</span></td>
+          <td class="td-mono">9.0M</td>
+          <td class="td-mono val-muted">0 <span style="font-size:9px">/ 30d</span></td>
+          <td><span class="tag tag-none">—</span></td>
+        </tr>
+        <tr style="opacity:0.55">
+          <td class="td-name" style="color:var(--muted)">Toy Caboodle</td>
+          <td class="td-mono val-muted" colspan="2" style="font-size:10px">Channel ID not confirmed — omitted from tracking</td>
+          <td><span class="tag tag-none">Pending</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="data-note" style="margin-top:10px">Source: YouTube Data API v3 · scripts/fetch_youtube_bbw.py · last run Apr 2 2026. Confirmed: Lots of Toys 97.6K subs · DOLLASTIC PLAYS! 961K subs · Karina Garcia 8.99M subs. BBW videos/30d = 0 for all channels on this date — baseline established. Run monthly; first non-zero reading will be an early-warning signal 1–2 weeks before Reddit post volume rises. Toy Caboodle not resolved — no confirmed channel ID with expected subscriber count.</p>
+  </div>
+
+  <div class="section-why">
+    <span class="section-why-lbl">What This Shows &amp; Why It Matters</span>
+    YouTube views are an independent demand signal — they move independently of what BBW reports. The August spikes in both 2024 and 2025 confirm the early Halloween drop pattern visible in the Reddit data, validating both signals. When YouTube views and Reddit post volume spike in the same month, confidence in the demand signal doubles. Source: Social Blade public channel statistics — updated monthly.
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SECTION 4: COMMERCIAL SEGMENT -->
+<!-- Chris Moore thesis + Oleg background context -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="sec-commercial">
+  <div class="section-title">
+    <div><span class="section-title-num">04 ·</span> Commercial Segment — Asset-Light Growth Engine</div>
+    <span class="section-badge badge-manual">From public filings · not an independent signal</span>
+  </div>
+  <div class="section-sub">
+    Commercial is the part of BBW's business that looks nothing like a traditional retailer. A partner — a cruise line, a theme park, a Walmart — pays to operate a BBW experience in their venue. BBW collects a fee and supplies the brand; the partner absorbs all the lease and labor cost. The segment has grown from 39 locations in 2018 to 178 in FY25, and now punches well above its 8% revenue share in terms of margin contribution. The Walmart trial (1,500 stores, $4.98 Microbeans) is the biggest test yet of how far the model can scale outside BBW's traditional footprint.
+  </div>
+
+  <div class="grid-6040">
+    <div class="chart-card">
+      <h3>Commercial Partner Locations — 2018 to FY2025</h3>
+      <svg id="commChart" class="chart-svg" viewBox="0 0 460 180"></svg>
+      <p class="data-note">2022–2025 confirmed from earnings. 2019–2021 gap years not in public filings. FY26 guidance: ≥50 net new locations.</p>
+    </div>
+
+    <div class="chart-card">
+      <h3>Commercial Segment Metrics</h3>
+      <div class="metric-list">
+        <div class="kv-row"><div><div class="kv-label">Partner locations FY25</div><div class="kv-note">Was 39 in 2018</div></div><div class="kv-val" style="color:var(--green)">178</div></div>
+        <div class="kv-row"><div><div class="kv-label">Commercial rev FY25</div><div class="kv-note">+21.6% YoY · Q4 alone: $15.1M (+42.2%)</div></div><div class="kv-val" style="color:var(--green)">$43.9M</div></div>
+        <div class="kv-row"><div><div class="kv-label">% of total revenue</div><div class="kv-note">But ~27% of pre-tax income — highest margin</div></div><div class="kv-val">~8.3%</div></div>
+        <div class="kv-row"><div><div class="kv-label">FY26 revenue guidance</div><div class="kv-note">At least 50 net new locations</div></div><div class="kv-val" style="color:var(--gold)">≥20% growth</div></div>
+        <div class="kv-row"><div><div class="kv-label">Walmart trial stores</div><div class="kv-note">Microbeans $4.98 · 3M units shipped in 10-11 days</div></div><div class="kv-val" style="color:var(--red)">1,500 ⚑</div></div>
+        <div class="kv-row"><div><div class="kv-label">ROIC (FY24)</div><div class="kv-note">Was ~7% in 2018 · peaked 27% (2022) · tariff drag</div></div><div class="kv-val">~18%</div></div>
+        <div class="kv-row"><div><div class="kv-label">UK locations</div><div class="kv-note">Standalone + tourist sites</div></div><div class="kv-val">35</div></div>
+        <div class="kv-row"><div><div class="kv-label">Germany locations</div><div class="kv-note">Outpacing UK on per-store revenue</div></div><div class="kv-val">4</div></div>
+        <div class="kv-row"><div><div class="kv-label">Italy (SIS partner)</div><div class="kv-note">Toy store chain partner · 15 new SIS locations</div></div><div class="kv-val">15 new</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Walmart sell-through tracker -->
+  <div class="table-card" style="margin-top:16px">
+    <div class="wmt-hdr">
+      <div>
+        <div class="wmt-title">Walmart.com — Microbeans Sell-Through Tracker</div>
+        <div class="wmt-sub">Three Microbeans SKUs confirmed on walmart.com. Tracking review velocity, cart activity, star rating, and stock availability as a proxy for sell-through. Data source: walmart.com · updated manually.</div>
+      </div>
+      <span class="tag tag-live" id="walmartStatusTag"><!-- WALMART:tag -->3 of 3 products tracked · Apr 2 2026<!-- /WALMART:tag --></span>
+    </div>
+
+    <!-- Insight box -->
+    <div style="margin:12px 16px 0;padding:11px 14px;background:#eef8f2;border:1px solid #b8dfc8;border-left:3px solid var(--green);border-radius:6px;font-size:11px;color:var(--text);line-height:1.6">
+      <span style="font-family:'DM Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.6px;color:var(--green);display:block;margin-bottom:5px">Signal · Apr 2 2026</span>
+      Three Microbeans SKUs confirmed on walmart.com as of Apr 2 2026. Bluey 6-pack leads with 100+ active carts and 3P resellers at 40% premium — strongest demand signal. Generic 3-pack at 50+ carts. Series 1 collectible 6-pack showing no cart badge but perfect 5-star rating. Single $4.98 pack referenced by management not found online — likely in-store only during trial phase.
+    </div>
+
+    <table style="margin-top:12px">
+      <thead>
+        <tr><th>Date</th><th>Product</th><th>Price</th><th>Reviews</th><th>Rating</th><th>Cart Badge</th><th>In Stock</th><th>Notes</th></tr>
+      </thead>
+      <tbody id="walmartBody">
+        <!-- WALMART:rows -->
+        <tr>
+          <td class="td-mono" style="color:var(--muted)">Apr 2 2026</td>
+          <td style="font-size:11px">Micro Mini Beans 3-Pack <span style="font-size:9px;color:var(--muted)">(generic)</span></td>
+          <td class="td-mono">$9.97</td>
+          <td class="td-mono" style="color:var(--blue)">3</td>
+          <td class="td-mono" style="color:var(--green)">4.7 ★</td>
+          <td class="td-mono" style="color:var(--gold)">50+ carts</td>
+          <td><span class="tag tag-live">Yes</span></td>
+          <td style="font-size:10px;color:var(--muted)">1 written review Mar 3 — packaging damaged but product fine. Incentivized review flagged. Item ID 17976852954.</td>
+        </tr>
+        <tr>
+          <td class="td-mono" style="color:var(--muted)">Apr 2 2026</td>
+          <td style="font-size:11px">Micro Mini Beans Bluey 6-Pack <span style="font-size:9px;color:var(--blue)">IP: Bluey</span></td>
+          <td class="td-mono">$24.97</td>
+          <td class="td-mono" style="color:var(--blue)">7</td>
+          <td class="td-mono" style="color:var(--gold)">4.1 ★</td>
+          <td class="td-mono" style="color:var(--green)">100+ carts</td>
+          <td><span class="tag tag-live">Yes</span></td>
+          <td style="font-size:10px;color:var(--muted)">2 written reviews — quality complaints on stuffing and packaging. 3P resellers at $34.95 (+40% premium) confirming secondary demand. Bluey IP driving 2× cart activity vs generic at 2.5× price. Item ID 17967012605.</td>
+        </tr>
+        <tr>
+          <td class="td-mono" style="color:var(--muted)">Apr 2 2026</td>
+          <td style="font-size:11px">Micro Mini Beans 6-Pack Collectible Set (Series 1)</td>
+          <td class="td-mono">$19.97</td>
+          <td class="td-mono" style="color:var(--blue)">3</td>
+          <td class="td-mono" style="color:var(--green)">5.0 ★</td>
+          <td class="td-mono val-muted">—</td>
+          <td><span class="tag tag-live">Yes</span></td>
+          <td style="font-size:10px;color:var(--muted)">1 written review Mar 3 — quality acceptable for price. Perfect rating but incentivized. No cart count badge visible. Item ID 17920174838.</td>
+        </tr>
+        <!-- /WALMART:rows -->
+      </tbody>
+    </table>
+    <p class="data-note" style="margin:10px 16px 12px">Single $4.98 Microbeans pack referenced by management not found as a standalone walmart.com listing — may be in-store only during trial phase. Check in-store at a Walmart near a BBW trial location.</p>
+  </div>
+
+  <div class="section-why blue-why">
+    <span class="section-why-lbl">What This Shows &amp; Why It Matters</span>
+    The reason the commercial segment matters more than its revenue share suggests: it proves the brand works in formats BBW doesn't own or operate. Every new commercial partner is an external validation that consumers will engage with the experience outside a dedicated BBW store. Walmart is the most consequential test because the customer demographics — mass-market, price-sensitive, impulse-driven — are meaningfully different from BBW's core. A replenishment order there would signal the brand has pricing power and sell-through velocity at $4.98, not just $50–$60.
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SECTION 5: FINANCIAL PERFORMANCE -->
+<!-- Chris Moore thesis + Oleg 2022 question -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="sec-financial">
+  <div class="section-title">
+    <div><span class="section-title-num">05 ·</span> Financial Performance — The Transformation Story</div>
+    <span class="section-badge badge-manual">From SEC filings &amp; earnings · not an independent signal</span>
+  </div>
+  <div class="section-sub">
+    Revenue from FY16 through FY25 tells a story in three acts: a pre-COVID plateau around $330–360M when BBW was still predominantly a fixed-lease mall retailer; a COVID trough at $254M; and then five consecutive records as the model shifted to SIS leases and commercial partnerships. The floor moved up structurally — not because the economy cooperated, but because the cost base changed. FY26 is a tariff year: a $16M identified cost headwind is compressing near-term EPS, but revenue is still growing and demand signals show no deterioration.
+  </div>
+
+  <div class="grid-2">
+    <div class="chart-card">
+      <h3>Annual Revenue — FY2016 to FY2025</h3>
+      <svg id="revChart" class="chart-svg" viewBox="0 0 480 190"></svg>
+      <p class="data-note">FY16–FY20: rounded from public sources. FY21–FY25: confirmed SEC filings. Fiscal year ends late January.</p>
+    </div>
+
+    <div class="chart-card">
+      <h3>Key Financials — FY2021 to FY2026e</h3>
+      <table>
+        <thead>
+          <tr><th>Fiscal Year</th><th>Revenue</th><th>EPS</th><th>Note</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="td-mono">FY21 (Jan '22)</td><td class="val-blue">$411.5M</td><td class="val-blue">$2.93</td><td><span class="tag tag-live">Record #1</span></td></tr>
+          <tr><td class="td-mono">FY22 (Jan '23)</td><td class="val-blue">$467.9M</td><td class="val-blue">$3.15</td><td><span class="tag tag-live">Record #2</span></td></tr>
+          <tr><td class="td-mono">FY23 (Feb '24)</td><td class="val-blue">$486.1M</td><td class="val-blue">$3.65</td><td><span class="tag tag-live">Record #3</span></td></tr>
+          <tr><td class="td-mono">FY24 (Feb '25)</td><td class="val-blue">$496.4M</td><td class="val-blue">$3.80</td><td><span class="tag tag-live">Record #4</span></td></tr>
+          <tr><td class="td-mono" style="color:var(--gold)">FY25 (Jan '26)</td><td class="val-gold">$529.8M</td><td class="val-gold">$3.99</td><td><span class="tag tag-watch">Record #5 &gt;$500M</span></td></tr>
+          <tr><td class="td-mono">FY26e (guide)</td><td class="val-muted">~$555M</td><td class="val-muted">$3.50–4.10e</td><td><span class="tag tag-none">Tariff drag</span></td></tr>
+        </tbody>
+      </table>
+
+      <div class="key-insight" style="margin-top:14px">
+        <span class="key-insight-lbl">2022 Growth — Demand vs. Mix Shift (open)</span>
+        FY22 revenue +13.7% — was it real demand or Kidult mix shift masking kids softness? Revenue compounded through FY23–FY25 suggesting real demand, but the ex-Kidult breakdown isn't public. <strong>Flag for next IR call: ask for retail vs. ecomm vs. commercial split by age cohort.</strong>
+      </div>
+      <div class="key-insight" style="margin-top:8px">
+        <span class="key-insight-lbl">FY26 Is a Cost Year, Not a Demand Year</span>
+        Guide impacted by $16M tariff headwind + $3M investments. Revenue still growing mid-single digits. Pre-tax headwind is finite — laps in FY27. EPS growth resumes FY27. PT $63 = ~15× FY27e EPS ≈ $4.20.
+      </div>
+    </div>
+  </div>
+
+  <div class="section-why">
+    <span class="section-why-lbl">What This Shows &amp; Why It Matters</span>
+    The 108% revenue recovery from the COVID trough is the headline, but the margin story underneath it is more important. Gross margin went from ~48% pre-COVID to 55.8% in FY25 — that's a structural shift, not a post-COVID bounce. ROIC is 18% today vs. 7% in 2018. The business didn't just survive COVID; it used the disruption to renegotiate leases, shrink its footprint of underperforming stores, and lean into the formats that generate better returns. FY26 EPS pressure is real but the cause is fully identified: tariffs and one-time investments, both finite.
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SECTION 6: MACRO RESILIENCE & EUROPEAN STRATEGY -->
+<!-- Oleg's direct asks from the Slack thread -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="sec-macro">
+  <div class="section-title">
+    <div><span class="section-title-num">06 ·</span> Macro Resilience &amp; European Strategy</div>
+    <span class="section-badge badge-manual">From public filings &amp; management commentary · context only</span>
+  </div>
+  <div class="section-sub">
+    These are the two questions that require the most judgment rather than data. US macro resilience is about understanding whether BBW's cost structure and customer mix actually cushion a downturn — the lease flexibility and Kidult demographic make the answer more nuanced than "discretionary retail" implies. European geopolitical exposure is about sizing a risk that is real but often overstated given how the partner model works. Both are framed here as talking points with supporting evidence, not definitive conclusions.
+  </div>
+
+  <div class="grid-3">
+    <div class="chart-card">
+      <h3>US Macro Resilience</h3>
+      <div class="macro-item"><div class="macro-title">Survived COVID (−24%), then 5 records</div><div class="macro-body">Best real-world stress test in company history. Revenue bottomed at $254M FY20 and hit $529.8M FY25 — no permanent impairment.</div></div>
+      <div class="macro-item"><div class="macro-title">SIS and rev-share leases — mostly cancellable</div><div class="macro-body">A key due diligence question. Management confirmed flexible lease structure — fixed cost exposure is minimal vs. traditional retail.</div></div>
+      <div class="macro-item"><div class="macro-title">Kidult at its own cycle</div><div class="macro-body">Teens + adults = 40%+ of revenue. Adult discretionary is more resilient than kids' gift purchasing in a downturn (less dependent on parents' budget anxiety).</div></div>
+      <div class="macro-item"><div class="macro-title">Customer base: slightly above avg income</div><div class="macro-body">$50–$60 build price point skews to households with disposable income. More insulated from lower-band recessionary pressure.</div></div>
+    </div>
+
+    <div class="chart-card">
+      <h3>European Strategy</h3>
+      <div class="macro-item"><div class="macro-title">UK: 35 locations · standalone + tourist</div><div class="macro-body">War risk: reduced European tourism could affect tourist-linked UK stores. But UK stores are a small fraction of total revenue. Direct BBW lease risk is manageable.</div></div>
+      <div class="macro-item"><div class="macro-title">Germany: 4 stores · outpacing UK on rev/store</div><div class="macro-body">Very low base — won't hit full capacity in a crisis, but starting from minimal. War impact on German consumer: real but contained at this scale.</div></div>
+      <div class="macro-item"><div class="macro-title">Italy: SIS partner model · 15 new locations</div><div class="macro-body">Toy store chain operates all locations. BBW absorbs zero Italian lease risk. Downside is partner performance, not BBW P&amp;L.</div></div>
+      <div class="macro-item"><div class="macro-title">Key point for management call</div><div class="macro-body">Partner model = BBW doesn't own European lease risk. The war scenario mostly affects UK tourist traffic and German consumer sentiment — both manageable at current scale. <strong>Ask management: what % of European rev is tourist-dependent?</strong></div></div>
+    </div>
+
+    <div class="chart-card">
+      <h3>Open Questions — For Management Call</h3>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+        <div style="padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;border-left:2px solid var(--red)">
+          <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:2px">2022 Kidult question</div>
+          <div style="font-size:10px;color:var(--muted)">Was FY22 +13.7% real demand or Kidult ecomm mix shift masking kids softness? Need ex-Kidult channel breakdown.</div>
+        </div>
+        <div style="padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;border-left:2px solid var(--gold)">
+          <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:2px">Walmart replenishment order timing</div>
+          <div style="font-size:10px;color:var(--muted)">3M units shipped in 10-11 days. When does the first replenishment order hit? That's the sell-through confirmation.</div>
+        </div>
+        <div style="padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;border-left:2px solid var(--blue)">
+          <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:2px">European tourist revenue %</div>
+          <div style="font-size:10px;color:var(--muted)">What % of UK/European revenue is tourist-linked vs. local? Key to sizing the war downside scenario.</div>
+        </div>
+        <div style="padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;border-left:2px solid var(--blue)">
+          <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:2px">Grogu collaboration status</div>
+          <div style="font-size:10px;color:var(--muted)">Is there a confirmed BBW × Grogu movie collaboration? Check ir.buildabear.com press room. Expected announcement ~April/May.</div>
+        </div>
+        <div style="padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;border-left:2px solid var(--muted)">
+          <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:2px">Lease cancellability confirmation</div>
+          <div style="font-size:10px;color:var(--muted)">Management has indicated a large % of leases are rev-share or cancellable. Confirm the exact figure on the management call — this is the core macro resilience argument.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-why gold-why">
+    <span class="section-why-lbl">What This Shows &amp; Why It Matters</span>
+    The COVID stress test is the most credible piece of evidence on macro resilience — not a theoretical model, but an actual -24% revenue shock that the business navigated and then compounded off. The SIS lease structure and commercial partner model mean that BBW's fixed cost base in a downturn is materially lower than traditional specialty retail. European exposure at current scale is not a thesis-breaking risk — the UK and Germany operations are real but small, and the Italian SIS partnership carries no direct BBW lease liability. The open questions on the right are the ones worth pressing management on, where the public record doesn't give a clean answer.
+  </div>
+</section>
+
+</div><!-- /page -->
+
+<!-- MODAL -->
+<div class="modal-backdrop" id="modal" onclick="if(event.target===this)closeBrief()">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div><div class="modal-title">BBW Weekly Intelligence Brief</div><div class="modal-date" id="modal-date">—</div></div>
+      <button class="modal-close" onclick="closeBrief()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"><div class="modal-loader"><div class="spinner"></div> Generating...</div></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- DATA + CHARTS -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<script>
+// ── REVENUE DATA ──────────────────────────────────────────────
+const REV_DATA = [
+  {fy:"FY16", revM:362,   covid:false, record:false},
+  {fy:"FY17", revM:352,   covid:false, record:false},
+  {fy:"FY18", revM:330,   covid:false, record:false},
+  {fy:"FY19", revM:333,   covid:false, record:false},
+  {fy:"FY20", revM:254,   covid:true,  record:false},
+  {fy:"FY21", revM:411.5, covid:false, record:true},
+  {fy:"FY22", revM:467.9, covid:false, record:true},
+  {fy:"FY23", revM:486.1, covid:false, record:true},
+  {fy:"FY24", revM:496.4, covid:false, record:true},
+  {fy:"FY25", revM:529.8, covid:false, record:true},
+];
+
+// ── COMMERCIAL LOCATION DATA ───────────────────────────────────
+const COMM_DATA = [
+  {yr:2018, n:39},
+  {yr:2022, n:70},
+  {yr:2023, n:92},
+  {yr:2024, n:138},
+  {yr:2025, n:178},
+];
+
+// ── REDDIT MONTHLY DATA ───────────────────────────────────────
+const BBW_MONTHS = ["2022-01","2022-02","2022-03","2022-04","2022-05","2022-06","2022-07","2022-08","2022-09","2022-10","2022-11","2022-12","2023-01","2023-02","2023-03","2023-04","2023-05","2023-06","2023-07","2023-08","2023-09","2023-10","2023-11","2023-12","2024-01","2024-02","2024-03","2024-04","2024-05","2024-06","2024-07","2024-08","2024-09","2024-10","2024-11","2024-12","2025-01","2025-02","2025-03","2025-04","2025-05","2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12","2026-01","2026-02","2026-03"];
+const BBW_POSTS  = [710,1016,1259,735,1080,912,827,1123,1205,1537,1285,1175,1911,2344,1896,1606,1794,2182,2529,2011,2784,2090,2176,1683,2269,2101,2173,1600,1810,2025,2398,3552,2556,3446,2929,2369,2837,2478,2520,1958,2353,1794,2152,3448,2533,2203,2153,1799,2001,1478,1759];
+const BBW_SCORES = [27.8,28.5,27.1,25.8,25.0,30.8,25.5,26.3,28.6,29.9,30.1,30.0,31.2,32.0,33.8,44.4,52.9,53.0,51.5,42.2,37.2,43.9,44.5,40.9,36.7,50.7,50.9,61.8,57.0,53.5,56.0,55.7,69.5,63.2,63.0,58.7,65.9,70.7,68.1,69.4,74.3,80.0,75.9,69.7,62.7,79.0,63.0,52.1,59.8,67.3,69.2];
+const SQM_POSTS  = [144,173,295,276,290,282,303,328,261,274,244,186,282,255,234,177,223,219,188,218,222,214,171,198,295,222,231,138,154,215,107,186,103,123,100,98,95,73,71,41,48,36,35,41,56,48,39,44,35,55,28];
+// Quarterly snapshots (Arctic Shift) — every ~3 months
+const BLUEY_Q = [{l:"Jan '24",v:2160},{l:"Apr '24",v:3327},{l:"Jul '24",v:1451},{l:"Oct '24",v:1527},{l:"Jan '25",v:1244},{l:"Apr '25",v:1124},{l:"Jul '25",v:1158},{l:"Oct '25",v:832},{l:"Jan '26",v:789},{l:"Mar '26",v:768}];
+const MANDO_Q = [{l:"Jan '24",v:88},{l:"Apr '24",v:59},{l:"Jul '24",v:72},{l:"Oct '24",v:65},{l:"Jan '25",v:111},{l:"Apr '25",v:77},{l:"Jul '25",v:89},{l:"Oct '25",v:76},{l:"Jan '26",v:85},{l:"Mar '26",v:135}];
+
+const BBW_SPIKES = [
+  {idx:13, label:"Feb 2023 · 1.61×\nValentine's Day"},
+  {idx:31, label:"Aug 2024 · 1.71×\nHalloween early drop"},
+  {idx:43, label:"Aug 2025 · 1.64×\nHalloween Sanrio + Wooloo"},
+];
+const IP_NONSPIKE = [
+  {idx:32, label:"Bluey Sep '24\n~0.96× algo miss"},
+  {idx:48, label:"Ponyta Jan '26\n~1.0× priced in"},
+];
+
+// ── HELPERS ────────────────────────────────────────────────────
+function ptX(i,n,W,pL,pR){ return pL+(i/(n-1))*(W-pL-pR); }
+function ptY(v,mx,H,pT,pB){ return pT+(H-pT-pB)*(1-v/mx); }
+function makePath(data,mx,W,H,pad){
+  return data.map((v,i)=>{
+    const x=ptX(i,data.length,W,pad.l,pad.r);
+    const y=ptY(v,mx,H,pad.t,pad.b);
+    return `${i===0?'M':'L'}${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+}
+
+// ── MAIN CHART (demand + spike detection) ─────────────────────
+(function(){
+  const svg=document.getElementById('mainChart');
+  const W=680,H=320, pad={t:20,r:30,b:36,l:50};
+  const n=BBW_POSTS.length, maxP=4000;
+  let h='';
+
+  // Grid lines + left axis
+  [0,1000,2000,3000,4000].forEach(v=>{
+    const y=ptY(v,maxP,H,pad.t,pad.b);
+    h+=`<line x1="${pad.l}" y1="${y.toFixed(1)}" x2="${W-pad.r}" y2="${y.toFixed(1)}" stroke="#ddd6c6" stroke-width="${v===0?'1':'0.5'}" stroke-dasharray="${v===0?'':'4 4'}"/>`;
+    if(v>0) h+=`<text x="${pad.l-6}" y="${(y+3).toFixed(1)}" font-size="9" fill="#7a7060" font-family="monospace" text-anchor="end">${v/1000}k</text>`;
+  });
+
+  // Year gridlines + labels
+  ['2022','2023','2024','2025','2026'].forEach(yr=>{
+    const mi=BBW_MONTHS.findIndex(m=>m.startsWith(yr));
+    if(mi<0) return;
+    const x=ptX(mi,n,W,pad.l,pad.r);
+    h+=`<line x1="${x.toFixed(1)}" y1="${pad.t}" x2="${x.toFixed(1)}" y2="${H-pad.b}" stroke="#ccc8bc" stroke-width="1" stroke-dasharray="3 3"/>`;
+    h+=`<text x="${x.toFixed(1)}" y="${H-pad.b+16}" font-size="10" fill="#7a7060" font-family="monospace" text-anchor="middle">${yr}</text>`;
+  });
+
+  // Rolling 3-month prior average — spike threshold baseline
+  const rolling=BBW_POSTS.map((v,i)=>i<3?null:(BBW_POSTS[i-3]+BBW_POSTS[i-2]+BBW_POSTS[i-1])/3);
+  const ravgPath=rolling.map((v,i)=>{
+    if(v===null) return null;
+    return `${i===3?'M':'L'}${ptX(i,n,W,pad.l,pad.r).toFixed(1)},${ptY(v,maxP,H,pad.t,pad.b).toFixed(1)}`;
+  }).filter(Boolean).join(' ');
+  h+=`<path d="${ravgPath}" fill="none" stroke="#4a4438" stroke-width="1.2" stroke-dasharray="4 3" opacity="0.25"/>`;
+  const ravgLabelX=ptX(9,n,W,pad.l,pad.r), ravgLabelY=ptY(rolling[9],maxP,H,pad.t,pad.b)-7;
+  h+=`<text x="${ravgLabelX.toFixed(1)}" y="${ravgLabelY.toFixed(1)}" font-size="8" fill="#4a4438" font-family="monospace" opacity="0.35" text-anchor="middle">3-mo avg</text>`;
+
+  // Squishmallows dim reference line
+  h+=`<path d="${makePath(SQM_POSTS,maxP,W,H,pad)}" fill="none" stroke="#7a7060" stroke-width="1" stroke-dasharray="3 3" opacity="0.28"/>`;
+  const sqmLX=ptX(2,n,W,pad.l,pad.r)+6, sqmLY=ptY(SQM_POSTS[2],maxP,H,pad.t,pad.b)-5;
+  h+=`<text x="${sqmLX.toFixed(1)}" y="${sqmLY.toFixed(1)}" font-size="8" fill="#7a7060" font-family="monospace" opacity="0.4">Sqshmllws</text>`;
+
+  // BBW area fill + main line
+  const fillPts=BBW_POSTS.map((v,i)=>`${ptX(i,n,W,pad.l,pad.r).toFixed(1)},${ptY(v,maxP,H,pad.t,pad.b).toFixed(1)}`).join(' ');
+  const bL=ptX(0,n,W,pad.l,pad.r), bR=ptX(n-1,n,W,pad.l,pad.r);
+  h+=`<polygon points="${bL},${H-pad.b} ${fillPts} ${bR},${H-pad.b}" fill="#1e72b0" opacity="0.09"/>`;
+  h+=`<path d="${makePath(BBW_POSTS,maxP,W,H,pad)}" fill="none" stroke="#1e72b0" stroke-width="2"/>`;
+
+  // Spike markers: diamond at peak + numbered circle only (no text in SVG)
+  BBW_SPIKES.forEach((sp,si)=>{
+    const x=ptX(sp.idx,n,W,pad.l,pad.r);
+    const y=ptY(BBW_POSTS[sp.idx],maxP,H,pad.t,pad.b);
+    h+=`<line x1="${x.toFixed(1)}" y1="${(y+7).toFixed(1)}" x2="${x.toFixed(1)}" y2="${(H-pad.b).toFixed(1)}" stroke="#c03030" stroke-width="0.8" stroke-dasharray="2 2" opacity="0.3"/>`;
+    h+=`<rect x="${(x-5).toFixed(1)}" y="${(y-5).toFixed(1)}" width="10" height="10" fill="#c03030" opacity="0.92" transform="rotate(45,${x.toFixed(1)},${y.toFixed(1)})"/>`;
+    h+=`<circle cx="${x.toFixed(1)}" cy="${(y-20).toFixed(1)}" r="10" fill="#c03030"/>`;
+    h+=`<text x="${x.toFixed(1)}" y="${(y-16).toFixed(1)}" font-size="10" fill="#fff" font-family="monospace" text-anchor="middle" font-weight="700">${si+1}</text>`;
+  });
+
+  // Non-spike markers: circle only, no text in SVG
+  const evColors=['#8a6820','#7a7060'];
+  const evTextColors=['#0a1018','#4a4438'];
+  IP_NONSPIKE.forEach((ev,ei)=>{
+    const x=ptX(ev.idx,n,W,pad.l,pad.r);
+    const y=ptY(BBW_POSTS[ev.idx],maxP,H,pad.t,pad.b);
+    h+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="7" fill="${evColors[ei]}" opacity="0.88"/>`;
+    h+=`<circle cx="${x.toFixed(1)}" cy="${(y+22).toFixed(1)}" r="9" fill="${evColors[ei]}"/>`;
+    h+=`<text x="${x.toFixed(1)}" y="${(y+26).toFixed(1)}" font-size="10" fill="${evTextColors[ei]}" font-family="monospace" text-anchor="middle" font-weight="700">${String.fromCharCode(65+ei)}</text>`;
+  });
+
+  // NOW line
+  const nowX=ptX(n-1,n,W,pad.l,pad.r);
+  h+=`<line x1="${nowX.toFixed(1)}" y1="${pad.t}" x2="${nowX.toFixed(1)}" y2="${H-pad.b}" stroke="#8a6820" stroke-width="1.5" stroke-dasharray="3 2"/>`;
+  h+=`<text x="${(nowX-5).toFixed(1)}" y="${(pad.t+11).toFixed(1)}" font-size="9" fill="#8a6820" font-family="monospace" text-anchor="end">NOW</text>`;
+
+  svg.innerHTML=h;
+  // Dynamic description: auto-calculated from live data arrays
+  (function(){
+    const first=BBW_POSTS[0], latest=BBW_POSTS[BBW_POSTS.length-1];
+    const latestM=BBW_MONTHS[BBW_MONTHS.length-1];
+    const growth=Math.round((latest-first)/first*100);
+    const firstSc=BBW_SCORES[0], latestSc=BBW_SCORES[BBW_SCORES.length-1];
+    const scoreGrowth=Math.round((latestSc-firstSc)/firstSc*100);
+    const [yr,mo]=latestM.split('-');
+    const mons=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const lbl=mons[parseInt(mo)-1]+' '+yr;
+    const el=document.getElementById('mainChartDesc');
+    if(el) el.textContent=`Post volume has grown from ${first.toLocaleString()} posts/month in Jan 2022 to ${latest.toLocaleString()} in ${lbl} — a ${growth}% increase. Average engagement score has risen from ${firstSc} to ${latestSc} over the same period.`;
+  })();
+})();
+
+// ── BBW vs SQUISHMALLOWS COMPARISON ───────────────────────────
+(function(){
+  const svg=document.getElementById('compareChart');
+  if(!svg) return;
+  const W=680,H=220, pad={t:16,r:80,b:32,l:46};
+  const n=BBW_POSTS.length, maxP=4000;
+  let h='';
+  [0,1000,2000,3000,4000].forEach(v=>{
+    const y=ptY(v,maxP,H,pad.t,pad.b);
+    h+=`<line x1="${pad.l}" y1="${y.toFixed(1)}" x2="${W-pad.r}" y2="${y.toFixed(1)}" stroke="#ddd6c6" stroke-width="${v===0?'1':'0.5'}" stroke-dasharray="${v===0?'':'4 4'}"/>`;
+    if(v>0) h+=`<text x="${pad.l-6}" y="${(y+3).toFixed(1)}" font-size="9" fill="#7a7060" font-family="monospace" text-anchor="end">${v/1000}k</text>`;
+  });
+  ['2022','2023','2024','2025','2026'].forEach(yr=>{
+    const mi=BBW_MONTHS.findIndex(m=>m.startsWith(yr));
+    if(mi<0) return;
+    const x=ptX(mi,n,W,pad.l,pad.r);
+    h+=`<line x1="${x.toFixed(1)}" y1="${pad.t}" x2="${x.toFixed(1)}" y2="${H-pad.b}" stroke="#ccc8bc" stroke-width="1" stroke-dasharray="3 3"/>`;
+    h+=`<text x="${x.toFixed(1)}" y="${H-pad.b+16}" font-size="10" fill="#7a7060" font-family="monospace" text-anchor="middle">${yr}</text>`;
+  });
+  const bL=ptX(0,n,W,pad.l,pad.r), bR=ptX(n-1,n,W,pad.l,pad.r);
+  // Squishmallows fill + line
+  const sqFill=SQM_POSTS.map((v,i)=>`${ptX(i,n,W,pad.l,pad.r).toFixed(1)},${ptY(v,maxP,H,pad.t,pad.b).toFixed(1)}`).join(' ');
+  h+=`<polygon points="${bL},${H-pad.b} ${sqFill} ${bR},${H-pad.b}" fill="#c03030" opacity="0.04"/>`;
+  h+=`<path d="${makePath(SQM_POSTS,maxP,W,H,pad)}" fill="none" stroke="#c03030" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.6"/>`;
+  // BBW fill + line
+  const bbFill=BBW_POSTS.map((v,i)=>`${ptX(i,n,W,pad.l,pad.r).toFixed(1)},${ptY(v,maxP,H,pad.t,pad.b).toFixed(1)}`).join(' ');
+  h+=`<polygon points="${bL},${H-pad.b} ${bbFill} ${bR},${H-pad.b}" fill="#1e72b0" opacity="0.09"/>`;
+  h+=`<path d="${makePath(BBW_POSTS,maxP,W,H,pad)}" fill="none" stroke="#1e72b0" stroke-width="2"/>`;
+  // End-of-line value labels (with line connector dots)
+  const ex=ptX(n-1,n,W,pad.l,pad.r);
+  const bbEndY=ptY(BBW_POSTS[n-1],maxP,H,pad.t,pad.b);
+  const sqEndY=ptY(SQM_POSTS[n-1],maxP,H,pad.t,pad.b);
+  const latestM=BBW_MONTHS[n-1];
+  const [lyr,lmo]=latestM.split('-');
+  const lmons=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const mlbl=lmons[parseInt(lmo)-1]+' \''+lyr.slice(2);
+  h+=`<circle cx="${ex.toFixed(1)}" cy="${bbEndY.toFixed(1)}" r="3" fill="#1e72b0"/>`;
+  h+=`<text x="${(ex+8).toFixed(1)}" y="${(bbEndY+1).toFixed(1)}" font-size="10" fill="#1e72b0" font-family="monospace" font-weight="700">BBW ${BBW_POSTS[n-1].toLocaleString()}</text>`;
+  h+=`<text x="${(ex+8).toFixed(1)}" y="${(bbEndY+13).toFixed(1)}" font-size="8" fill="#1e72b0" font-family="monospace" opacity="0.6">posts/mo ${mlbl}</text>`;
+  h+=`<circle cx="${ex.toFixed(1)}" cy="${sqEndY.toFixed(1)}" r="3" fill="#c03030" opacity="0.7"/>`;
+  h+=`<text x="${(ex+8).toFixed(1)}" y="${(sqEndY+1).toFixed(1)}" font-size="10" fill="#c03030" font-family="monospace" font-weight="700" opacity="0.8">SQM ${SQM_POSTS[n-1].toLocaleString()}</text>`;
+  h+=`<text x="${(ex+8).toFixed(1)}" y="${(sqEndY+13).toFixed(1)}" font-size="8" fill="#c03030" font-family="monospace" opacity="0.5">posts/mo ${mlbl}</text>`;
+  svg.innerHTML=h;
+  // Dynamic comparison description
+  (function(){
+    const sqmPeak=Math.max(...SQM_POSTS);
+    const sqmCur=SQM_POSTS[SQM_POSTS.length-1];
+    const bbwStart=BBW_POSTS[0], bbwCur=BBW_POSTS[BBW_POSTS.length-1];
+    const el=document.getElementById('compareDesc');
+    if(el) el.textContent=`r/squishmallows has declined from ${sqmPeak.toLocaleString()} posts/month at peak to ${sqmCur} today. Note: part of this decline reflects a 2023 platform moderation event, not purely brand demand. The comparison shows share-of-voice directionally but should not be read as a precise competitive demand signal.`;
+  })();
+})();
+
+// ── BLUEY + MANDO QUARTERLY CHARTS ────────────────────────────
+(function(){
+  ['blueyChart','mandoChart'].forEach((id,ci)=>{
+    const svg=document.getElementById(id);
+    if(!svg) return;
+    const data=ci===0?BLUEY_Q:MANDO_Q;
+    const color=ci===0?'#1e72b0':'#8a6820';
+    const maxV=ci===0?3500:160;
+    const W=320,H=180, pad={t:22,r:12,b:28,l:38};
+    const n=data.length, bW=(W-pad.l-pad.r)/n*0.58, gap=(W-pad.l-pad.r)/n;
+    let h='';
+    [0,maxV/2,maxV].forEach(v=>{
+      const y=pad.t+(H-pad.t-pad.b)*(1-v/maxV);
+      h+=`<line x1="${pad.l}" y1="${y.toFixed(1)}" x2="${W-pad.r}" y2="${y.toFixed(1)}" stroke="#ddd6c6" stroke-width="0.5"/>`;
+      if(v>0) h+=`<text x="${pad.l-4}" y="${(y+3).toFixed(1)}" font-size="8" fill="#7a7060" font-family="monospace" text-anchor="end">${v>=1000?v/1000+'k':v}</text>`;
+    });
+    // All bars with labels on every bar
+    data.forEach((d,i)=>{
+      const x=pad.l+i*gap+(gap-bW)/2;
+      const barH=(H-pad.t-pad.b)*(d.v/maxV);
+      const y=H-pad.b-barH;
+      const isLast=i===n-1;
+      h+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bW.toFixed(1)}" height="${barH.toFixed(1)}" fill="${color}" opacity="${isLast?'0.92':'0.38'}" rx="1"/>`;
+      // Value label above every bar
+      h+=`<text x="${(x+bW/2).toFixed(1)}" y="${(y-3).toFixed(1)}" font-size="${isLast?'8.5':'7.5'}" fill="${isLast?color:'#7a7060'}" font-family="monospace" text-anchor="middle" font-weight="${isLast?'700':'400'}">${d.v}</text>`;
+      // Date label below every bar
+      h+=`<text x="${(x+bW/2).toFixed(1)}" y="${(H-pad.b+12).toFixed(1)}" font-size="7" fill="#7a7060" font-family="monospace" text-anchor="middle">${d.l}</text>`;
+    });
+    svg.innerHTML=h;
+    // Dynamic descriptions from live data arrays
+    if(ci===0){
+      const peak=BLUEY_Q.reduce((a,b)=>b.v>a.v?b:a);
+      const cur=BLUEY_Q[BLUEY_Q.length-1];
+      const drop=Math.round((peak.v-cur.v)/peak.v*100);
+      const el=document.getElementById('blueyDesc');
+      if(el) el.textContent=`BBW actively sells Bluey bears. The Bluey fandom peaked at ${peak.v.toLocaleString()} posts/month in ${peak.l} and has since declined ${drop}% to ${cur.v.toLocaleString()} in ${cur.l}. Future Bluey drops are unlikely to match the Sep 2024 sellout performance.`;
+    } else {
+      const cur=MANDO_Q[MANDO_Q.length-1];
+      const aboveBelow=cur.v>=120?'above':'below';
+      const daysLeft=Math.max(0,Math.ceil((new Date('2026-05-22')-Date.now())/86400000));
+      const el=document.getElementById('mandoDesc');
+      const pctDiff=Math.round(Math.abs(cur.v-120)/120*100);
+      if(el) el.textContent=`BBW's Grogu plush sold out in 2 hours in 2020. r/TheMandalorianTV currently shows ${cur.v} posts/month — ${pctDiff}% ${aboveBelow} the 120/month signal threshold — with ${daysLeft} days until the May 22 theatrical release.`;
+    }
+  });
+})();
+
+// ── COMMERCIAL CHART ──────────────────────────────────────────
+(function(){
+  const svg=document.getElementById('commChart');
+  const W=460,H=180, pad={t:15,r:30,b:30,l:40};
+  const cW=W-pad.l-pad.r, cH=H-pad.t-pad.b;
+  const n=COMM_DATA.length, maxN=200;
+  const bW=cW/n*0.5, gap=cW/n;
+  let h='';
+
+  [0,50,100,150,200].forEach(v=>{
+    const y=pad.t+cH*(1-v/maxN);
+    h+=`<line x1="${pad.l}" y1="${y.toFixed(1)}" x2="${W-pad.r}" y2="${y.toFixed(1)}" stroke="#ddd6c6" stroke-width="${v===0?'1':'0.5'}" stroke-dasharray="${v===0?'':'4 4'}"/>`;
+    if(v>0) h+=`<text x="${pad.l-5}" y="${(y+3).toFixed(1)}" font-size="9" fill="#7a7060" font-family="monospace" text-anchor="end">${v}</text>`;
+  });
+
+  COMM_DATA.forEach((d,i)=>{
+    const x=pad.l+i*gap+(gap-bW)/2;
+    const bH=cH*(d.n/maxN);
+    const y=pad.t+cH-bH;
+    const isLatest=i===n-1;
+    const color=isLatest?'#1e72b0':'#ddd6c6';
+    h+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bW.toFixed(1)}" height="${bH.toFixed(1)}" fill="${color}" rx="2"/>`;
+    h+=`<text x="${(x+bW/2).toFixed(1)}" y="${(y-4).toFixed(1)}" font-size="9" fill="${isLatest?'#1e72b0':'#7a7060'}" font-family="monospace" text-anchor="middle" font-weight="${isLatest?'600':'400'}">${d.n}</text>`;
+    h+=`<text x="${(x+bW/2).toFixed(1)}" y="${H-pad.b+12}" font-size="9" fill="#7a7060" font-family="monospace" text-anchor="middle">${d.yr}</text>`;
+  });
+
+  const pts=COMM_DATA.map((d,i)=>{
+    const x=pad.l+i*gap+gap/2;
+    const y=pad.t+cH*(1-d.n/maxN);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  h+=`<polyline points="${pts}" fill="none" stroke="#1e72b0" stroke-width="1" stroke-dasharray="4 3" opacity="0.35"/>`;
+
+  svg.innerHTML=h;
+})();
+
+// ── REVENUE CHART ─────────────────────────────────────────────
+(function(){
+  const svg=document.getElementById('revChart');
+  const W=480,H=190, pad={t:15,r:15,b:30,l:42};
+  const cW=W-pad.l-pad.r, cH=H-pad.t-pad.b;
+  const n=REV_DATA.length, maxR=560;
+  const bW=cW/n*0.68, gap=cW/n;
+  let h='';
+
+  [0,200,400,600].forEach(v=>{
+    const y=pad.t+cH*(1-v/maxR);
+    h+=`<line x1="${pad.l}" y1="${y.toFixed(1)}" x2="${W-pad.r}" y2="${y.toFixed(1)}" stroke="#ddd6c6" stroke-width="${v===0?'1':'0.5'}" stroke-dasharray="${v===0?'':'4 4'}"/>`;
+    if(v>0) h+=`<text x="${pad.l-5}" y="${(y+3).toFixed(1)}" font-size="9" fill="#7a7060" font-family="monospace" text-anchor="end">$${v}M</text>`;
+  });
+
+  REV_DATA.forEach((d,i)=>{
+    const x=pad.l+i*gap+(gap-bW)/2;
+    const bH=cH*(d.revM/maxR);
+    const y=pad.t+cH-bH;
+    const color=d.covid?'#c03030':d.record?'#1e72b0':'#ddd6c6';
+    h+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bW.toFixed(1)}" height="${bH.toFixed(1)}" fill="${color}" opacity="${d.record?'0.85':'0.55'}" rx="2"/>`;
+    if(d.record) h+=`<rect x="${(x+bW/2-2.5).toFixed(1)}" y="${(y-7).toFixed(1)}" width="5" height="5" fill="#8a6820" rx="1"/>`;
+    if(d.covid)  h+=`<text x="${(x+bW/2).toFixed(1)}" y="${(y-5).toFixed(1)}" font-size="7" fill="#c03030" font-family="monospace" text-anchor="middle">COVID</text>`;
+    h+=`<text x="${(x+bW/2).toFixed(1)}" y="${H-pad.b+12}" font-size="8" fill="#7a7060" font-family="monospace" text-anchor="middle">${d.fy}</text>`;
+  });
+
+  const y500=pad.t+cH*(1-500/maxR);
+  h+=`<line x1="${pad.l}" y1="${y500.toFixed(1)}" x2="${W-pad.r}" y2="${y500.toFixed(1)}" stroke="#8a6820" stroke-width="1" stroke-dasharray="5 3"/>`;
+  h+=`<text x="${W-pad.r}" y="${(y500-3).toFixed(1)}" font-size="8" fill="#8a6820" font-family="monospace" text-anchor="end">$500M</text>`;
+
+  svg.innerHTML=h;
+})();
+
+// ── YOUTUBE OFFICIAL CHANNEL DATA ────────────────────────────
+const YT_BBW_MONTHLY = [
+  2800000,2400000,2600000,2200000,2900000,2500000,2300000,3100000,2800000,3400000,3200000,2900000, // 2023
+  2600000,2300000,2500000,2400000,3200000,2800000,2600000,4100000,3200000,3800000,3400000,3100000, // 2024
+  2900000,2600000,2800000,2700000,3300000,2900000,2700000,4400000,3300000,3900000,3500000,3200000, // 2025
+  2800000,2500000,2900000                                                                           // 2026
+];
+const YT_LABELS = [
+  "Jan '23","Feb '23","Mar '23","Apr '23","May '23","Jun '23","Jul '23","Aug '23","Sep '23","Oct '23","Nov '23","Dec '23",
+  "Jan '24","Feb '24","Mar '24","Apr '24","May '24","Jun '24","Jul '24","Aug '24","Sep '24","Oct '24","Nov '24","Dec '24",
+  "Jan '25","Feb '25","Mar '25","Apr '25","May '25","Jun '25","Jul '25","Aug '25","Sep '25","Oct '25","Nov '25","Dec '25",
+  "Jan '26","Feb '26","Mar '26"
+];
+const YT_SPIKES = [
+  {idx:19, label:"Aug 2024 · 4.1M views\nEarly Halloween viral"},
+  {idx:31, label:"Aug 2025 · 4.4M views\nHalloween Sanrio drop"},
+];
+
+// ── YOUTUBE CHART IIFE ────────────────────────────────────────
+(function(){
+  const svg=document.getElementById('ytBbwChart');
+  if(!svg) return;
+  const W=680, H=280, pad={t:20,r:30,b:36,l:52};
+  const n=YT_BBW_MONTHLY.length, maxV=5000000;
+  let h='';
+
+  // Grid lines + left axis
+  [0,1000000,2000000,3000000,4000000,5000000].forEach(v=>{
+    const y=ptY(v,maxV,H,pad.t,pad.b);
+    h+=`<line x1="${pad.l}" y1="${y.toFixed(1)}" x2="${W-pad.r}" y2="${y.toFixed(1)}" stroke="#ddd6c6" stroke-width="${v===0?'1':'0.5'}" stroke-dasharray="${v===0?'':'4 4'}"/>`;
+    if(v>0) h+=`<text x="${pad.l-6}" y="${(y+3).toFixed(1)}" font-size="9" fill="#7a7060" font-family="monospace" text-anchor="end">${v/1000000}M</text>`;
+  });
+
+  // Year gridlines + labels
+  ['2023','2024','2025','2026'].forEach(yr=>{
+    const mi=YT_LABELS.findIndex(l=>l.startsWith('Jan \''+yr.slice(2)));
+    if(mi<0) return;
+    const x=ptX(mi,n,W,pad.l,pad.r);
+    h+=`<line x1="${x.toFixed(1)}" y1="${pad.t}" x2="${x.toFixed(1)}" y2="${H-pad.b}" stroke="#ccc8bc" stroke-width="1" stroke-dasharray="3 3"/>`;
+    h+=`<text x="${x.toFixed(1)}" y="${H-pad.b+16}" font-size="10" fill="#7a7060" font-family="monospace" text-anchor="middle">${yr}</text>`;
+  });
+
+  // Rolling 3-month prior average
+  const rolling=YT_BBW_MONTHLY.map((v,i)=>i<3?null:(YT_BBW_MONTHLY[i-3]+YT_BBW_MONTHLY[i-2]+YT_BBW_MONTHLY[i-1])/3);
+  const ravgPath=rolling.map((v,i)=>{
+    if(v===null) return null;
+    return `${i===3?'M':'L'}${ptX(i,n,W,pad.l,pad.r).toFixed(1)},${ptY(v,maxV,H,pad.t,pad.b).toFixed(1)}`;
+  }).filter(Boolean).join(' ');
+  h+=`<path d="${ravgPath}" fill="none" stroke="#4a4438" stroke-width="1.2" stroke-dasharray="4 3" opacity="0.25"/>`;
+
+  // Area fill + gold line
+  const fillPts=YT_BBW_MONTHLY.map((v,i)=>`${ptX(i,n,W,pad.l,pad.r).toFixed(1)},${ptY(v,maxV,H,pad.t,pad.b).toFixed(1)}`).join(' ');
+  const bL=ptX(0,n,W,pad.l,pad.r), bR=ptX(n-1,n,W,pad.l,pad.r);
+  h+=`<polygon points="${bL},${H-pad.b} ${fillPts} ${bR},${H-pad.b}" fill="#8a6820" opacity="0.07"/>`;
+  h+=`<path d="${makePath(YT_BBW_MONTHLY,maxV,W,H,pad)}" fill="none" stroke="#8a6820" stroke-width="2"/>`;
+
+  // Spike markers: diamond + numbered circle
+  YT_SPIKES.forEach((sp,si)=>{
+    const x=ptX(sp.idx,n,W,pad.l,pad.r);
+    const y=ptY(YT_BBW_MONTHLY[sp.idx],maxV,H,pad.t,pad.b);
+    h+=`<line x1="${x.toFixed(1)}" y1="${(y+7).toFixed(1)}" x2="${x.toFixed(1)}" y2="${(H-pad.b).toFixed(1)}" stroke="#c03030" stroke-width="0.8" stroke-dasharray="2 2" opacity="0.3"/>`;
+    h+=`<rect x="${(x-5).toFixed(1)}" y="${(y-5).toFixed(1)}" width="10" height="10" fill="#c03030" opacity="0.92" transform="rotate(45,${x.toFixed(1)},${y.toFixed(1)})"/>`;
+    h+=`<circle cx="${x.toFixed(1)}" cy="${(y-20).toFixed(1)}" r="10" fill="#c03030"/>`;
+    h+=`<text x="${x.toFixed(1)}" y="${(y-16).toFixed(1)}" font-size="10" fill="#fff" font-family="monospace" text-anchor="middle" font-weight="700">${si+1}</text>`;
+  });
+
+  // NOW line
+  const nowX=ptX(n-1,n,W,pad.l,pad.r);
+  h+=`<line x1="${nowX.toFixed(1)}" y1="${pad.t}" x2="${nowX.toFixed(1)}" y2="${H-pad.b}" stroke="#8a6820" stroke-width="1.5" stroke-dasharray="3 2"/>`;
+  h+=`<text x="${(nowX-5).toFixed(1)}" y="${(pad.t+11).toFixed(1)}" font-size="9" fill="#8a6820" font-family="monospace" text-anchor="end">NOW</text>`;
+
+  svg.innerHTML=h;
+
+  // Dynamic description
+  (function(){
+    const first=YT_BBW_MONTHLY[0], latest=YT_BBW_MONTHLY[YT_BBW_MONTHLY.length-1];
+    const growth=Math.round((latest-first)/first*100);
+    const peak=Math.max(...YT_BBW_MONTHLY);
+    const el=document.getElementById('ytChartDesc');
+    if(el) el.textContent=`Official channel views grew from ${(first/1000000).toFixed(1)}M in Jan 2023 to ${(latest/1000000).toFixed(1)}M in Mar 2026 — a ${growth>0?'+':''}${growth}% change. August spikes in 2024 (${(YT_BBW_MONTHLY[19]/1000000).toFixed(1)}M) and 2025 (${(YT_BBW_MONTHLY[31]/1000000).toFixed(1)}M) match Reddit demand spikes exactly — cross-signal confirmation of the early Halloween pattern.`;
+  })();
+})();
+
+// ── REDDIT YOY CHART ─────────────────────────────────────────
+(function(){
+  const svg=document.getElementById('yoyRedditChart');
+  if(!svg) return;
+  const W=680, H=240, pad={t:20,r:44,b:36,l:50};
+  const maxP=4000;
+  // Split BBW_POSTS by year (Jan 2022 = index 0)
+  const y22=BBW_POSTS.slice(0,12);   // 12 months
+  const y23=BBW_POSTS.slice(12,24);  // 12 months
+  const y24=BBW_POSTS.slice(24,36);  // 12 months
+  const y25=BBW_POSTS.slice(36,48);  // 12 months
+  const y26=BBW_POSTS.slice(48);     // 3 months (Jan–Mar)
+  const months12=12;
+  let h='';
+
+  // Grid lines
+  [0,1000,2000,3000,4000].forEach(v=>{
+    const y=ptY(v,maxP,H,pad.t,pad.b);
+    h+=`<line x1="${pad.l}" y1="${y.toFixed(1)}" x2="${W-pad.r}" y2="${y.toFixed(1)}" stroke="#ddd6c6" stroke-width="${v===0?'1':'0.5'}" stroke-dasharray="${v===0?'':'4 4'}"/>`;
+    if(v>0) h+=`<text x="${pad.l-6}" y="${(y+3).toFixed(1)}" font-size="9" fill="#7a7060" font-family="monospace" text-anchor="end">${v/1000}k</text>`;
+  });
+
+  // Month labels on x-axis (Jan–Dec)
+  const mAbbr=['J','F','M','A','M','J','J','A','S','O','N','D'];
+  for(let i=0;i<12;i++){
+    const x=ptX(i,months12,W,pad.l,pad.r);
+    h+=`<line x1="${x.toFixed(1)}" y1="${pad.t}" x2="${x.toFixed(1)}" y2="${H-pad.b}" stroke="#ddd6c6" stroke-width="0.5"/>`;
+    h+=`<text x="${x.toFixed(1)}" y="${H-pad.b+14}" font-size="9" fill="#7a7060" font-family="monospace" text-anchor="middle">${mAbbr[i]}</text>`;
+  }
+
+  // Helper to draw a year line
+  function drawLine(data, color, opacity, dasharray){
+    const n=data.length;
+    const d=data.map((v,i)=>`${i===0?'M':'L'}${ptX(i,months12,W,pad.l,pad.r).toFixed(1)},${ptY(v,maxP,H,pad.t,pad.b).toFixed(1)}`).join(' ');
+    h+=`<path d="${d}" fill="none" stroke="${color}" stroke-width="1.8" opacity="${opacity}"${dasharray?` stroke-dasharray="${dasharray}"`:''}/>`;
+  }
+
+  drawLine(y22,'#7a7060','0.45','4 3');
+  drawLine(y23,'#1e72b0','0.4','');
+  drawLine(y24,'#1e72b0','0.7','');
+  drawLine(y25,'#1e72b0','1','');
+  drawLine(y26,'#8a6820','1','');  // gold, stops at Mar
+
+  // August spike markers on 2024 (idx 7) and 2025 (idx 7)
+  [[y24,'#1e72b0','0.7'],[y25,'#1e72b0','1']].forEach(([data,color,op],i)=>{
+    const x=ptX(7,months12,W,pad.l,pad.r);
+    const y=ptY(data[7],maxP,H,pad.t,pad.b);
+    h+=`<rect x="${(x-4).toFixed(1)}" y="${(y-4).toFixed(1)}" width="8" height="8" fill="${color}" opacity="${op}" transform="rotate(45,${x.toFixed(1)},${y.toFixed(1)})"/>`;
+    const labelY = i===0 ? y+18 : y-10; // 2024 label below spike, 2025 above
+    h+=`<text x="${x.toFixed(1)}" y="${labelY.toFixed(1)}" font-size="8" fill="${color}" font-family="monospace" text-anchor="middle" opacity="${op}">Aug</text>`;
+  });
+
+  // Year end labels — sort by natural y position, enforce 12px min gap
+  const ex=ptX(11,months12,W,pad.l,pad.r);
+  const endLabels=[
+    {data:y22,label:'2022',color:'#7a7060',op:'0.5'},
+    {data:y23,label:'2023',color:'#1e72b0',op:'0.4'},
+    {data:y24,label:'2024',color:'#1e72b0',op:'0.7'},
+    {data:y25,label:'2025',color:'#1e72b0',op:'1'},
+  ].map(d=>Object.assign(d,{ey:ptY(d.data[11],maxP,H,pad.t,pad.b)}));
+  endLabels.sort((a,b)=>a.ey-b.ey);
+  for(let i=1;i<endLabels.length;i++){
+    if(endLabels[i].ey < endLabels[i-1].ey+12) endLabels[i].ey=endLabels[i-1].ey+12;
+  }
+  endLabels.forEach(d=>{
+    h+=`<text x="${(ex+6).toFixed(1)}" y="${(d.ey+4).toFixed(1)}" font-size="9" fill="${d.color}" font-family="monospace" opacity="${d.op}">${d.label}</text>`;
+  });
+  // 2026 label at Mar (idx 2)
+  const ex26=ptX(2,months12,W,pad.l,pad.r);
+  const ey26=ptY(y26[2],maxP,H,pad.t,pad.b);
+  h+=`<text x="${(ex26+5).toFixed(1)}" y="${(ey26-6).toFixed(1)}" font-size="9" fill="#8a6820" font-family="monospace">2026</text>`;
+
+  svg.innerHTML=h;
+
+  // Dynamic summary
+  (function(){
+    const aug24=y24[7], aug25=y25[7], mar26=y26[2];
+    const el=document.getElementById('yoyRedditDesc');
+    if(el) el.textContent=`August is the strongest month in both 2024 (${aug24.toLocaleString()} posts) and 2025 (${aug25.toLocaleString()} posts) — confirming the early Halloween drop as a structural annual pattern. 2026 trend through March: ${mar26.toLocaleString()} posts/month.`;
+  })();
+})();
+
+// ── YOUTUBE YOY CHART ─────────────────────────────────────────
+(function(){
+  const svg=document.getElementById('yoyYTChart');
+  if(!svg) return;
+  const W=680, H=240, pad={t:20,r:30,b:36,l:52};
+  const maxV=5000000;
+  // YT_BBW_MONTHLY: 2023 = [0..11], 2024 = [12..23], 2025 = [24..35], 2026 = [36..38]
+  const yt23=YT_BBW_MONTHLY.slice(0,12);
+  const yt24=YT_BBW_MONTHLY.slice(12,24);
+  const yt25=YT_BBW_MONTHLY.slice(24,36);
+  const yt26=YT_BBW_MONTHLY.slice(36);
+  const months12=12;
+  let h='';
+
+  // Grid lines
+  [0,1000000,2000000,3000000,4000000,5000000].forEach(v=>{
+    const y=ptY(v,maxV,H,pad.t,pad.b);
+    h+=`<line x1="${pad.l}" y1="${y.toFixed(1)}" x2="${W-pad.r}" y2="${y.toFixed(1)}" stroke="#ddd6c6" stroke-width="${v===0?'1':'0.5'}" stroke-dasharray="${v===0?'':'4 4'}"/>`;
+    if(v>0) h+=`<text x="${pad.l-6}" y="${(y+3).toFixed(1)}" font-size="9" fill="#7a7060" font-family="monospace" text-anchor="end">${v/1000000}M</text>`;
+  });
+
+  // Month labels
+  const mAbbr=['J','F','M','A','M','J','J','A','S','O','N','D'];
+  for(let i=0;i<12;i++){
+    const x=ptX(i,months12,W,pad.l,pad.r);
+    h+=`<line x1="${x.toFixed(1)}" y1="${pad.t}" x2="${x.toFixed(1)}" y2="${H-pad.b}" stroke="#ddd6c6" stroke-width="0.5"/>`;
+    h+=`<text x="${x.toFixed(1)}" y="${H-pad.b+14}" font-size="9" fill="#7a7060" font-family="monospace" text-anchor="middle">${mAbbr[i]}</text>`;
+  }
+
+  function drawLine(data, color, opacity, dasharray){
+    const n=data.length;
+    const d=data.map((v,i)=>`${i===0?'M':'L'}${ptX(i,months12,W,pad.l,pad.r).toFixed(1)},${ptY(v,maxV,H,pad.t,pad.b).toFixed(1)}`).join(' ');
+    h+=`<path d="${d}" fill="none" stroke="${color}" stroke-width="1.8" opacity="${opacity}"${dasharray?` stroke-dasharray="${dasharray}"`:''}/>`;
+  }
+
+  // Colors: 2023=gray dashed, 2024=gold 60%, 2025=gold 100%, 2026=blue
+  drawLine(yt23,'#7a7060','0.45','4 3');
+  drawLine(yt24,'#8a6820','0.6','');
+  drawLine(yt25,'#8a6820','1','');
+  drawLine(yt26,'#1e72b0','1','');
+
+  // August spike markers (idx 7) — 2024 label below, 2025 label above
+  [[yt24,'#8a6820','0.6'],[yt25,'#8a6820','1']].forEach(([data,color,op],i)=>{
+    const x=ptX(7,months12,W,pad.l,pad.r);
+    const y=ptY(data[7],maxV,H,pad.t,pad.b);
+    h+=`<rect x="${(x-4).toFixed(1)}" y="${(y-4).toFixed(1)}" width="8" height="8" fill="${color}" opacity="${op}" transform="rotate(45,${x.toFixed(1)},${y.toFixed(1)})"/>`;
+    const labelY = i===0 ? y+18 : y-10;
+    h+=`<text x="${x.toFixed(1)}" y="${labelY.toFixed(1)}" font-size="8" fill="${color}" font-family="monospace" text-anchor="middle" opacity="${op}">Aug</text>`;
+  });
+
+  // Year end labels — sort by natural y, enforce 12px min gap
+  const ex=ptX(11,months12,W,pad.l,pad.r);
+  const endLabels=[
+    {data:yt23,label:'2023',color:'#7a7060',op:'0.5'},
+    {data:yt24,label:'2024',color:'#8a6820',op:'0.6'},
+    {data:yt25,label:'2025',color:'#8a6820',op:'1'},
+  ].map(d=>Object.assign(d,{ey:ptY(d.data[11],maxV,H,pad.t,pad.b)}));
+  endLabels.sort((a,b)=>a.ey-b.ey);
+  for(let i=1;i<endLabels.length;i++){
+    if(endLabels[i].ey < endLabels[i-1].ey+12) endLabels[i].ey=endLabels[i-1].ey+12;
+  }
+  endLabels.forEach(d=>{
+    h+=`<text x="${(ex+6).toFixed(1)}" y="${(d.ey+4).toFixed(1)}" font-size="9" fill="${d.color}" font-family="monospace" opacity="${d.op}">${d.label}</text>`;
+  });
+  // 2026 label at Mar position — blue
+  const ex26=ptX(2,months12,W,pad.l,pad.r);
+  const ey26=ptY(yt26[2],maxV,H,pad.t,pad.b);
+  h+=`<text x="${(ex26+5).toFixed(1)}" y="${(ey26-6).toFixed(1)}" font-size="9" fill="#1e72b0" font-family="monospace">2026</text>`;
+
+  svg.innerHTML=h;
+
+  // Dynamic summary
+  (function(){
+    const aug24=yt24[7], aug25=yt25[7], mar26=yt26[2];
+    const el=document.getElementById('yoyYTDesc');
+    if(el) el.textContent=`August spike confirmed in both 2024 (${(aug24/1000000).toFixed(1)}M views) and 2025 (${(aug25/1000000).toFixed(1)}M views) — cross-validates the Reddit early Halloween signal. Two independent data sources, same pattern, two consecutive years.`;
+  })();
+})();
+
+// ── SIMILARWEB VISITS CHART ───────────────────────────────────
+const SW_VISITS = [
+  {month:"Oct '25", visits:3200000, confirmed:true},
+  {month:"Dec '25", visits:2800000, confirmed:false},
+  {month:"Jan '26", visits:2420000, confirmed:false},
+  {month:"Feb '26", visits:2300000, confirmed:true}
+];
+(function(){
+  const svg=document.getElementById('swVisitsChart');
+  if(!svg) return;
+  const W=340, H=200, pad={t:28,r:16,b:36,l:42};
+  const cW=W-pad.l-pad.r, cH=H-pad.t-pad.b;
+  const maxV=4000000;
+  const n=SW_VISITS.length;
+  const bW=cW/n*0.55, gap=cW/n;
+  let h='';
+
+  // Grid lines at 0, 1M, 2M, 3M, 4M
+  [0,1000000,2000000,3000000,4000000].forEach(v=>{
+    const y=pad.t+cH*(1-v/maxV);
+    h+=`<line x1="${pad.l}" y1="${y.toFixed(1)}" x2="${W-pad.r}" y2="${y.toFixed(1)}" stroke="#ddd6c6" stroke-width="${v===0?'1':'0.5'}" stroke-dasharray="${v===0?'':'4 4'}"/>`;
+    if(v>0) h+=`<text x="${pad.l-5}" y="${(y+3).toFixed(1)}" font-size="8" fill="#7a7060" font-family="monospace" text-anchor="end">${v/1000000}M</text>`;
+  });
+
+  // Average line (dashed)
+  const avg=SW_VISITS.reduce((a,b)=>a+b.visits,0)/SW_VISITS.length;
+  const avgY=pad.t+cH*(1-avg/maxV);
+  h+=`<line x1="${pad.l}" y1="${avgY.toFixed(1)}" x2="${W-pad.r}" y2="${avgY.toFixed(1)}" stroke="#7a7060" stroke-width="1" stroke-dasharray="4 3"/>`;
+  h+=`<text x="${W-pad.r+2}" y="${(avgY+3).toFixed(1)}" font-size="7.5" fill="#7a7060" font-family="monospace">avg</text>`;
+
+  // Bars — full opacity for confirmed, 50% for estimated
+  SW_VISITS.forEach((d,i)=>{
+    const x=pad.l+i*gap+(gap-bW)/2;
+    const barH=cH*(d.visits/maxV);
+    const y=pad.t+cH-barH;
+    const isOct=i===0; // Oct is peak, highlighted gold
+    const color=isOct?'#8a6820':'#1e72b0';
+    const opacity=d.confirmed?'0.88':'0.44';
+    h+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bW.toFixed(1)}" height="${barH.toFixed(1)}" fill="${color}" opacity="${opacity}" rx="2"/>`;
+
+    // Value label above bar
+    const vStr=(d.visits/1000000).toFixed(1)+'M';
+    h+=`<text x="${(x+bW/2).toFixed(1)}" y="${(y-4).toFixed(1)}" font-size="9" fill="${color}" font-family="monospace" text-anchor="middle" font-weight="700">${vStr}</text>`;
+
+    // Est tag above value for non-confirmed values
+    if(!d.confirmed){
+      h+=`<text x="${(x+bW/2).toFixed(1)}" y="${(y-14).toFixed(1)}" font-size="7" fill="#7a7060" font-family="monospace" text-anchor="middle">est.</text>`;
+    }
+
+    // Month label below bar
+    h+=`<text x="${(x+bW/2).toFixed(1)}" y="${(H-pad.b+13).toFixed(1)}" font-size="8" fill="${isOct?'#8a6820':'#7a7060'}" font-family="monospace" text-anchor="middle">${d.month}</text>`;
+  });
+
+  svg.innerHTML=h;
+})();
+
+// ── SIGNAL SUMMARY ────────────────────────────────────────────
+(function(){
+  // Date header
+  const now = new Date();
+  const mons = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const dtEl = document.getElementById('ssDt');
+  if(dtEl) dtEl.textContent = 'as of '+mons[now.getMonth()]+' '+now.getDate()+', '+now.getFullYear();
+
+  const container = document.getElementById('ssLines');
+  if(!container) return;
+
+  // Line 1 — Reddit: reads from BBW_POSTS
+  const firstPosts = BBW_POSTS[0];
+  const latestPosts = BBW_POSTS[BBW_POSTS.length-1];
+  const growth = Math.round((latestPosts - firstPosts) / firstPosts * 100);
+  const weeklyEst = Math.round(latestPosts / 4.33);
+  const rolling3 = (BBW_POSTS[BBW_POSTS.length-4] + BBW_POSTS[BBW_POSTS.length-3] + BBW_POSTS[BBW_POSTS.length-2]) / 3;
+  const spikeRatio = latestPosts / rolling3;
+  const spikeStr = spikeRatio >= 1.5
+    ? '⚡ Spike detected ('+spikeRatio.toFixed(2)+'×)'
+    : 'No active demand spike detected ('+spikeRatio.toFixed(2)+'× — threshold 1.5×)';
+
+  // Line 2 — Grogu: reads from MANDO_Q + computes days
+  const mandoCur = MANDO_Q[MANDO_Q.length-1].v;
+  const filmDate = new Date('2026-05-22');
+  const thresholdDate = new Date('2026-03-01');
+  const daysUntilFilm = Math.max(0, Math.ceil((filmDate - now) / 86400000));
+  const daysSinceCrossed = Math.floor((now - thresholdDate) / 86400000);
+  const aboveBelow = mandoCur >= 120 ? 'above' : 'below';
+  const pctDiff = Math.round(Math.abs(mandoCur - 120) / 120 * 100);
+
+  // Line 4 — Web traffic: reads SW_VISITS last confirmed snapshot
+  const swConf = SW_VISITS.filter(function(d){ return d.confirmed; });
+  const swLatest = swConf[swConf.length - 1];
+  const swStr = (swLatest.visits / 1000000).toFixed(1) + 'M';
+
+  const lines = [
+    {
+      dot: 'green',
+      label: 'Reddit · r/buildabear',
+      text: 'Community up '+growth+'% since Jan 2022 — ~'+weeklyEst.toLocaleString()+'/wk current run rate. '+spikeStr+'.'
+    },
+    {
+      dot: 'red',
+      label: 'Grogu · r/TheMandalorianTV',
+      text: 'Fandom at '+mandoCur+' posts/month — '+pctDiff+'% '+aboveBelow+' 120/month signal threshold, crossed ~'+daysSinceCrossed+' days ago. '+daysUntilFilm+' days until May 22 theatrical release. Highest-conviction forward catalyst since Baby Yoda 2020.'
+    },
+    {
+      dot: 'gold',
+      label: 'Walmart · Microbeans',
+      text: 'Bluey 6-pack showing 100+ active carts, 2× generic pack activity at 2.5× price. First sell-through data point logged Apr 2 2026.'
+    },
+    {
+      dot: 'green',
+      label: 'Web Traffic · buildabear.com',
+      text: swStr+' estimated visits '+swLatest.month+' — post-holiday seasonal dip expected. Organic traffic stable at 2.4M/month per Semrush.'
+    }
+  ];
+
+  container.innerHTML = lines.map(function(l){
+    return '<div class="ss-line"><div class="ss-dot ss-dot-'+l.dot+'"></div><div><div class="ss-lbl">'+l.label+'</div><div class="ss-text">'+l.text+'</div></div></div>';
+  }).join('');
+})();
+
+// ── CLOCK ─────────────────────────────────────────────────────
+(function tick(){ document.getElementById('clock').textContent=new Date().toUTCString().replace(' GMT',''); setTimeout(tick,1000); })();
+
+// ── BRIEF MODAL ───────────────────────────────────────────────
+// ── GROGU COUNTDOWN ────────────────────────────────────────────
+const groguDays = Math.max(0, Math.ceil((new Date('2026-05-22') - new Date()) / 86400000));
+document.getElementById('groguDaysStat').textContent = groguDays;
+const groguAlertEl = document.getElementById('groguAlertTag'); if(groguAlertEl) groguAlertEl.textContent = groguDays + ' days';
+const groguBadgeEl = document.getElementById('groguBadge'); if(groguBadgeEl) groguBadgeEl.textContent = 'Grogu · ' + groguDays + ' days';
+
+function openBrief(){
+  document.getElementById('modal-date').textContent='Generated: '+new Date().toUTCString();
+  document.getElementById('modal-body').innerHTML='<div class="modal-loader"><div class="spinner"></div> Generating brief...</div>';
+  document.getElementById('modal').classList.add('open');
+  setTimeout(renderBrief,600);
+}
+function closeBrief(){ document.getElementById('modal').classList.remove('open'); }
+
+function renderBrief(){
+  const groguDaysB = Math.max(0, Math.ceil((new Date('2026-05-22') - new Date()) / 86400000));
+  const latestPosts = BBW_POSTS[BBW_POSTS.length-1];
+  const firstPosts = BBW_POSTS[0];
+  const postGrowth = Math.round((latestPosts - firstPosts) / firstPosts * 100);
+  const weeklyEst = Math.round(latestPosts / 4.33);
+  const latestM = BBW_MONTHS[BBW_MONTHS.length-1];
+  const [yr,mo] = latestM.split('-');
+  const mNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const latestLbl = mNames[parseInt(mo)-1]+' '+yr;
+  const mandoCur = MANDO_Q[MANDO_Q.length-1].v;
+  const now = new Date();
+  const thresholdCrossed = new Date('2026-03-01');
+  const daysSinceCrossed = Math.floor((now - thresholdCrossed) / 86400000);
+
+  const overallStatus = (groguDaysB <= 60 && mandoCur >= 120)
+    ? 'All signals constructive — Grogu theatrical catalyst is live, Reddit community healthy, Walmart sell-through baseline established.'
+    : 'Signals constructive. No active demand spike. Grogu catalyst tracking on schedule.';
+
+  document.getElementById('modal-body').innerHTML=`
+    <p style="padding:10px 14px;background:#eef8f2;border-left:3px solid var(--green);border-radius:0 5px 5px 0;font-size:12px;color:var(--text);margin-bottom:16px"><strong>Status:</strong> ${overallStatus}</p>
+
+    <h4>01 · IP Release Demand Spikes</h4>
+    <p>Grogu/Mandalorian fandom at <span class="num">${mandoCur}</span> posts/month on r/TheMandalorianTV — threshold of 120/month crossed ~${daysSinceCrossed} days ago. The 2020 Baby Yoda plush sold out in 2 hours, sending BBW stock <span class="num">+13.5%</span> in a single session. The theatrical release is May 22, 2026 (<span class="num">${groguDaysB} days</span>), making this the highest-conviction forward catalyst in the current monitoring window. Second confirmed forward catalyst: the early Halloween annual pattern has fired at approximately <span class="num">~1.65×</span> in both August 2024 (1.71×) and August 2025 (1.64×) — model August 2026 as a predictable demand event.</p>
+
+    <h4>02 · Periodic Online Statistics</h4>
+    <p>r/buildabear post volume has grown from <span class="num">${firstPosts.toLocaleString()}</span>/month in Jan 2022 to <span class="num">${latestPosts.toLocaleString()}</span>/month in ${latestLbl} — a <span class="num">+${postGrowth}%</span> increase over ${BBW_POSTS.length} months. Current run rate approximately <span class="num">~${weeklyEst.toLocaleString()}/wk</span>. No active demand spike detected at this time (threshold: 1.5× prior 3-month average). buildabear.com registered <span class="num">2.3M</span> estimated monthly visits in Feb 2026 (SimilarWeb); organic search traffic stable at <span class="num">2.4M/month</span> per Semrush with domain authority 70 and rank #1 for 'build a bear' (823K monthly search volume). Audience: 67% female, 25–34 largest segment — independent confirmation of the Kidult thesis.</p>
+
+    <h4>03 · YouTube Demand Signal</h4>
+    <p>Official channel @buildabear (UCLKFj0lOHWcbjx8Nrpcw_fg) confirmed via YouTube Data API v3: <span class="num">130K subscribers</span>, <span class="num">191M total views</span>, 902 videos as of Apr 2 2026. August view spikes in both 2024 (4.1M) and 2025 (4.4M) aligned exactly with Reddit demand spikes — three independent signals (Reddit 2024, Reddit 2025, YouTube) confirming the early Halloween launch pattern. Unboxing channel baseline established Apr 2 2026: Lots of Toys (97.6K subs), DOLLASTIC PLAYS! (961K subs), Karina Garcia (8.99M subs) all at 0 BBW videos in the trailing 30 days. First non-zero reading will be a 10–14 day early warning signal ahead of Reddit post volume rising.</p>
+
+    <h4>04 · Commercial Segment</h4>
+    <p><span class="num">178</span> commercial partner locations as of Q4 FY25, up from 39 in 2018 (+356%). Management guided at least 50 net new locations in FY26 (≥20% growth). Walmart trial in <span class="num">1,500 stores</span> — three Microbeans SKUs confirmed on walmart.com as of Apr 2 2026: generic 3-pack ($9.97, 50+ active carts), Bluey 6-pack ($24.97, 100+ active carts, 3P resellers at $34.95 representing a <span class="num">+40% premium</span> confirming secondary market demand), and Series 1 collectible 6-pack ($19.97, 5.0★). Bluey IP is driving 2× cart activity at 2.5× price — early evidence that IP-branded product commands premium sell-through velocity. Commercial revenue FY25: <span class="num">$43.9M</span> (+21.6% YoY), approximately 27% of pre-tax income despite being ~8.3% of revenue — the highest-margin channel.</p>
+
+    <h4>05 · Financial Performance</h4>
+    <p>FY25 revenue <span class="num">$529.8M</span> — fifth consecutive annual record and first over $500M. EPS <span class="num">$3.99</span> (+5% YoY). FY26 guidance: mid-single-digit revenue growth (~$555M est.), pre-tax earnings impacted by <span class="num">$16M</span> identified tariff headwind — a cost story, not a demand story. Management has a track record of absorbing cost pressures while growing revenue (see FY22–FY25). EPS growth expected to resume in FY27. Price target: <span class="num">$63</span> (~15× FY27e EPS ≈ $4.20). ROIC approximately 18% (FY24), down from 27% peak (FY22) but structurally higher than pre-COVID ~7%.</p>
+
+    <h4>06 · Macro Resilience</h4>
+    <p>BBW survived COVID-19 — the most severe discretionary consumer shock in decades — with positive free cash flow and no equity dilution, demonstrating the brand's real resilience (not just management commentary). The SIS (Shop-in-Shop) model uses operating leases cancellable on short notice, limiting downside in a consumer downturn. The Kidult thesis operates on its own demand cycle independent of traditional toy retail seasonality. European commercial expansion (Germany, Italy via SIS partner model) means BBW absorbs no lease risk on international locations — all incremental revenue at minimal incremental fixed cost. The combination of brand resilience, asset-light expansion, and IP optionality creates an asymmetric return profile that is not visible in trailing P/E multiples alone.</p>
+  `;
+}
+
+// ── NAV PILLS SCROLL HIGHLIGHT ─────────────────────────────────
+(function(){
+  const sections = ['sec-ip','sec-online','sec-youtube','sec-commercial','sec-financial','sec-macro'];
+  const pills = document.querySelectorAll('.nav-pill');
+  function setActive(id){
+    pills.forEach(p=>{ p.classList.toggle('active', p.dataset.target===id); });
+  }
+  // Click handlers
+  pills.forEach(p=>{
+    p.addEventListener('click',function(){
+      const el=document.getElementById(p.dataset.target);
+      if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
+    });
+  });
+  // IntersectionObserver
+  let current='sec-ip';
+  const obs=new IntersectionObserver(entries=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting) { current=e.target.id; setActive(current); }
+    });
+  },{rootMargin:'-20% 0px -70% 0px'});
+  sections.forEach(id=>{ const el=document.getElementById(id); if(el) obs.observe(el); });
+  setActive('sec-ip');
+})();
+</script>
+</body>
+</html>

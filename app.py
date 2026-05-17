@@ -84,6 +84,20 @@ def index():
     return send_from_directory(app.root_path, "dashboard.html")
 
 
+@app.route("/dashboards/<name>")
+def company_dashboard(name):
+    """Serve a per-ticker dashboard HTML file from /dashboards.
+
+    Used by the iframes inside dashboard.html's company tabs (BBW/EAT/CROX/GAW).
+    send_from_directory normalises the path and refuses traversal, so a
+    request like /dashboards/../app.py 404s.
+    """
+    return send_from_directory(
+        os.path.join(app.root_path, "dashboards"),
+        f"{name}.html",
+    )
+
+
 @app.route("/api/health")
 def health():
     """Fast endpoint with no external calls — used by the UI to detect

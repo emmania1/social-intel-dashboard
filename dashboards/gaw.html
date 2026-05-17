@@ -1,0 +1,2647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Warhammer Demand Acceleration — YouTube Intelligence</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:      #0d1117;
+    --surface: #161b22;
+    --border:  #21262d;
+    --text:    #e6edf3;
+    --muted:   #8b949e;
+    --accent:  #c0392b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--text);
+         font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+         font-size: 14px; line-height: 1.6; }
+
+  /* ── Layout ─────────────────────────────────── */
+  .topbar { background: var(--surface); border-bottom: 1px solid var(--border);
+             padding: 10px 32px; display: flex; align-items: center; gap: 24px;
+             justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+  .topbar h1 { font-size: 16px; font-weight: 600; letter-spacing: -0.3px; margin: 0; }
+  .topbar .meta { color: var(--muted); font-size: 11px; }
+  .topbar-nav { display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; }
+  .nav-btn {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.3px;
+    color: var(--muted); background: transparent;
+    border: 1px solid var(--border); border-radius: 4px;
+    padding: 4px 9px; text-decoration: none;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    white-space: nowrap;
+  }
+  .nav-btn:hover { color: var(--text); border-color: var(--accent); background: #1c2333; }
+
+  .container { max-width: 1280px; margin: 0 auto; padding: 24px 32px; }
+
+  /* ── Page dividers ─────────────────────────── */
+  .page-divider {
+    margin: 48px 0 28px;
+    padding: 10px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1.8px;
+    color: var(--muted);
+  }
+  .page-divider:first-of-type { margin-top: 0; }
+
+  /* ── Sections ──────────────────────────────── */
+  section { margin-bottom: 36px; }
+  .section-title {
+    font-size: 12px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--text);
+    margin-bottom: 6px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-sub {
+    font-size: 12px; color: var(--muted);
+    margin-bottom: 18px; line-height: 1.55;
+    max-width: 780px;
+  }
+  .section-sub strong { color: #cdd9e5; }
+
+  /* ── Stat card ─────────────────────────────── */
+  .stat-row { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 22px; min-width: 180px;
+  }
+  .stat-val { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
+  .stat-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase;
+               letter-spacing: 0.8px; margin-top: 4px; }
+
+  /* ── Charts ────────────────────────────────── */
+  .chart-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .chart-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 18px 20px;
+  }
+  .chart-card h3 {
+    font-size: 11px; color: var(--muted); font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px;
+  }
+  .chart-wrap     { position: relative; height: 220px; }
+  .chart-wrap-md  { position: relative; height: 260px; }
+  .chart-wrap-lg  { position: relative; height: 380px; }
+  .data-note {
+    color: var(--muted); font-size: 11px; margin-top: 10px;
+    line-height: 1.5; font-style: italic;
+  }
+  .section-insight {
+    color: #8b949e; font-size: 12px; font-style: italic;
+    margin: 10px 0 0; padding: 8px 12px;
+    border-left: 2px solid #30363d;
+    line-height: 1.6;
+  }
+  .key-insight {
+    font-size: 12.5px; color: #cdd9e5; line-height: 1.7;
+    margin: 14px 0 0; padding: 11px 16px;
+    border-left: 3px solid #58a6ff;
+    background: #0d1520;
+    border-radius: 0 5px 5px 0;
+  }
+  .key-insight-lbl {
+    display: block; font-size: 9px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1.5px;
+    color: #58a6ff; margin-bottom: 5px;
+  }
+  .section-why {
+    font-size: 12px; color: #b8c8d8; line-height: 1.8;
+    margin: 14px 0 0; padding: 12px 16px;
+    border-left: 3px solid #27ae60;
+    background: #0a1810;
+    border-radius: 0 5px 5px 0;
+  }
+  .section-why-lbl {
+    display: block; font-size: 9px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1.5px;
+    color: #27ae60; margin-bottom: 6px;
+  }
+
+  /* ── Tables ────────────────────────────────── */
+  .table-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; overflow: hidden;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px;
+    color: var(--muted); font-weight: 600; padding: 9px 14px;
+    border-bottom: 1px solid var(--border); text-align: left;
+    background: #0d1117;
+  }
+  td { padding: 10px 14px; border-bottom: 1px solid #1a1f27; font-size: 13px; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.025); }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  th.num { text-align: right; }
+  td.muted-cell { color: var(--muted); font-size: 12px; }
+  .dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    margin-right: 8px; flex-shrink: 0;
+  }
+
+  /* ── Badges ────────────────────────────────── */
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.3px; white-space: nowrap;
+  }
+  .badge-pos { background: #1a3a2a; color: #2ecc71; }
+  .badge-mid { background: #3a2d1a; color: #e67e22; }
+  .badge-neg { background: #3a1a1a; color: #e74c3c; }
+  .badge-na  { background: #1e2530; color: #8b949e; }
+
+  /* ── Rules block ───────────────────────────── */
+  .rules-block {
+    background: #0d1117; border: 1px solid var(--border);
+    border-radius: 6px; padding: 14px 18px; margin-top: 16px;
+    font-size: 12px; color: var(--muted); line-height: 1.7;
+  }
+  .rules-block ul { margin: 8px 0 8px 18px; }
+  .rules-block li { margin-bottom: 2px; }
+  .rules-block strong { color: #cdd9e5; }
+  .rules-block .rules-formula {
+    margin-top: 10px; padding-top: 10px;
+    border-top: 1px solid var(--border);
+    color: #8b949e; font-size: 11px;
+  }
+
+  /* ── Steam 3-layer presentation ───────────── */
+
+  /* Primary section header (YoY row) */
+  .steam-layer-hdr {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1.4px; color: #cdd9e5;
+    margin: 22px 0 12px; padding: 7px 0;
+    border-bottom: 2px solid var(--accent);
+    display: flex; align-items: baseline; gap: 10px;
+  }
+  .steam-layer-hdr .layer-tag {
+    color: #8b949e; font-size: 9px; font-weight: 400;
+    text-transform: none; letter-spacing: 0;
+  }
+  /* Subordinate section header (context table, visually secondary) */
+  .steam-layer-hdr-sub {
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 1.2px; color: #8b949e;
+    margin: 18px 0 10px; padding: 5px 0;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: baseline; gap: 10px;
+  }
+  .steam-layer-hdr-sub .layer-tag {
+    color: #6e7681; font-size: 9px; font-weight: 400;
+    text-transform: none; letter-spacing: 0;
+  }
+
+  /* Title cards grid */
+  .steam-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 4px;
+  }
+  .steam-title-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 18px 16px;
+  }
+  .stc-header {
+    font-size: 12px; font-weight: 600; color: var(--text);
+    margin-bottom: 14px;
+    display: flex; align-items: center;
+  }
+
+  /* YoY — PRIMARY signal (most visually dominant) */
+  .stc-yoy-block { margin-bottom: 10px; }
+  .stc-yoy-badge {
+    font-size: 22px !important; font-weight: 800 !important;
+    padding: 6px 14px !important; letter-spacing: -0.3px !important;
+    display: inline-block;
+  }
+  .stc-yoy-lbl {
+    font-size: 11px; color: #cdd9e5;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    margin-top: 6px; font-weight: 500;
+  }
+
+  /* Thin divider between YoY (primary) and supporting metrics */
+  .stc-divider {
+    border: none; border-top: 1px solid var(--border);
+    margin: 12px 0 10px;
+  }
+
+  /* Supporting metrics below divider (avg + MoM) */
+  .stc-avg-val {
+    font-size: 20px; font-weight: 700;
+    letter-spacing: -0.4px; color: #cdd9e5;
+    margin-bottom: 2px;
+  }
+  .stc-avg-lbl {
+    font-size: 10px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.6px;
+    margin-bottom: 10px;
+  }
+  .stc-metric-lbl {
+    font-size: 10px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.5px;
+    margin-top: 4px;
+  }
+  .stc-mom-block { display: flex; flex-direction: column; }
+  .steam-pulse-section {
+    background: #0d1117;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 18px 12px;
+    margin-top: 4px;
+  }
+  .steam-pulse-hdr {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1.4px; color: #aaa;
+    margin-bottom: 6px;
+    display: flex; align-items: baseline; gap: 10px;
+  }
+  .steam-pulse-hdr .layer-tag {
+    color: #e67e22; font-size: 9px; font-weight: 400;
+    text-transform: none; letter-spacing: 0;
+  }
+  .steam-pulse-note {
+    font-size: 11px; color: var(--muted); font-style: italic;
+    margin-bottom: 12px; line-height: 1.5;
+  }
+  /* MTD section (in-progress month, amber accent) */
+  .steam-mtd-section {
+    background: #12100a;
+    border: 1px solid #3a2d1a;
+    border-left: 3px solid #e67e22;
+    border-radius: 8px;
+    padding: 14px 18px 12px;
+    margin-bottom: 18px;
+  }
+  .steam-mtd-hdr {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1.4px; color: #e67e22;
+    margin-bottom: 6px; display: flex; align-items: baseline; gap: 10px;
+  }
+  .steam-mtd-hdr .layer-tag {
+    color: #8b5e22; font-size: 9px; font-weight: 400;
+    text-transform: none; letter-spacing: 0;
+  }
+  .steam-mtd-note {
+    font-size: 11px; color: #a07040; margin-bottom: 12px; line-height: 1.5;
+  }
+  @media (max-width: 1100px) {
+    .steam-cards-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* ── Executive Summary (top of page) ───────── */
+  .exec-summary-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 24px 28px;
+    margin-bottom: 28px;
+  }
+  .exec-summary-label {
+    font-size: 9px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1.8px; color: var(--accent);
+    margin-bottom: 14px;
+  }
+  .exec-summary-body {
+    font-size: 13px; color: #cdd9e5; line-height: 1.8;
+  }
+  .exec-summary-body p { margin-bottom: 8px; }
+  .exec-summary-body p:last-child { margin-bottom: 0; }
+
+  /* ── Signal Interpretation blocks ──────────── */
+  .signal-interp {
+    background: #0d1520;
+    border: 1px solid #1e3a5f;
+    border-left: 3px solid #58a6ff;
+    border-radius: 6px;
+    padding: 12px 16px 10px;
+    margin-bottom: 18px;
+  }
+  .signal-interp-hdr {
+    font-size: 9px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1.3px; color: #58a6ff; margin-bottom: 6px;
+  }
+  .signal-interp p {
+    font-size: 12px; color: #8b949e; line-height: 1.65; margin: 0;
+  }
+
+  /* ── Executive summary ─────────────────────── */
+  .exec-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 24px 28px;
+  }
+  .exec-list { margin: 0; padding: 0; list-style: none; }
+  .exec-list li {
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+    font-size: 13px; color: #cdd9e5; line-height: 1.65;
+  }
+  .exec-list li:last-child { border-bottom: none; padding-bottom: 0; }
+  .exec-list strong { color: var(--text); }
+
+  @media (max-width: 900px) {
+    .chart-grid-2 { grid-template-columns: 1fr; }
+    .container { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <h1>Warhammer Demand Acceleration Intelligence</h1>
+    <div class="meta">YouTube · Reddit · Steam · Tournaments · Retail · 2023–2026</div>
+  </div>
+  <nav class="topbar-nav">
+    <a class="nav-btn" href="#pg-exec">Summary</a>
+    <a class="nav-btn" href="#pg-1">P1 Overview</a>
+    <a class="nav-btn" href="#pg-2">P2 YouTube</a>
+    <a class="nav-btn" href="#pg-3">P3 Anchors</a>
+    <a class="nav-btn" href="#pg-4">P4 Reddit</a>
+    <a class="nav-btn" href="#pg-5">P5 Steam</a>
+    <a class="nav-btn" href="#pg-6">P6 Tournaments</a>
+    <a class="nav-btn" href="#pg-7">P7 Retail</a>
+    <a class="nav-btn" href="#pg-8">P8 Stock</a>
+  </nav>
+  <div class="meta">Generated 2026-05-08 17:39</div>
+</div>
+
+<div class="container">
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<div class="page-divider" id="pg-exec">Executive Summary</div>
+
+<!-- ── Executive Summary — JS-rendered from window.__yt ─────────────────── -->
+<section>
+  <div class="exec-summary-card">
+    <div class="exec-summary-label">Executive Summary — Warhammer Franchise Demand Intelligence · 2026-05-08 17:39</div>
+    <div class="exec-summary-body" id="exec-summary-body">
+      <p style="color:#6e7681;font-style:italic">Computing structural metrics&hellip;</p>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<div class="page-divider" id="pg-1">Page 1 — Franchise Demand Overview</div>
+
+<!-- ── Page 1: Cross-Platform Franchise Overview ────────────────────────── -->
+<section>
+  <div class="section-sub">
+    Combined franchise demand snapshot across YouTube, Reddit, and Steam — consistent YoY (2025→2026),
+    2-Year (2024→2026), and 3-Year CAGR (2023→2026) framework.
+  </div>
+
+  <!-- YouTube stat row -->
+  <div class="section-title" style="margin-top:16px;font-size:11px;letter-spacing:0.08em;color:#8b949e;">YOUTUBE — 7 CREATOR CHANNELS</div>
+  <div class="stat-row">
+    <div class="stat-card">
+      <div class="stat-val" style="color:#8b949e">3.32M</div>
+      <div class="stat-lbl">Ecosystem Subscribers (2023)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:#58a6ff">4.99M</div>
+      <div class="stat-lbl">Ecosystem Subscribers (Feb 2026)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:#27ae60">+14.5%</div>
+      <div class="stat-lbl">3-Year CAGR (2023→2026)</div>
+    </div>
+  </div>
+
+  <!-- Reddit stat row -->
+  <div class="section-title" style="margin-top:16px;font-size:11px;letter-spacing:0.08em;color:#8b949e;">REDDIT — 4 CORE SUBREDDITS</div>
+  <div class="stat-row">
+    <div class="stat-card">
+      <div class="stat-val" style="color:#8b949e">2.18M</div>
+      <div class="stat-lbl">Community Members (2023)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:#58a6ff">3.41M</div>
+      <div class="stat-lbl">Community Members (2026)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:#27ae60">+16.0%</div>
+      <div class="stat-lbl">3-Year CAGR (2023→2026)</div>
+    </div>
+  </div>
+
+  <!-- Steam stat row -->
+  <div class="section-title" style="margin-top:16px;font-size:11px;letter-spacing:0.08em;color:#8b949e;">STEAM — DIGITAL PLAYER ACTIVITY</div>
+  <div class="stat-row">
+    <div class="stat-card">
+      <div class="stat-val" style="color:#58a6ff">33,511</div>
+      <div class="stat-lbl">Total Live CCU (All Titles)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:#27ae60">4 of 4 stable or growing</div>
+      <div class="stat-lbl">Portfolio — Structural YoY (Feb/Feb)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:#27ae60">+76.7%</div>
+      <div class="stat-lbl">Best Structural YoY — Space Marine 2</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:#27ae60">+30.2%</div>
+      <div class="stat-lbl">2-Year Change (Feb 2024→2026, 3 titles)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:#27ae60">+0.8%</div>
+      <div class="stat-lbl">3-Year CAGR (Feb 2023→2026, 3 titles)</div>
+    </div>
+  </div>
+
+  <!-- Cross-platform summary table -->
+  <div class="table-card" style="margin-top:20px;">
+    <table>
+      <thead>
+        <tr>
+          <th>Platform</th>
+          <th>Signal</th>
+          <th class="num">2023 Baseline</th>
+          <th class="num">2026 Current</th>
+          <th class="num">YoY (2025→2026)</th>
+          <th class="num">2-Year (2024→2026)</th>
+          <th class="num">3-Year CAGR</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>YouTube</strong></td>
+          <td>Subscribers (5 channels)</td>
+          <td class="num">3.32M</td>
+          <td class="num">4.99M</td>
+          <td class="num" style="color:#27ae60">+9.9%</td>
+          <td class="num" style="color:#27ae60">+29.1%</td>
+          <td class="num" style="color:#27ae60">+14.5%</td>
+        </tr>
+        <tr>
+          <td><strong>Reddit</strong></td>
+          <td>Community Members (4 subreddits)</td>
+          <td class="num">2.18M</td>
+          <td class="num">3.41M</td>
+          <td class="num" style="color:#27ae60">+16.2%</td>
+          <td class="num" style="color:#27ae60">+34.4%</td>
+          <td class="num" style="color:#27ae60">+16.0%</td>
+        </tr>
+        <tr>
+          <td><strong>Steam</strong></td>
+          <td>Avg Monthly Players — Space Marine 2 (headline; 4/4 portfolio stable-or-growing)</td>
+          <td class="num">6,652</td>
+          <td class="num">11,756</td>
+          <td class="num" style="color:#27ae60">+76.7%</td>
+          <td class="num" style="color:#27ae60">+30.2%</td>
+          <td class="num" style="color:#27ae60">+0.8%</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="data-note">
+      YouTube 2023 baseline: Wayback Machine Feb 2023 snapshot. Reddit 2023: Wayback Machine snapshot.
+      Reddit YoY column = 2023→2024 (earliest annual window; no 2025 snapshot). Reddit 2-Year = 2024→2026.
+      Steam YoY = best structural title (Feb 2025→2026). Steam 2-Year and 3-Year CAGR = portfolio aggregate of 3 and 3 comparable titles respectively (Space Marine 2 excluded where pre-release data unavailable).
+    </p>
+  </div>
+  <div class="section-why"><span class="section-why-lbl">What This Shows &amp; Why It Matters</span>
+    Three completely separate platforms — YouTube subscribers, Reddit community members, and Steam players — are all growing in the same direction at the same time. When independent data sources converge like this, it rules out platform-specific noise and confirms the demand trend is real and broad-based. A franchise with growing digital audiences, online communities, and active players is demonstrating consistent consumer pull across every measurable channel.
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<div class="page-divider" id="pg-2">Page 2 — YouTube Creator Ecosystem</div>
+
+<!-- ── Page 2A: Channel Subscriber Growth ──────────────────────────────── -->
+<section>
+  <div class="section-title">A · Channel Subscriber Growth</div>
+  <div class="section-sub">
+    Annual subscriber milestones tracked via Wayback Machine snapshots (Feb each year).
+    YoY = 2025→2026. 2-Year = 2024→2026. 3-Year CAGR = compounded annual growth rate 2023→2026.
+  </div>
+
+  <div class="chart-card" style="margin-bottom:16px;">
+    <h3>3-Year Subscriber Trajectory — 2023 · 2024 · 2025 · 2026</h3>
+    <div class="chart-wrap-md"><canvas id="chartMultiYear"></canvas></div>
+    <p class="data-note">Annual Wayback Machine snapshots (~Feb each year). Dashed white line = ecosystem total. Points missing where no snapshot falls within ±90 days of mid-Feb target.</p>
+  </div>
+
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Channel</th>
+          <th class="num">2023</th>
+          <th class="num">2024</th>
+          <th class="num">2025</th>
+          <th class="num">Feb 2026</th>
+          <th class="num">YoY %</th>
+          <th class="num">2-Year %</th>
+          <th class="num">3-Yr CAGR</th>
+        </tr>
+      </thead>
+      <tbody><tr><td><span class='dot' style='background:#c0392b'></span>Warhammer Official</td><td class='num'>0.61M</td><td class='num'>0.70M</td><td class='num'>0.85M</td><td class='num'>0.99M</td><td class='num'><span class='badge badge-up'>+17.0%</span></td><td class='num'><span class='badge badge-up'>+42.4%</span></td><td class='num'><span class='badge badge-up'>+17.6%</span></td></tr>
+<tr><td><span class='dot' style='background:#2980b9'></span>WesHammer</td><td class='num'>0.57M</td><td class='num'>0.68M</td><td class='num'>0.83M</td><td class='num'>0.89M</td><td class='num'><span class='badge badge-up'>+8.0%</span></td><td class='num'><span class='badge badge-up'>+32.1%</span></td><td class='num'><span class='badge badge-up'>+16.2%</span></td></tr>
+<tr><td><span class='dot' style='background:#8e44ad'></span>Luetin09</td><td class='num'>0.71M</td><td class='num'>0.81M</td><td class='num'>0.91M</td><td class='num'>0.96M</td><td class='num'><span class='badge badge-up'>+5.7%</span></td><td class='num'><span class='badge badge-up'>+18.1%</span></td><td class='num'><span class='badge badge-up'>+10.5%</span></td></tr>
+<tr><td><span class='dot' style='background:#27ae60'></span>Squidmar</td><td class='num'>0.53M</td><td class='num'>0.61M</td><td class='num'>0.70M</td><td class='num'>0.78M</td><td class='num'><span class='badge badge-up'>+10.7%</span></td><td class='num'><span class='badge badge-up'>+26.4%</span></td><td class='num'><span class='badge badge-up'>+13.2%</span></td></tr>
+<tr><td><span class='dot' style='background:#e67e22'></span>Majorkill</td><td class='num'>0.47M</td><td class='num'>0.57M</td><td class='num'>0.68M</td><td class='num'>0.70M</td><td class='num'><span class='badge badge-up'>+2.5%</span></td><td class='num'><span class='badge badge-up'>+21.2%</span></td><td class='num'><span class='badge badge-up'>+14.4%</span></td></tr>
+<tr><td><span class='dot' style='background:#b7950b'></span>Auspex Tactics</td><td class='num'>0.24M</td><td class='num'>0.28M</td><td class='num'>0.34M</td><td class='num'>0.40M</td><td class='num'><span class='badge badge-up'>+23.3%</span></td><td class='num'><span class='badge badge-up'>+42.3%</span></td><td class='num'><span class='badge badge-up'>+18.6%</span></td></tr>
+<tr><td><span class='dot' style='background:#117a65'></span>Chapter Master Valrak</td><td class='num'>0.20M</td><td class='num'>0.22M</td><td class='num'>0.26M</td><td class='num'>0.28M</td><td class='num'><span class='badge badge-up'>+10.2%</span></td><td class='num'><span class='badge badge-up'>+30.0%</span></td><td class='num'><span class='badge badge-up'>+12.7%</span></td></tr>
+<tr style='border-top:1px solid #30363d;font-weight:600;color:#cdd9e5'><td>Ecosystem Total</td><td class='num'>3.32M</td><td class='num'>3.87M</td><td class='num'>4.56M</td><td class='num'>4.99M</td><td class='num'>—</td><td class='num' style='color:#27ae60' >+29.1%</td><td class='num' style='color:#27ae60'>+14.5%</td></tr>
+</tbody>
+    </table>
+    <p class="data-note">YoY = 2025→2026. 2-Year = 2024→2026. 3-Yr CAGR = (subs_2026 ÷ subs_2023)<sup>⅓</sup> − 1. "—" = no snapshot available for that year.</p>
+  </div>
+  <div class="key-insight"><span class="key-insight-lbl">Key Insight</span>7 of 7 channels show positive 3-year CAGR. Ecosystem 3-year CAGR: +14.5%. Best performer by CAGR: Auspex Tactics.</div>
+  <div class="section-why"><span class="section-why-lbl">What This Shows &amp; Why It Matters</span>
+    These are the YouTube channels Warhammer fans actively follow. Growing subscriber counts mean more people are choosing to stay connected to Warhammer content year over year — that's top-of-funnel franchise awareness expanding. A channel growing at 10%+ per year means the pipeline of new people discovering Warhammer is healthy and compounding. Subscriber growth is a leading indicator: today's new subscriber is tomorrow's hobbyist and buyer.
+  </div>
+</section>
+
+<!-- ── Page 2B: Discovery Signals — ECI ────────────────────────────────── -->
+<section>
+  <div class="section-title">B · Discovery Signals — Evergreen Compounding Index (ECI)</div>
+  <div class="section-sub">
+    ECI = Avg Anchor View Growth % ÷ Subscriber 3-Year CAGR. ECI &gt; 1× means back-catalog views
+    are growing faster than the subscriber base — algorithmic discovery reaching beyond existing fans.
+    ECI &lt; 1× = view growth tracking at or below structural subscriber intake.
+  </div>
+
+  <div class="chart-grid-2" style="margin-bottom:18px;">
+    <div class="chart-card">
+      <h3>Evergreen Compounding Index (ECI) by Channel</h3>
+      <div class="chart-wrap"><canvas id="chartECI"></canvas></div>
+      <p class="data-note">Blue &gt; 2×, amber 1–2×, red &lt; 1×.</p>
+    </div>
+    <div class="chart-card">
+      <h3>Discovery Scatter — Anchor View Growth vs Sub CAGR</h3>
+      <div class="chart-wrap"><canvas id="chartDiscovery"></canvas></div>
+      <p class="data-note">X = 3-year sub CAGR. Y = avg anchor view growth %. Above the diagonal = view growth outpacing subscriber intake (algorithmic discovery).</p>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Channel</th>
+          <th class="num">Anchor View Growth % (YoY 2025→2026)</th>
+          <th class="num">Sub 3-Yr CAGR %</th>
+          <th class="num">ECI (×)</th>
+        </tr>
+      </thead>
+      <tbody><tr><td><span class='dot' style='background:#c0392b'></span>Warhammer Official</td><td class='num'><span class='badge badge-pos'>+29.7%</span></td><td class='num'><span class='badge badge-pos'>+17.6%</span></td><td class='num'><span class='badge badge-pos'>1.69×</span></td></tr>
+<tr><td><span class='dot' style='background:#2980b9'></span>WesHammer</td><td class='num'><span class='badge badge-pos'>+34.0%</span></td><td class='num'><span class='badge badge-pos'>+16.2%</span></td><td class='num'><span class='badge badge-pos'>2.10×</span></td></tr>
+<tr><td><span class='dot' style='background:#8e44ad'></span>Luetin09</td><td class='num'><span class='badge badge-pos'>+11.1%</span></td><td class='num'><span class='badge badge-pos'>+10.5%</span></td><td class='num'><span class='badge badge-pos'>1.06×</span></td></tr>
+<tr><td><span class='dot' style='background:#27ae60'></span>Squidmar</td><td class='num'><span class='badge badge-mid'>+4.1%</span></td><td class='num'><span class='badge badge-pos'>+13.2%</span></td><td class='num'><span class='badge badge-na'>0.31×</span></td></tr>
+<tr><td><span class='dot' style='background:#e67e22'></span>Majorkill</td><td class='num'><span class='badge badge-mid'>+9.5%</span></td><td class='num'><span class='badge badge-pos'>+14.4%</span></td><td class='num'><span class='badge badge-na'>0.66×</span></td></tr>
+<tr><td><span class='dot' style='background:#b7950b'></span>Auspex Tactics</td><td class='num'><span style='color:#6e7681'>—</span></td><td class='num'><span class='badge badge-pos'>+18.6%</span></td><td class='num'><span style='color:#6e7681'>—</span></td></tr>
+<tr><td><span class='dot' style='background:#117a65'></span>Chapter Master Valrak</td><td class='num'><span style='color:#6e7681'>—</span></td><td class='num'><span class='badge badge-pos'>+12.7%</span></td><td class='num'><span style='color:#6e7681'>—</span></td></tr>
+</tbody>
+    </table>
+    <p class="data-note">ECI = avg anchor view growth % ÷ sub 3yr CAGR (YoY fallback where CAGR unavailable). "—" = insufficient snapshot history.</p>
+  </div>
+  <div class="section-why"><span class="section-why-lbl">What This Shows &amp; Why It Matters</span>
+    ECI above 1× means YouTube is recommending old Warhammer videos to people who never searched for the franchise before — the algorithm is doing active fan recruitment at no cost. This is the clearest signal that Warhammer is in expansion mode: new audiences are being pulled in automatically, not just existing fans re-watching old content.
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<div class="page-divider" id="pg-3">Page 3 — Anchor Video Performance</div>
+
+<!-- ── Page 3: Anchor Video View Compounding ───────────────────────────── -->
+<section>
+  <div class="section-title">Evergreen Anchor Video View Compounding</div>
+  <div class="section-sub">
+    Fixed flagship videos tracked across annual Wayback Machine snapshots (2023–2026 where available).
+    Videos gaining views without new uploads confirm algorithmic distribution — durable demand
+    independent of upload cadence. Columns marked "—" indicate no snapshot available for that year.
+  </div>
+
+  <div class='signal-interp' style='border-left-color:#2ecc71;background:#0a1a0f;margin-bottom:14px'><div class='signal-interp-hdr' style='color:#2ecc71'>Fastest Compounding Anchors — Top 3 by YoY View Growth (2025→2026)</div><ul style='list-style:none;padding:0;margin:6px 0 0'><li style='margin-bottom:5px'><span class='dot' style='background:#c0392b'></span><strong style='color:#cdd9e5'>Astartes Part II – Official Warhammer 40000 Film</strong> <span style='color:#8b949e;font-size:11px'>(Warhammer Official)</span> — <span style='color:#2ecc71;font-weight:700'>+68.2% YoY</span></li><li style='margin-bottom:5px'><span class='dot' style='background:#2980b9'></span><strong style='color:#cdd9e5'>The Complete Warhammer 40000 Timeline</strong> <span style='color:#8b949e;font-size:11px'>(WesHammer)</span> — <span style='color:#2ecc71;font-weight:700'>+44.4% YoY</span></li><li style='margin-bottom:5px'><span class='dot' style='background:#c0392b'></span><strong style='color:#cdd9e5'>Never a Silent Night – Warhammer Animation</strong> <span style='color:#8b949e;font-size:11px'>(Warhammer Official)</span> — <span style='color:#2ecc71;font-weight:700'>+40.4% YoY</span></li></ul></div>
+
+  <div class="chart-card" style="margin-bottom:18px;">
+    <h3>View Growth % — All Matched Anchor Videos (YoY 2025→2026)</h3>
+    <div class="chart-wrap-lg"><canvas id="chartAnchorGrowth"></canvas></div>
+  </div>
+
+  <div class='signal-interp' style='border-left-color:#8e44ad;background:#0e0a1a;margin-bottom:14px'><div class='signal-interp-hdr' style='color:#8e44ad'>Ecosystem Concentration — Top 3 Creators by Anchor View Share</div><p>Top 3 creators (Luetin09, WesHammer, Warhammer Official) account for <strong style='color:#cdd9e5'>73.5%</strong> of total tracked anchor video views. <strong style='color:#cdd9e5'>70%</strong> of tracked anchors outperform their channel's subscriber growth rate — confirming broad-based algorithmic distribution independent of channel size.</p></div>
+
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Channel</th>
+          <th>Video</th>
+          <th class="num">Views 2023</th>
+          <th class="num">Views 2024</th>
+          <th class="num">Views 2025</th>
+          <th class="num">Views 2026</th>
+          <th class="num">YoY (2025→2026)</th>
+          <th class="num">2-Year (2024→2026)</th>
+          <th class="num">3-Yr CAGR</th>
+        </tr>
+      </thead>
+      <tbody><tr><td><span class='dot' style='background:#c0392b'></span>Warhammer Official</td><td>Astartes Part II – Official Warhammer 40000 Film</td><td class='num'>Official Media</td><td class='num'>—</td><td class='num'>—</td><td class='num'>4.4M</td><td class='num'>7.4M</td><td class='num'><span class="badge badge-pos">+68.2%</span></td><td class='num'>—</td><td class='num'>—</td></tr>
+<tr><td><span class='dot' style='background:#c0392b'></span>Warhammer Official</td><td>Never a Silent Night – Warhammer Animation</td><td class='num'>Official Media</td><td class='num'>—</td><td class='num'>—</td><td class='num'>638K</td><td class='num'>896K</td><td class='num'><span class="badge badge-pos">+40.4%</span></td><td class='num'>—</td><td class='num'>—</td></tr>
+<tr><td><span class='dot' style='background:#c0392b'></span>Warhammer Official</td><td>Revel in Excess This Christmas – Warhammer 40000</td><td class='num'>Official Media</td><td class='num'>—</td><td class='num'>—</td><td class='num'>398K</td><td class='num'>412K</td><td class='num'><span class="badge badge-mid">+3.5%</span></td><td class='num'>—</td><td class='num'>—</td></tr>
+<tr><td><span class='dot' style='background:#c0392b'></span>Warhammer Official</td><td>Secret Level – Warhammer Extract</td><td class='num'>Official Media</td><td class='num'>—</td><td class='num'>—</td><td class='num'>117K</td><td class='num'>123K</td><td class='num'><span class="badge badge-mid">+5.1%</span></td><td class='num'>—</td><td class='num'>—</td></tr>
+<tr><td><span class='dot' style='background:#2980b9'></span>WesHammer</td><td>The Complete Warhammer 40000 Timeline</td><td class='num'>Lore Education</td><td class='num'>—</td><td class='num'>—</td><td class='num'>4.5M</td><td class='num'>6.5M</td><td class='num'><span class="badge badge-pos">+44.4%</span></td><td class='num'>—</td><td class='num'>—</td></tr>
+<tr><td><span class='dot' style='background:#2980b9'></span>WesHammer</td><td>Adeptus Mechanicus Deep Dive</td><td class='num'>Lore Education</td><td class='num'>—</td><td class='num'>—</td><td class='num'>1.7M</td><td class='num'>2.2M</td><td class='num'><span class="badge badge-pos">+29.4%</span></td><td class='num'>—</td><td class='num'>—</td></tr>
+<tr><td><span class='dot' style='background:#2980b9'></span>WesHammer</td><td>Necrons Deep Dive</td><td class='num'>Lore Education</td><td class='num'>—</td><td class='num'>—</td><td class='num'>1.7M</td><td class='num'>2.1M</td><td class='num'><span class="badge badge-pos">+23.5%</span></td><td class='num'>—</td><td class='num'>—</td></tr>
+<tr><td><span class='dot' style='background:#2980b9'></span>WesHammer</td><td>Top 10 Most Powerful Characters in 40K</td><td class='num'>Lore Education</td><td class='num'>—</td><td class='num'>—</td><td class='num'>1.7M</td><td class='num'>2.1M</td><td class='num'><span class="badge badge-pos">+23.5%</span></td><td class='num'>—</td><td class='num'>—</td></tr>
+<tr><td><span class='dot' style='background:#8e44ad'></span>Luetin09</td><td>Dark Beginnings</td><td class='num'>Lore Education</td><td class='num'>2.0M</td><td class='num'>2.3M</td><td class='num'>2.7M</td><td class='num'>2.9M</td><td class='num'><span class="badge badge-mid">+7.9%</span></td><td class='num'>+26.6%</td><td class='num'>+13.4%</td></tr>
+<tr><td><span class='dot' style='background:#8e44ad'></span>Luetin09</td><td>The Rise and Fall of the Eldar</td><td class='num'>Lore Education</td><td class='num'>1.6M</td><td class='num'>1.9M</td><td class='num'>2.2M</td><td class='num'>2.4M</td><td class='num'><span class="badge badge-pos">+11.4%</span></td><td class='num'>+28.9%</td><td class='num'>+15.3%</td></tr>
+<tr><td><span class='dot' style='background:#8e44ad'></span>Luetin09</td><td>The God Emperor of Mankind Part 1</td><td class='num'>Lore Education</td><td class='num'>8.1M</td><td class='num'>9.2M</td><td class='num'>10.0M</td><td class='num'>11.3M</td><td class='num'><span class="badge badge-pos">+13.0%</span></td><td class='num'>+22.8%</td><td class='num'>+11.7%</td></tr>
+<tr><td><span class='dot' style='background:#8e44ad'></span>Luetin09</td><td>WTF IS Warhammer 40K?</td><td class='num'>Lore Education</td><td class='num'>1.8M</td><td class='num'>2.5M</td><td class='num'>3.4M</td><td class='num'>3.8M</td><td class='num'><span class="badge badge-pos">+12.1%</span></td><td class='num'>+49.2%</td><td class='num'>+27.6%</td></tr>
+<tr><td><span class='dot' style='background:#27ae60'></span>Squidmar</td><td>Comparing a $65000 3D Printer to a $350 home 3D pr</td><td class='num'>Hobby Content</td><td class='num'>1.5M</td><td class='num'>1.7M</td><td class='num'>1.7M</td><td class='num'>1.7M</td><td class='num'><span class="badge badge-mid">+0.0%</span></td><td class='num'>+0.0%</td><td class='num'>+4.3%</td></tr>
+<tr><td><span class='dot' style='background:#27ae60'></span>Squidmar</td><td>I Hired a Professional Miniature Painter on Fiverr</td><td class='num'>Hobby Content</td><td class='num'>2.3M</td><td class='num'>2.3M</td><td class='num'>2.4M</td><td class='num'>2.4M</td><td class='num'><span class="badge badge-mid">+0.0%</span></td><td class='num'>+4.3%</td><td class='num'>+1.4%</td></tr>
+<tr><td><span class='dot' style='background:#27ae60'></span>Squidmar</td><td>Henry Cavill Warhammer Army</td><td class='num'>Hobby Content</td><td class='num'>1.1M</td><td class='num'>1.8M</td><td class='num'>2.3M</td><td class='num'>2.4M</td><td class='num'><span class="badge badge-mid">+4.3%</span></td><td class='num'>+33.3%</td><td class='num'>+29.7%</td></tr>
+<tr><td><span class='dot' style='background:#27ae60'></span>Squidmar</td><td>The Most Realistic Miniature Diorama</td><td class='num'>Hobby Content</td><td class='num'>—</td><td class='num'>—</td><td class='num'>1.5M</td><td class='num'>1.6M</td><td class='num'><span class="badge badge-mid">+6.7%</span></td><td class='num'>—</td><td class='num'>—</td></tr>
+<tr><td><span class='dot' style='background:#e67e22'></span>Majorkill</td><td>Doom Slayer vs Space Marine</td><td class='num'>Entertainment / Commentary</td><td class='num'>1.9M</td><td class='num'>2.1M</td><td class='num'>2.4M</td><td class='num'>2.7M</td><td class='num'><span class="badge badge-pos">+11.4%</span></td><td class='num'>+27.4%</td><td class='num'>+12.1%</td></tr>
+<tr><td><span class='dot' style='background:#e67e22'></span>Majorkill</td><td>Why Roboute Guilliman is an Absolute Beast</td><td class='num'>Lore Education</td><td class='num'>1.0M</td><td class='num'>1.1M</td><td class='num'>1.4M</td><td class='num'>1.5M</td><td class='num'><span class="badge badge-mid">+8.8%</span></td><td class='num'>+38.5%</td><td class='num'>+15.1%</td></tr>
+<tr><td><span class='dot' style='background:#e67e22'></span>Majorkill</td><td>What did the Traitor Primarchs do after the Horus </td><td class='num'>Lore Education</td><td class='num'>1.0M</td><td class='num'>1.1M</td><td class='num'>1.3M</td><td class='num'>1.4M</td><td class='num'><span class="badge badge-mid">+8.1%</span></td><td class='num'>+27.8%</td><td class='num'>+12.0%</td></tr>
+<tr><td><span class='dot' style='background:#e67e22'></span>Majorkill</td><td>Darth Vader vs Space Marine</td><td class='num'>Entertainment / Commentary</td><td class='num'>—</td><td class='num'>—</td><td class='num'>1.4M</td><td class='num'>1.5M</td><td class='num'><span class="badge badge-mid">+9.7%</span></td><td class='num'>—</td><td class='num'>—</td></tr>
+</tbody>
+    </table>
+    <p class="data-note">
+      2-Year and 3-Yr CAGR require 2024 and 2023 snapshots — shown as "—" where unavailable.
+      ‡ = short-window YoY only (no 2025 anchor snapshot; uses nearest prior snapshot instead).
+      Views are nearest Wayback / API snapshots to mid-February of each year.
+    </p>
+  </div>
+  <div class="key-insight"><span class="key-insight-lbl">Key Insight</span>18 of 20 tracked anchor videos show positive YoY view growth. 70% outperform their channel's subscriber growth rate — confirming algorithmic distribution independent of subscriber momentum. Videos without 2023/2024 snapshot history show short-window YoY only.</div>
+  <div class="section-why"><span class="section-why-lbl">What This Shows &amp; Why It Matters</span>
+    These videos were posted 1–3 years ago with no recent promotion. If they're still accumulating views, it's because YouTube keeps recommending them to people who weren't already fans. Compounding view growth on old content proves the algorithm treats Warhammer as a growing interest category — not something audiences have moved on from. This is durable, self-sustaining demand that doesn't require constant new content to maintain.
+  </div>
+</section>
+
+<!-- ── Page 3 supplement: Content-Type Demand Signals ──────────────────── -->
+<section>
+  <div class="section-title">Content-Type Demand Signals</div>
+  <div class="section-sub">
+    Average anchor view growth by content format — identifies which categories are structurally
+    pulling in new viewers vs. plateauing. Lore Education and Official Media formats
+    tend to show the strongest evergreen compounding: IP storytelling drives franchise discovery
+    beyond existing fans, unlike hobby tutorials which index more toward established audiences.
+  </div>
+
+  <div class="chart-grid-2" style="margin-bottom:18px;">
+    <div class="chart-card">
+      <h3>Avg View Growth % by Content Type</h3>
+      <div class="chart-wrap"><canvas id="chartContentType"></canvas></div>
+      <p class="data-note">Based on matched flagship anchor videos tracked across annual snapshot pairs.</p>
+    </div>
+    <div class="table-card" style="align-self:start;">
+      <table>
+        <thead>
+          <tr>
+            <th>Content Type</th>
+            <th class="num">Avg Growth</th>
+            <th class="num">Median Growth</th>
+            <th class="num">N</th>
+          </tr>
+        </thead>
+        <tbody><tr><td>Official Media</td><td class='num'>+29.7%</td><td class='num'>+23.1%</td><td class='num'>4</td></tr>
+<tr><td>Lore Education</td><td class='num'>+19.7%</td><td class='num'>+12.6%</td><td class='num'>10</td></tr>
+<tr><td>Hobby Content</td><td class='num'>+4.1%</td><td class='num'>+4.2%</td><td class='num'>4</td></tr>
+<tr><td>Entertainment / Commentary</td><td class='num'>+10.6%</td><td class='num'>+10.6%</td><td class='num'>2</td></tr>
+</tbody>
+      </table>
+    </div>
+  </div>
+  <div class="key-insight"><span class="key-insight-lbl">Key Insight</span>4 of 4 content types show positive average view growth. Strongest category: Official Media (+29.7% avg YoY view growth). Format diversity signals broad-based algorithmic discovery across the ecosystem.</div>
+  <div class="section-why"><span class="section-why-lbl">What This Shows &amp; Why It Matters</span>
+    Lore and narrative content outperforming tutorials signals that people who don't own the game yet are discovering the franchise through its storytelling — pure IP curiosity before any purchase. Tutorial and painting videos index more toward existing hobbyists. Seeing lore outperform is the new-customer acquisition signal: the franchise's universe is pulling in future buyers before they ever enter a store.
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<div class="page-divider" id="pg-4">Page 4 — Reddit Community Demand</div>
+
+<!-- ── Page 4: Reddit Community Expansion ──────────────────────────────── -->
+<section>
+  <div class="section-title">Community Member Base Expansion — 2023 · 2024 · 2026</div>
+  <div class="section-sub">
+    4 core Warhammer subreddits tracked via Wayback Machine snapshots (2023, 2024) and live 2026
+    member counts. No 2025 Reddit snapshot available — "2-Year %" reflects 2024→2026 growth (~2yr).
+    Broad-based community growth predating product cycles is a leading top-of-funnel demand signal.
+  </div>
+
+  <div class="chart-card" style="margin-bottom:18px;">
+    <h3>Subreddit Member Base — 2023 · 2024 · 2026</h3>
+    <div class="chart-wrap-md"><canvas id="chartRedditMultiYear"></canvas></div>
+    <p class="data-note">2023 and 2024: Wayback Machine snapshots (nearest available date). 2026: live weekly tracker.</p>
+  </div>
+
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Subreddit</th>
+          <th class="num">Members 2023</th>
+          <th class="num">Members 2024</th>
+          <th class="num">Members 2026</th>
+          <th class="num">Earliest Annual Window (2023→2024)</th>
+          <th class="num">2-Year % (2024→2026)</th>
+          <th class="num">3-Yr CAGR</th>
+          <th class="num">Share % (2026)</th>
+        </tr>
+      </thead>
+      <tbody><tr><td><span class='dot' style='background:#c0392b'></span>r/Warhammer</td><td class='num'>296K</td><td class='num'>338K</td><td class='num'>444K</td><td class='num'><span class='badge badge-pos'>+13.3%</span></td><td class='num'><span class='badge badge-pos'>+31.4%</span></td><td class='num'><span class='badge badge-pos'>+14.5%</span></td><td class='num'>13.0%</td></tr>
+<tr><td><span class='dot' style='background:#2980b9'></span>r/Warhammer40k</td><td class='num'>589K</td><td class='num'>783K</td><td class='num'>1.47M</td><td class='num'><span class='badge badge-pos'>+22.9%</span></td><td class='num'><span class='badge badge-pos'>+88.3%</span></td><td class='num'><span class='badge badge-pos'>+35.8%</span></td><td class='num'>43.3%</td></tr>
+<tr><td><span class='dot' style='background:#8e44ad'></span>r/AgeOfSigmar</td><td class='num'>197K</td><td class='num'>214K</td><td class='num'>252K</td><td class='num'><span class='badge badge-mid'>+7.2%</span></td><td class='num'><span class='badge badge-pos'>+17.7%</span></td><td class='num'><span class='badge badge-pos'>+8.5%</span></td><td class='num'>7.4%</td></tr>
+<tr><td><span class='dot' style='background:#27ae60'></span>r/minipainting</td><td class='num'>1.10M</td><td class='num'>1.20M</td><td class='num'>1.24M</td><td class='num'><span class='badge badge-mid'>+3.1%</span></td><td class='num'><span class='badge badge-mid'>+3.1%</span></td><td class='num'><span class='badge badge-mid'>+4.0%</span></td><td class='num'>36.3%</td></tr>
+<tr style='border-top:1px solid #30363d;font-weight:600;color:#cdd9e5'><td>Ecosystem Total</td><td class='num'>2.18M</td><td class='num'>2.54M</td><td class='num'>3.41M</td><td class='num'>+16.2%</td><td class='num'>+34.4%</td><td class='num'>+16.0%</td><td class='num'>100%</td></tr>
+</tbody>
+    </table>
+    <p class="data-note">Earliest Annual Window = 2023→2024 growth (no 2025 snapshot available). 2-Year = 2024→2026 (~2yr). 3-Yr CAGR = (members_2026 ÷ members_2023)<sup>⅓</sup> − 1.</p>
+  </div>
+  <div class="key-insight"><span class="key-insight-lbl">Key Insight</span>Ecosystem expanded from 2.18M (2023) to 3.41M (2026). 3-Year CAGR: +16.0%. Fastest growing: r/Warhammer40k (+35.8% CAGR).</div>
+  <div class="section-why"><span class="section-why-lbl">What This Shows &amp; Why It Matters</span>
+    Reddit members are self-selected superfans — people actively seeking out community, not passive viewers. All four Warhammer subreddits growing consistently means the most committed segment of the fanbase is expanding. These are the fans who buy multiple armies, who recommend the hobby to friends, and who drive the word-of-mouth that keeps pulling new people in. Core community growth is the deepest, stickiest demand signal available.
+  </div>
+</section>
+
+<!-- ── Reddit Community Intelligence ───────────────────────────────────── -->
+<section>
+  <div class="section-title">Reddit Community Intelligence</div>
+  <div class="section-sub">
+    1,060 top posts + 10,463 comments from r/Warhammer &amp; r/Warhammer40k (2023–2025).
+    Based on high-engagement posts (score &gt;500) across both subreddits, with top-25 comments
+    per post read and categorized. Engagement share = total upvotes per topic as % of all tracked upvotes.
+    Trend = top-25 avg score comparison 2024→2025 (apples-to-apples across years).
+  </div>
+
+  <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:18px;margin-bottom:20px;align-items:start;">
+    <div class="chart-card">
+      <h3>Community Engagement by Topic</h3>
+      <p style="font-size:10px;color:var(--muted);margin:-6px 0 10px 0;">
+        Share of total upvotes across all tracked top posts, 2023–2025. Hover for trend signal.
+      </p>
+      <div style="height:300px;"><canvas id="chartRedditIntel"></canvas></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div class="table-card" style="text-align:center;padding:16px 12px;">
+        <div style="font-size:26px;font-weight:700;color:#2980b9;">1,060</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;">Top posts analyzed (2023–2025)</div>
+      </div>
+      <div class="table-card" style="text-align:center;padding:16px 12px;">
+        <div style="font-size:26px;font-weight:700;color:#8e44ad;">10,463</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;">Comments read &amp; categorized</div>
+      </div>
+      <div class="table-card" style="padding:12px 14px;border-left:3px solid #27ae60;">
+        <div style="font-size:11px;font-weight:700;color:#27ae60;margin-bottom:6px;">KEY SIGNAL</div>
+        <div style="font-size:11px;color:#ccc;line-height:1.6;">
+          Hobby &amp; Painting is the community's core (67% of engagement).
+          General Discussion is growing fastest (+56% top-post avg 2024→2025).
+          Video Games are the highest per-post engagement of any category when they appear.
+          Lore content is losing traction (-38%).
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;
+              color:var(--muted);margin-bottom:10px;">
+    Topic Breakdown — What People Are Talking About &amp; Where It's Heading
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:8px;">
+    
+<div style="background:#131e2d;border:1px solid #2980b933;border-radius:6px;padding:14px 16px;position:relative;overflow:hidden;">
+  <div style="position:absolute;bottom:0;left:0;height:3px;width:63.3%;background:#2980b9;opacity:0.7;"></div>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+    <div>
+      <span style="font-size:16px;">🎨</span>
+      <strong style="font-size:12px;margin-left:6px;">Hobby & Painting</strong>
+    </div>
+    <div style="text-align:right;flex-shrink:0;">
+      <span style="font-size:20px;font-weight:700;color:#2980b9;">63.3%</span>
+      <div style="font-size:10px;color:var(--muted);">of engagement</div>
+    </div>
+  </div>
+  <div style="font-size:11px;color:#aaa;margin-top:8px;line-height:1.55;">People sharing painted models, conversions, kitbashes, and WIPs. The core creative act of the hobby — this is what the community is fundamentally about.</div>
+  <div style="margin-top:8px;padding:7px 9px;background:#111b27;border-radius:3px;font-size:10px;color:#aaa;line-height:1.4;"><span style="color:#5aacdf;">Top post [43,272 pts, 2025]</span> &ldquo;My cosplay Warboss 40k.&rdquo;</div>
+  <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+    <span style="font-size:11px;font-weight:600;color:#aaa;">→ Stable</span>
+    <span style="font-size:10px;color:var(--muted);">24→84→521 posts (23/24/25)</span>
+  </div>
+  <div style="font-size:10px;color:var(--muted);margin-top:3px;font-style:italic;">Top-25 avg score +12% (2024→2025). Dominant and consistent.</div>
+</div>
+<div style="background:#131e2d;border:1px solid #8e44ad33;border-radius:6px;padding:14px 16px;position:relative;overflow:hidden;">
+  <div style="position:absolute;bottom:0;left:0;height:3px;width:20.6%;background:#8e44ad;opacity:0.7;"></div>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+    <div>
+      <span style="font-size:16px;">💬</span>
+      <strong style="font-size:12px;margin-left:6px;">General Discussion</strong>
+    </div>
+    <div style="text-align:right;flex-shrink:0;">
+      <span style="font-size:20px;font-weight:700;color:#8e44ad;">20.6%</span>
+      <div style="font-size:10px;color:var(--muted);">of engagement</div>
+    </div>
+  </div>
+  <div style="font-size:11px;color:#aaa;margin-top:8px;line-height:1.55;">Hot takes, community polls, unpopular opinions, and open-ended questions. Community talking to itself rather than showing work.</div>
+  <div style="margin-top:8px;padding:7px 9px;background:#111b27;border-radius:3px;font-size:10px;color:#aaa;line-height:1.4;"><span style="color:#5aacdf;">Top post [16,904 pts, 2023]</span> &ldquo;I made a small idle for every troop in 40k&rdquo;</div>
+  <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+    <span style="font-size:11px;font-weight:600;color:#27ae60;">↑ Growing</span>
+    <span style="font-size:10px;color:var(--muted);">31→31→176 posts (23/24/25)</span>
+  </div>
+  <div style="font-size:10px;color:var(--muted);margin-top:3px;font-style:italic;">Top-25 avg score +56% (2024→2025). Participatory content accelerating.</div>
+</div>
+<div style="background:#131e2d;border:1px solid #f39c1233;border-radius:6px;padding:14px 16px;position:relative;overflow:hidden;">
+  <div style="position:absolute;bottom:0;left:0;height:3px;width:6.5%;background:#f39c12;opacity:0.7;"></div>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+    <div>
+      <span style="font-size:16px;">😄</span>
+      <strong style="font-size:12px;margin-left:6px;">Community & Humour</strong>
+    </div>
+    <div style="text-align:right;flex-shrink:0;">
+      <span style="font-size:20px;font-weight:700;color:#f39c12;">6.5%</span>
+      <div style="font-size:10px;color:var(--muted);">of engagement</div>
+    </div>
+  </div>
+  <div style="font-size:11px;color:#aaa;margin-top:8px;line-height:1.55;">Memes, jokes, cursed/blessed moments, funny juxtapositions. Reflects cultural fluency — only engaged fans get the jokes.</div>
+  <div style="margin-top:8px;padding:7px 9px;background:#111b27;border-radius:3px;font-size:10px;color:#aaa;line-height:1.4;"><span style="color:#5aacdf;">Top post [17,986 pts, 2025]</span> &ldquo;The sad state 40k is in currently&rdquo;</div>
+  <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+    <span style="font-size:11px;font-weight:600;color:#27ae60;">↑ Growing</span>
+    <span style="font-size:10px;color:var(--muted);">12→17→58 posts (23/24/25)</span>
+  </div>
+  <div style="font-size:10px;color:var(--muted);margin-top:3px;font-style:italic;">Top-25 avg score +21% (2024→2025). Meme culture expanding.</div>
+</div>
+<div style="background:#131e2d;border:1px solid #16a08533;border-radius:6px;padding:14px 16px;position:relative;overflow:hidden;">
+  <div style="position:absolute;bottom:0;left:0;height:3px;width:3.8%;background:#16a085;opacity:0.7;"></div>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+    <div>
+      <span style="font-size:16px;">📖</span>
+      <strong style="font-size:12px;margin-left:6px;">Lore & Narrative</strong>
+    </div>
+    <div style="text-align:right;flex-shrink:0;">
+      <span style="font-size:20px;font-weight:700;color:#16a085;">3.8%</span>
+      <div style="font-size:10px;color:var(--muted);">of engagement</div>
+    </div>
+  </div>
+  <div style="font-size:11px;color:#aaa;margin-top:8px;line-height:1.55;">Deep lore questions, book discussions, narrative analysis, and worldbuilding debates. Signals intellectual investment in the IP beyond just the game.</div>
+  <div style="margin-top:8px;padding:7px 9px;background:#111b27;border-radius:3px;font-size:10px;color:#aaa;line-height:1.4;"><span style="color:#5aacdf;">Top post [15,682 pts, 2024]</span> &ldquo;I want Your heart &rdquo;</div>
+  <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+    <span style="font-size:11px;font-weight:600;color:#e74c3c;">↓ Declining</span>
+    <span style="font-size:10px;color:var(--muted);">2→9→33 posts (23/24/25)</span>
+  </div>
+  <div style="font-size:10px;color:var(--muted);margin-top:3px;font-style:italic;">Top-25 avg score -38% (2024→2025). Lore posts getting less traction.</div>
+</div>
+<div style="background:#131e2d;border:1px solid #e74c3c33;border-radius:6px;padding:14px 16px;position:relative;overflow:hidden;">
+  <div style="position:absolute;bottom:0;left:0;height:3px;width:3.1%;background:#e74c3c;opacity:0.7;"></div>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+    <div>
+      <span style="font-size:16px;">📣</span>
+      <strong style="font-size:12px;margin-left:6px;">New Releases & News</strong>
+    </div>
+    <div style="text-align:right;flex-shrink:0;">
+      <span style="font-size:20px;font-weight:700;color:#e74c3c;">3.1%</span>
+      <div style="font-size:10px;color:var(--muted);">of engagement</div>
+    </div>
+  </div>
+  <div style="font-size:11px;color:#aaa;margin-top:8px;line-height:1.55;">Reactions to GW reveals, new model announcements, codex drops, and rumours. High comment counts signal community anticipation.</div>
+  <div style="margin-top:8px;padding:7px 9px;background:#111b27;border-radius:3px;font-size:10px;color:#aaa;line-height:1.4;"><span style="color:#5aacdf;">Top post [12,999 pts, 2024]</span> &ldquo;New Fulgrim arrived&rdquo;</div>
+  <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+    <span style="font-size:11px;font-weight:600;color:#aaa;">→ Stable</span>
+    <span style="font-size:10px;color:var(--muted);">4→2→25 posts (23/24/25)</span>
+  </div>
+  <div style="font-size:10px;color:var(--muted);margin-top:3px;font-style:italic;">Engagement driven by specific GW announcements. Volatile but consistent.</div>
+</div>
+<div style="background:#131e2d;border:1px solid #27ae6033;border-radius:6px;padding:14px 16px;position:relative;overflow:hidden;">
+  <div style="position:absolute;bottom:0;left:0;height:3px;width:2.0%;background:#27ae60;opacity:0.7;"></div>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+    <div>
+      <span style="font-size:16px;">🎮</span>
+      <strong style="font-size:12px;margin-left:6px;">Video Games & Digital</strong>
+    </div>
+    <div style="text-align:right;flex-shrink:0;">
+      <span style="font-size:20px;font-weight:700;color:#27ae60;">1.6%</span>
+      <div style="font-size:10px;color:var(--muted);">of engagement</div>
+    </div>
+  </div>
+  <div style="font-size:11px;color:#aaa;margin-top:8px;line-height:1.55;">Discussion of 40k video games (Space Marine 2, Rogue Trader, Boltgun, Total War 40K). A fast-growing crossover audience — fans who may never buy a physical model.</div>
+  <div style="margin-top:8px;padding:7px 9px;background:#111b27;border-radius:3px;font-size:10px;color:#aaa;line-height:1.4;"><span style="color:#5aacdf;">Top post [19,049 pts, 2024]</span> &ldquo;Guess who's playing SM2? What a legend! &rdquo;</div>
+  <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+    <span style="font-size:11px;font-weight:600;color:#2980b9;">↑ Emerging</span>
+    <span style="font-size:10px;color:var(--muted);">0→3→7 posts (23/24/25)</span>
+  </div>
+  <div style="font-size:10px;color:var(--muted);margin-top:3px;font-style:italic;">New in 2024. Highest per-post engagement of any category when it appears.</div>
+</div>
+<div style="background:#131e2d;border:1px solid #1abc9c33;border-radius:6px;padding:14px 16px;position:relative;overflow:hidden;">
+  <div style="position:absolute;bottom:0;left:0;height:3px;width:2.0%;background:#1abc9c;opacity:0.7;"></div>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+    <div>
+      <span style="font-size:16px;">🆕</span>
+      <strong style="font-size:12px;margin-left:6px;">New Player / Getting Started</strong>
+    </div>
+    <div style="text-align:right;flex-shrink:0;">
+      <span style="font-size:20px;font-weight:700;color:#1abc9c;">0.6%</span>
+      <div style="font-size:10px;color:var(--muted);">of engagement</div>
+    </div>
+  </div>
+  <div style="font-size:11px;color:#aaa;margin-top:8px;line-height:1.55;">Posts from people just entering the hobby — first army choices, how to start painting, rules confusion. A leading indicator of franchise growth.</div>
+  <div style="margin-top:8px;padding:7px 9px;background:#111b27;border-radius:3px;font-size:10px;color:#aaa;line-height:1.4;"><span style="color:#5aacdf;">Top post [5,147 pts, 2025]</span> &ldquo;So I’ve been coaching my brother in law on his first model for 3 days. I think he’s a&rdquo;</div>
+  <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+    <span style="font-size:11px;font-weight:600;color:#2980b9;">↑ Emerging</span>
+    <span style="font-size:10px;color:var(--muted);">0→0→11 posts (23/24/25)</span>
+  </div>
+  <div style="font-size:10px;color:var(--muted);margin-top:3px;font-style:italic;">First appeared in top posts in 2025. Leading indicator for franchise growth.</div>
+</div>
+<div style="background:#131e2d;border:1px solid #c0392b33;border-radius:6px;padding:14px 16px;position:relative;overflow:hidden;">
+  <div style="position:absolute;bottom:0;left:0;height:3px;width:2.0%;background:#c0392b;opacity:0.7;"></div>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+    <div>
+      <span style="font-size:16px;">🏆</span>
+      <strong style="font-size:12px;margin-left:6px;">Competitive & Tournaments</strong>
+    </div>
+    <div style="text-align:right;flex-shrink:0;">
+      <span style="font-size:20px;font-weight:700;color:#c0392b;">0.4%</span>
+      <div style="font-size:10px;color:var(--muted);">of engagement</div>
+    </div>
+  </div>
+  <div style="font-size:11px;color:#aaa;margin-top:8px;line-height:1.55;">Tournament results, meta analysis, list building, and organised play discussion. A niche but deeply engaged segment.</div>
+  <div style="margin-top:8px;padding:7px 9px;background:#111b27;border-radius:3px;font-size:10px;color:#aaa;line-height:1.4;"><span style="color:#5aacdf;">Top post [5,975 pts, 2025]</span> &ldquo;Why aren’t pods used anymore?&rdquo;</div>
+  <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+    <span style="font-size:11px;font-weight:600;color:#aaa;">→ Niche</span>
+    <span style="font-size:10px;color:var(--muted);">0→0→6 posts (23/24/25)</span>
+  </div>
+  <div style="font-size:10px;color:var(--muted);margin-top:3px;font-style:italic;">Small but consistent. High comment count per post (236 avg).</div>
+</div>
+<div style="background:#131e2d;border:1px solid #7f8c8d33;border-radius:6px;padding:14px 16px;position:relative;overflow:hidden;">
+  <div style="position:absolute;bottom:0;left:0;height:3px;width:2.0%;background:#7f8c8d;opacity:0.7;"></div>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+    <div>
+      <span style="font-size:16px;">🏪</span>
+      <strong style="font-size:12px;margin-left:6px;">Store & Retail</strong>
+    </div>
+    <div style="text-align:right;flex-shrink:0;">
+      <span style="font-size:20px;font-weight:700;color:#7f8c8d;">0.1%</span>
+      <div style="font-size:10px;color:var(--muted);">of engagement</div>
+    </div>
+  </div>
+  <div style="font-size:11px;color:#aaa;margin-top:8px;line-height:1.55;">FLGS / local game store discussion. Rarely surfaces in top posts — when it does it is often a complaint or notable event.</div>
+  <div style="margin-top:8px;padding:7px 9px;background:#111b27;border-radius:3px;font-size:10px;color:#aaa;line-height:1.4;"><span style="color:#5aacdf;">Top post [5,126 pts, 2024]</span> &ldquo;I Met A "That Guy" At My Local Warhammer Store&rdquo;</div>
+  <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+    <span style="font-size:11px;font-weight:600;color:#7f8c8d;">~ Marginal</span>
+    <span style="font-size:10px;color:var(--muted);">0→1→2 posts (23/24/25)</span>
+  </div>
+  <div style="font-size:10px;color:var(--muted);margin-top:3px;font-style:italic;">Rarely surfaces. Top post in 2025 was a complaint about a store never being open.</div>
+</div>
+<div style="background:#131e2d;border:1px solid #e67e2233;border-radius:6px;padding:14px 16px;position:relative;overflow:hidden;">
+  <div style="position:absolute;bottom:0;left:0;height:3px;width:2.0%;background:#e67e22;opacity:0.7;"></div>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+    <div>
+      <span style="font-size:16px;">💰</span>
+      <strong style="font-size:12px;margin-left:6px;">Pricing & Value</strong>
+    </div>
+    <div style="text-align:right;flex-shrink:0;">
+      <span style="font-size:20px;font-weight:700;color:#e67e22;">0.0%</span>
+      <div style="font-size:10px;color:var(--muted);">of engagement</div>
+    </div>
+  </div>
+  <div style="font-size:11px;color:#aaa;margin-top:8px;line-height:1.55;">Cost discussions, price increase reactions, tariff news. Low frequency but high comment intensity when it appears.</div>
+  <div style="margin-top:8px;padding:7px 9px;background:#111b27;border-radius:3px;font-size:10px;color:#aaa;line-height:1.4;"><span style="color:#5aacdf;">Top post [1,850 pts, 2025]</span> &ldquo;Games Workshop faces £12 million U.S. tariff hit&rdquo;</div>
+  <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+    <span style="font-size:11px;font-weight:600;color:#f39c12;">~ Watch</span>
+    <span style="font-size:10px;color:var(--muted);">0→0→1 posts (23/24/25)</span>
+  </div>
+  <div style="font-size:10px;color:var(--muted);margin-top:3px;font-style:italic;">Only 1 viral post in 2025 (£12M tariff hit) but generated 546 comments.</div>
+</div>
+  </div>
+  <p class="data-note" style="margin-top:8px;">
+    Data: r/Warhammer + r/Warhammer40k top posts by upvote score, 2023–2025.
+    Year skew note: 2023 sample contains only ultra-viral posts (all-time top); 2024–2025 data is
+    broader. Trend signals use top-25 avg score per year to normalize for this.
+    Post counts per year shown as 2023→2024→2025.
+  </p>
+  <div class="section-why"><span class="section-why-lbl">What This Shows &amp; Why It Matters</span>
+    Hobby and painting content dominates Reddit engagement, confirming the core community is made up of active practitioners — people who own models, paint them, and play the game. Video game posts generate the highest per-post engagement of any category when they appear, meaning releases like Space Marine 2 are the franchise's highest-impact recruitment events for converting new audiences into hobbyists. The growth in General Discussion engagement signals a broadening community beyond just the hardcore base.
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<div class="page-divider" id="pg-5">Page 5 — Digital Player Activity — Steam</div>
+
+<!-- ── Page 5: Steam Structural YoY ────────────────────────────────────── -->
+<section>
+  <div class="section-title">Structural Player Activity — Feb 2023 · Feb 2024 · Feb 2025 · Feb 2026</div>
+  <div class="section-sub">
+    February snapshot comparisons across four years control for seasonality and isolate structural
+    demand trends. Structural YoY = Feb 2025 → Feb 2026. 2-Year Change = Feb 2024 → Feb 2026.
+    3-Year Change = Feb 2023 → Feb 2026. Engagement Stability =
+    current 30-day avg ÷ all-time peak players — measures how far engagement sits below the launch spike.
+    Source: SteamCharts historical data.
+  </div>
+
+  <div class="chart-card" style="margin-bottom:18px;">
+    <h3>Monthly Avg Players — Structural Engagement (Completed Months Only)</h3>
+    <div class="chart-wrap-md"><canvas id="chartSteamMonthlyAvg"></canvas></div>
+    <p class="data-note">Completed calendar months only. Source: SteamCharts history. MTD rolling data excluded.</p>
+  </div>
+
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th class="num">Feb 2023 Avg</th>
+          <th class="num">Feb 2024 Avg</th>
+          <th class="num">Feb 2025 Avg</th>
+          <th class="num">Feb 2026 Avg</th>
+          <th class="num">Structural YoY</th>
+          <th class="num">2-Year Change</th>
+          <th class="num">3-Year Change</th>
+          <th class="num">Current Avg Players</th>
+          <th class="num">Peak Players</th>
+          <th class="num">Engagement Stability</th>
+        </tr>
+      </thead>
+      <tbody><tr><td><span class='dot' style='background:#2980b9'></span>Total War: WH3</td><td class='num'>20,460</td><td class='num'>17,757</td><td class='num'>20,784</td><td class='num'>22,790</td><td class='num'><span class='badge badge-mid'>+9.7%</span></td><td class='num'><span class='badge badge-pos'>+28.3%</span></td><td class='num'><span class='badge badge-pos'>+11.4%</span></td><td class='num'>22,229</td><td class='num'>166,519</td><td class='num'>13.3%</td></tr>
+<tr><td><span class='dot' style='background:#27ae60'></span>Space Marine 2</td><td class='num'>—</td><td class='num'>—</td><td class='num'>6,652</td><td class='num'>11,756</td><td class='num'><span class='badge badge-pos'>+76.7%</span></td><td class='num'><span class='badge badge-na'>—</span></td><td class='num'><span class='badge badge-na'>—</span></td><td class='num'>14,692</td><td class='num'>186,199</td><td class='num'>7.9%</td></tr>
+<tr><td><span class='dot' style='background:#c0392b'></span>Darktide</td><td class='num'>4,953</td><td class='num'>2,948</td><td class='num'>4,952</td><td class='num'>5,229</td><td class='num'><span class='badge badge-mid'>+5.6%</span></td><td class='num'><span class='badge badge-pos'>+77.4%</span></td><td class='num'><span class='badge badge-mid'>+5.6%</span></td><td class='num'>4,739</td><td class='num'>107,450</td><td class='num'>4.4%</td></tr>
+<tr><td><span class='dot' style='background:#e67e22'></span>Vermintide 2</td><td class='num'>4,240</td><td class='num'>2,612</td><td class='num'>2,304</td><td class='num'>2,338</td><td class='num'><span class='badge badge-mid'>+1.5%</span></td><td class='num'><span class='badge badge-neg'>-10.5%</span></td><td class='num'><span class='badge badge-neg'>-44.9%</span></td><td class='num'>2,231</td><td class='num'>104,134</td><td class='num'>2.1%</td></tr>
+</tbody>
+    </table>
+    <p class="data-note">
+      Structural YoY = Feb 2025 → Feb 2026 avg players.
+      2-Year Change = Feb 2024 → Feb 2026 (n/a for Space Marine 2 — released Sep 2024).
+      3-Year Change = Feb 2023 → Feb 2026 (n/a for titles not yet released in 2023).
+      Current Avg Players = last 30 days rolling (includes partial months). Engagement Stability = last-30d avg ÷ all-time peak.
+      Source: SteamCharts historical data.
+    </p>
+  </div>
+  <div class="key-insight"><span class="key-insight-lbl">Key Insight</span>1 of 4 title shows strong engagement expansion (structural YoY >+20%): Space Marine 2 (+76.7% structural YoY). 3 titles show stable engagement in the −10% to +20% band: Total War: WH3, Darktide, Vermintide 2. On a 3-year view, Vermintide 2 shows post-release normalization — consistent with declining engagement for titles beyond their initial release cycle. Engagement Stability Ratios (current avg ÷ all-time peak) range from 2.1% to 13.3%, confirming that new releases drive ecosystem-level engagement spikes while older titles stabilize at durable player floors.</div>
+  <div class="section-why"><span class="section-why-lbl">What This Shows &amp; Why It Matters</span>
+    February-to-February comparisons strip out seasonal noise and measure true structural demand — the same month, different years. Multiple Warhammer games holding or growing player counts 2–3 years after launch means the IP keeps converting new players through its back catalog. That's a library effect: ongoing digital discovery translating directly into active gameplay, and eventually into physical hobby purchases.
+  </div>
+</section>
+
+<!-- ── My Warhammer App — Active User Growth ────────────────────────────── -->
+<section>
+  <div class="section-title">My Warhammer App — Active User Growth</div>
+  <div class="section-sub">
+    My Warhammer is GW's unified single login platform. Active users = engaged in the last
+    6 months (GW definition). Growth from 346K to ~790K active users in 3 years confirms
+    digital customer base expansion tracking alongside physical demand.
+    Source: GW Half-Year Results + Annual Reports (investor.games-workshop.com). Update bi-annually.
+  </div>
+
+  <div style="display:grid; grid-template-columns:1.2fr 0.8fr; gap:18px; margin-bottom:18px;">
+    <div class="chart-card">
+      <h3>My Warhammer Active Users — Reported Snapshots</h3>
+      <div class="chart-wrap-md"><canvas id="chartAppUsers"></canvas></div>
+      <p class="data-note">
+        H1 = half-year results (Nov period end). FY = full-year annual report (May period end).
+        Slight dip FY24 vs H1 FY24 is normal seasonal variation. Source: GW investor reports.
+      </p>
+    </div>
+
+    <div class="table-card">
+      <table>
+        <thead>
+          <tr>
+            <th>Period</th>
+            <th class="num">Active Users</th>
+            <th class="num">YoY</th>
+            <th>Source</th>
+          </tr>
+        </thead>
+        <tbody><tr><td>H1 FY23</td><td class='num'>346,000</td><td class='num'><span class='badge badge-na'>—</span></td><td class='muted-cell'>H1 FY23 Half-Year Report (Jan 2023)</td></tr><tr><td>FY23</td><td class='num'>427,000</td><td class='num'><span class='badge badge-pos'>+23%</span></td><td class='muted-cell'>FY23 Annual Report (Jul 2023)</td></tr><tr><td>H1 FY24</td><td class='num'>576,000</td><td class='num'><span class='badge badge-pos'>+66%</span></td><td class='muted-cell'>H1 FY24 Half-Year Report (Jan 2024)</td></tr><tr><td>FY24</td><td class='num'>565,000</td><td class='num'><span class='badge badge-na'>—</span></td><td class='muted-cell'>FY24 Annual Report (Jul 2024)</td></tr><tr><td>H1 FY25</td><td class='num'>695,000</td><td class='num'><span class='badge badge-pos'>+21%</span></td><td class='muted-cell'>H1 FY25 Half-Year Report (Jan 2025)</td></tr><tr><td>H1 FY26</td><td class='num'>790,000</td><td class='num'><span class='badge badge-pos'>+14%</span></td><td class='muted-cell'>H1 FY26 Half-Year Report (Jan 2026, ~est.)</td></tr></tbody>
+      </table>
+      <p class="data-note">
+        Active user = engaged with GW platform in last 6 months.
+        YoY computed vs prior same-type snapshot where not explicitly reported.
+      </p>
+    </div>
+  </div>
+  <div class="section-why"><span class="section-why-lbl">What This Shows &amp; Why It Matters</span>
+    These are GW's own registered customers, actively using their platform within the last 6 months — not anonymous web visitors. Growing from 346K to 790K active users in 3 years means GW's identifiable digital customer base has more than doubled. This is GW's own internal measure of its active buyer pool, directly from their audited investor reports, tracking in sync with every other demand signal on this dashboard.
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<div class="page-divider" id="pg-6">Page 6 — Competitive Scene Participation</div>
+
+<!-- ── Page 6: Tournament Participation ────────────────────────────────── -->
+<section>
+  <div class="section-title">Real-World Hobby Participation — Major Competitive Tournaments</div>
+  <div class="section-sub">
+    Tournament participation tracks active hobby engagement — players who have purchased,
+    built, and painted armies to compete at the highest level. The two largest annual
+    Warhammer 40k championship events serve as a direct headcount of the most invested
+    segment of the player base. Growth here confirms that digital signals (YouTube discovery,
+    Reddit expansion, Steam engagement) are translating into real-world hobby participation.
+  </div>
+
+  <div class="chart-card" style="margin-bottom:18px;">
+    <h3>Tournament Participation — 2023 · 2024 · 2025</h3>
+    <div class="chart-wrap-md"><canvas id="chartTournament"></canvas></div>
+    <p class="data-note">
+      World Championships of Warhammer (WCW) and Las Vegas Open (LVO) are the two largest
+      annual Warhammer 40k competitive events globally. Player counts = confirmed registered
+      participants per event year.
+    </p>
+  </div>
+
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Event</th>
+          <th class="num">2023 Players</th>
+          <th class="num">2024 Players</th>
+          <th class="num">2025 Players</th>
+          <th class="num">YoY (2024→2025)</th>
+          <th class="num">2-Year Growth (2023→2025)</th>
+        </tr>
+      </thead>
+      <tbody><tr><td><strong>World Championships of Warhammer</strong><span style='display:block;font-size:11px;color:#8b949e;margin-top:2px'>40k Championship · Annual Global Finals</span></td><td class='num'>175</td><td class='num'>274</td><td class='num'>411</td><td class='num'><span class='badge badge-pos'>+50.0%</span></td><td class='num'><span class='badge badge-pos'>+134.9%</span></td></tr>
+<tr><td><strong>Las Vegas Open</strong><span style='display:block;font-size:11px;color:#8b949e;margin-top:2px'>40k Championship · Largest North American Open</span></td><td class='num'>950</td><td class='num'>907</td><td class='num'>1,095</td><td class='num'><span class='badge badge-pos'>+20.7%</span></td><td class='num'><span class='badge badge-pos'>+15.3%</span></td></tr>
+<tr style='border-top:2px solid #30363d;'><td><strong style='color:#cdd9e5'>Combined Participation</strong><span style='display:block;font-size:11px;color:#8b949e;margin-top:2px'>Both events · total registered players</span></td><td class='num'><strong>1,125</strong></td><td class='num'><strong>1,181</strong></td><td class='num'><strong>1,506</strong></td><td class='num'><span class='badge badge-pos'>+27.5%</span></td><td class='num'><span class='badge badge-pos'>+33.9%</span></td></tr>
+</tbody>
+    </table>
+    <p class="data-note">
+      YoY = 2024→2025 registered player change. 2-Year Growth = 2023→2025 total growth.
+      Sources: official tournament organizer registration data.
+    </p>
+  </div>
+
+  <div class="key-insight">
+    <span class="key-insight-lbl">Key Insight</span>
+    Competitive Warhammer participation across the two largest global tournaments expanded from 1,125 players in 2023 to 1,506 players in 2025 (+33.9% over 2 years). Growth is driven primarily by the World Championships of Warhammer, which expanded from 175 to 411 players (+134.9% over 2 years). LVO crossed 1,000 registered players for the first time in 2025 — a milestone confirming sustained real-world hobby participation growth. 
+  </div>
+  <div class="section-why"><span class="section-why-lbl">What This Shows &amp; Why It Matters</span>
+    Tournament players represent the maximum commitment tier of the hobby — they've purchased armies, built and painted models, paid entry fees, and often traveled to compete. If this number is growing, it proves that digital discovery (YouTube, Reddit, Steam) is converting all the way through to real-world physical spending at the highest engagement level. Online signal becoming real-world action is the full demand cycle completed.
+  </div>
+</section>
+
+
+<!-- ── BCP: Store-Level Organised Play ─────────────────────────────────── -->
+<section>
+  <div class="section-title">Store-Level Organised Play — Best Coast Pairings</div>
+  <div class="section-sub">
+    Best Coast Pairings is the dominant tournament management platform for Warhammer 40k store events.
+    Each event = a direct headcount of engaged hobbyists attending a physical store.
+    Monthly event count growth = expansion of the organised play community.
+    Avg players per event = depth of engagement per store visit.
+    Source: BCP public API. Snapshot: 2026-03-15.
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px;">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:16px;text-align:center;">
+      <div style="font-size:24px;font-weight:700;color:var(--text);">431,853</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:0.5px;">Total Players Tracked</div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:16px;text-align:center;">
+      <div style="font-size:24px;font-weight:700;color:var(--text);">22,317</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:0.5px;">Events Tracked</div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:16px;text-align:center;">
+      <div style="font-size:24px;font-weight:700;color:#27ae60;">19</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:0.5px;">Avg Players / Event</div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:16px;text-align:center;">
+      <div style="font-size:24px;font-weight:700;color:#2980b9;">37</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:0.5px;">Months of History</div>
+    </div>
+  </div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:12px 16px;margin-bottom:18px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="font-size:20px;font-weight:700;color:#e74c3c;">-12.7% YoY</span><span style="font-size:11px;color:var(--muted);">players — last complete month (2026-03 vs 2025-03)</span> &nbsp;·&nbsp; <span style="font-size:16px;font-weight:700;color:#e74c3c;">-0.2% 3-mo rolling YoY</span><span style="font-size:11px;color:var(--muted);"> (2026-01 – 2026-03)</span></div>
+
+  <div class="chart-card" style="margin-bottom:18px;">
+    <h3>Monthly Players Attending Organised Play — Warhammer 40k (BCP)</h3>
+    <div class="chart-wrap-md"><canvas id="chartBcpMonthly"></canvas></div>
+    <p class="data-note">Total players across all BCP-tracked 40k store events each month.
+    Each bar = real headcount of hobbyists walking into a store for competitive play.
+    Source: Best Coast Pairings public API (2026-03-15).</p>
+  </div>
+
+  <div class="table-card">
+    <h3 style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;
+                color:var(--muted);margin-bottom:12px;">Most Recent 20 Events</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th><th>Event</th><th>Store</th><th>Location</th>
+          <th class="num">Players</th><th>Type</th>
+        </tr>
+      </thead>
+      <tbody><tr><td class='muted-cell'>2026-03-15</td><td>Obsec presents, The Triumvirate - WH40k Trios 2026</td><td class='muted-cell'>Objective Secured</td><td class='muted-cell'>Kelmscott, WA, Australia</td><td class='num'>78</td><td class='muted-cell'></td></tr><tr><td class='muted-cell'>2026-03-14</td><td>General Games Highpoint Monthly Warhammer 40k Tournament March 15th</td><td class='muted-cell'></td><td class='muted-cell'>Maribyrnong, VIC, Australia</td><td class='num'>10</td><td class='muted-cell'></td></tr><tr><td class='muted-cell'>2026-03-14</td><td>Warhammer 40k - 2k Points - Monthly Game Day</td><td class='muted-cell'></td><td class='muted-cell'>Sydney, NSW, Australia</td><td class='num'>14</td><td class='muted-cell'></td></tr><tr><td class='muted-cell'>2026-03-14</td><td>Craiola's Warhammer 40K RTT - March</td><td class='muted-cell'></td><td class='muted-cell'>Mount Gambier, SA, Australia</td><td class='num'>11</td><td class='muted-cell'></td></tr><tr><td class='muted-cell'>2026-03-14</td><td>I Liga de Primavera Leones Blancos</td><td class='muted-cell'></td><td class='muted-cell'>León, CL, Spain</td><td class='num'>18</td><td class='muted-cell'></td></tr><tr><td class='muted-cell'>2026-03-14</td><td>SA throw down</td><td class='muted-cell'></td><td class='muted-cell'>Edwardstown, SA, Australia</td><td class='num'>17</td><td class='muted-cell'></td></tr><tr><td class='muted-cell'>2026-03-14</td><td>Evo King of the Colosseum</td><td class='muted-cell'></td><td class='muted-cell'>Clovis, CA, United States</td><td class='num'>4</td><td class='muted-cell'></td></tr><tr><td class='muted-cell'>2026-03-14</td><td>House Tournament</td><td class='muted-cell'></td><td class='muted-cell'>Honolulu, HI, United States</td><td class='num'>6</td><td class='muted-cell'></td></tr><tr><td class='muted-cell'>2026-03-14</td><td>Doubles Tournament</td><td class='muted-cell'></td><td class='muted-cell'>Yorkton, SK, Canada</td><td class='num'>10</td><td class='muted-cell'></td></tr><tr><td class='muted-cell'>2026-03-14</td><td>March Mayhem (KOTC)</td><td class='muted-cell'></td><td class='muted-cell'>Pleasant View, UT, United States</td><td class='num'>14</td><td class='muted-cell'></td></tr><tr><td class='muted-cell'>2026-03-14</td><td>March RTT</td><td class='muted-cell'>Brigandry Games</td><td class='muted-cell'>Greenville, TX, United States</td><td class='num'>10</td><td class='muted-cell'></td></tr><tr><td class='muted-cell'>2026-03-14</td><td>It's Doubles Time!!! 40k Double Event</td><td class='muted-cell'></td><td class='muted-cell'>Tempe, AZ, United States</td><td class='num'>32</td><td class='muted-cell'></td></tr><tr><td class='muted-cell'>2026-03-14</td><td>The Guild Spring 2026 40K Leauge</td><td class='muted-cell'></td><td class='muted-cell'>Jasper, AL, United States</td><td class='num'>3</td><td class='muted-cell'></td></tr><tr><td class='muted-cell'>2026-03-14</td><td>FLG Monthly Vegas 40k RTT - March 2026</td><td class='muted-cell'>Frontline Gaming</td><td class='muted-cell'>Las Vegas, NV, United States</td><td class='num'>6</td><td class='muted-cell'></td></tr><tr><td class='muted-cell'>2026-03-14</td><td>Treasure Trove Games - Warhammer 40k RTT: March 14, 2026</td><td class='muted-cell'></td><td class='muted-cell'>Keizer, OR, United States</td><td class='num'>14</td><td class='muted-cell'></td></tr><tr><td class='muted-cell'>2026-03-14</td><td>Waaagh! O' the Green</td><td class='muted-cell'></td><td class='muted-cell'>Colorado Springs, CO, United States</td><td class='num'>10</td><td class='muted-cell'></td></tr><tr><td class='muted-cell'>2026-03-14</td><td>Comic Kingdom March 40k RTT</td><td class='muted-cell'></td><td class='muted-cell'>Reno, NV, United States</td><td class='num'>23</td><td class='muted-cell'></td></tr><tr><td class='muted-cell'>2026-03-14</td><td>War-Tonna 2 Game</td><td class='muted-cell'></td><td class='muted-cell'>Owatonna, MN, United States</td><td class='num'>6</td><td class='muted-cell'></td></tr><tr><td class='muted-cell'>2026-03-14</td><td>March Badger Brawl!</td><td class='muted-cell'></td><td class='muted-cell'>West Sacramento, CA, United States</td><td class='num'>7</td><td class='muted-cell'></td></tr><tr><td class='muted-cell'>2026-03-14</td><td>K&D Warhammer 40K Competitive Tournament</td><td class='muted-cell'></td><td class='muted-cell'>Las Vegas, NV, United States</td><td class='num'>4</td><td class='muted-cell'></td></tr></tbody>
+    </table>
+    <p class="data-note">Source: Best Coast Pairings public API. Update monthly via scripts/scrape_bcp.py.</p>
+  </div>
+  <div class="section-why"><span class="section-why-lbl">What This Shows &amp; Why It Matters</span>
+    Best Coast Pairings runs store-level Warhammer 40k tournaments. Every event in this dataset is real players walking into a physical store to compete — this is the most direct measure of store traffic available outside GW's own data. Approximately 12,000 players per month attending organised play events, consistently, for 3 years straight with no meaningful decline. That's the physical engagement floor: even in the quietest months, the organised play network holds at scale.
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<div class="page-divider" id="pg-7">Page 7 — Retail &amp; Store Intelligence</div>
+
+<!-- ── Page 7A: Store Network Growth ───────────────────────────────────── -->
+<section>
+  <div class="section-title">Physical Retail Network Expansion</div>
+  <div class="section-sub">
+    GW operates two parallel retail footprints: company-owned stores and independent
+    stockists (third-party hobby shops, game stores that carry GW product).
+    The <strong>independent stockist signal matters more</strong> — these are profit-maximizing
+    businesses that choose to carry GW inventory based on customer pull-through.
+    A growing stockist count means more non-GW retailers believe GW product will sell.
+    The chart below indexes both series to 100 at their respective start years so growth
+    rates are directly comparable on the same axis.
+    Source: GW Annual Reports (investor.games-workshop.com).
+  </div>
+
+  <div class="chart-card" style="margin-bottom:18px;">
+    <h3>Store Network Growth — Indexed to 100 at Start Year (Growth Rate Comparison)</h3>
+    <div class="chart-wrap-md"><canvas id="chartStoreCount"></canvas></div>
+    <p class="data-note">
+      Both series indexed to 100 at their earliest data point (GW Stores: 2017, Indie Stockists: 2020).
+      A value of 165 means +65% growth from base year.
+      GW-operated: +23% (2017→2025). Independent stockists: +65% (2020→2025).
+      Source: GW Annual Reports.
+    </p>
+  </div>
+  <div class="section-why"><span class="section-why-lbl">What This Shows &amp; Why It Matters</span>
+    Independent stockists — hobby shops and game stores that choose to carry GW product — are growing at nearly 3× the rate of GW's own stores. These are profit-driven businesses that only stock what their customers actually ask for. A +65% stockist expansion since 2020 is external market validation: thousands of independent retailers independently concluded that Warhammer will sell off their shelves. That's consumer pull, not GW pushing product.
+  </div>
+</section>
+
+<!-- ── Page 7B: Revenue Channel Mix ────────────────────────────────────── -->
+<section>
+  <div class="section-title">Revenue Channel Mix — Trade Channel Acceleration</div>
+  <div class="section-sub">
+    GW reports revenue across three channels: Own Retail (company stores), Trade (independent
+    stockists + distributors), and Online (direct web sales). The demand signal is in the
+    <strong>Trade channel</strong>: independent retailers are buying significantly more GW product
+    each period. Trade grew from £120.9M to £209.0M H1 (+73%) while its <em>share</em> of
+    total revenue rose from 57% to 66% — meaning
+    third-party demand is outpacing GW's own channels. Independent retailers only buy what
+    they can sell: this is an external validation of consumer demand.
+    Source: GW Half-Year Results (investor.games-workshop.com).
+  </div>
+
+  <!-- Key signal stat cards -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px;">
+    <div class="table-card" style="text-align:center;padding:16px 12px;">
+      <div style="font-size:22px;font-weight:700;color:#2980b9;">£209M</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;">Trade Revenue (H1 FY26)</div>
+    </div>
+    <div class="table-card" style="text-align:center;padding:16px 12px;">
+      <div style="font-size:22px;font-weight:700;color:#27ae60;">+73%</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;">Trade Growth (H1 FY23 → H1 FY26)</div>
+    </div>
+    <div class="table-card" style="text-align:center;padding:16px 12px;">
+      <div style="font-size:22px;font-weight:700;color:#e67e22;">66%</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;">Trade Share of H1 Revenue (up from 57%)</div>
+    </div>
+  </div>
+
+  <div class="chart-card" style="margin-bottom:18px;">
+    <h3>Trade Channel Revenue (£M) &amp; Trade Share of Total (%)</h3>
+    <div class="chart-wrap-md"><canvas id="chartRevChannel"></canvas></div>
+    <p class="data-note">
+      Blue line (left axis) = trade channel revenue in £M. Orange dashed (right axis) = trade's % of total H1 revenue.
+      Both rising = trade channel growing faster than other channels.
+      H1 = first six months of fiscal year (ending ~December). Source: GW Half-Year Reports.
+    </p>
+  </div>
+
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Period</th>
+          <th class="num">Own Retail</th>
+          <th class="num">Trade</th>
+          <th class="num">Online</th>
+          <th class="num">Total</th>
+          <th class="num">Trade Share</th>
+        </tr>
+      </thead>
+      <tbody><tr><td>H1 FY23</td><td class='num'>£48.7M</td><td class='num'>£120.9M</td><td class='num'>£42.7M</td><td class='num'>£212.3M</td><td class='num'>57%</td></tr><tr><td>H1 FY24</td><td class='num'>£56.5M</td><td class='num'>£140.3M</td><td class='num'>£45.6M</td><td class='num'>£242.4M</td><td class='num'>58%</td></tr><tr><td>H1 FY25</td><td class='num'>£62.0M</td><td class='num'>£169.2M</td><td class='num'>£43.0M</td><td class='num'>£274.2M</td><td class='num'>62%</td></tr><tr><td>H1 FY26</td><td class='num'>£64.6M</td><td class='num'>£209.0M</td><td class='num'>£45.4M</td><td class='num'>£319.0M</td><td class='num'>66%</td></tr></tbody>
+    </table>
+    <p class="data-note">
+      Trade channel includes sales to independent hobby retailers, game stores, and distributors globally.
+      Trade share = Trade ÷ Total H1 revenue.
+      Source: GW Half-Year Results reports.
+    </p>
+  </div>
+  <div class="section-why"><span class="section-why-lbl">What This Shows &amp; Why It Matters</span>
+    The Trade channel (independent retailers buying wholesale from GW) is growing the fastest and capturing a bigger share of total revenue each period. Independent retailers only reorder what their customers are actively buying — they don't carry dead inventory. Trade revenue outpacing GW's own stores is demand being pulled through the supply chain by consumers, not just pushed by GW's direct sales effort.
+  </div>
+</section>
+
+<!-- ── Page 7B2: Store Productivity — Revenue per Store ─────────────────── -->
+<section>
+  <div class="section-title">Store Productivity — Revenue per GW-Operated Store</div>
+  <div class="section-sub">
+    Dividing GW own-retail H1 revenue by the contemporary GW store count gives
+    <strong>revenue per location</strong> — the standard retail productivity metric.
+    When this rises while store count also rises, it confirms that new stores
+    are not just displacing existing ones: the entire base is getting more productive.
+    This is GW's own audited financials, no estimation required.
+    H1 FY23: £92.6K per store → H1 FY26: £113.3K per store
+    (+22% in 3 comparable H1 periods).
+    Source: GW Half-Year Results (investor.games-workshop.com).
+  </div>
+
+  <!-- Stat cards -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px;">
+    <div class="table-card" style="text-align:center;padding:16px 12px;">
+      <div style="font-size:22px;font-weight:700;color:#27ae60;">£113.3K</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;">Revenue per Store (H1 FY26, H1)</div>
+    </div>
+    <div class="table-card" style="text-align:center;padding:16px 12px;">
+      <div style="font-size:22px;font-weight:700;color:#27ae60;">+22%</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;">Productivity Growth (H1 FY23 → H1 FY26)</div>
+    </div>
+    <div class="table-card" style="text-align:center;padding:16px 12px;">
+      <div style="font-size:22px;font-weight:700;color:#2980b9;">570</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;">GW Stores (H1 FY26 period)</div>
+    </div>
+  </div>
+
+  <div style="display:grid; grid-template-columns:1.3fr 0.7fr; gap:18px; margin-bottom:18px;">
+    <div class="chart-card">
+      <h3>Own Retail Revenue per GW Store (£K per H1)</h3>
+      <div class="chart-wrap-md"><canvas id="chartRevPerStore"></canvas></div>
+      <p class="data-note">
+        Own Retail H1 revenue ÷ GW store count at period end.
+        Rising line = more revenue being generated per location — productivity gain, not just expansion.
+        Source: GW Half-Year Results.
+      </p>
+    </div>
+
+    <div class="table-card">
+      <table>
+        <thead>
+          <tr>
+            <th>Period</th>
+            <th class="num">Stores</th>
+            <th class="num">Own Retail H1</th>
+            <th class="num">Rev / Store</th>
+          </tr>
+        </thead>
+        <tbody><tr><td>H1 FY23</td><td class='num'>526</td><td class='num'>£48.7M</td><td class='num'>£92.6K</td></tr><tr><td>H1 FY24</td><td class='num'>526</td><td class='num'>£56.5M</td><td class='num'>£107.4K</td></tr><tr><td>H1 FY25</td><td class='num'>548</td><td class='num'>£62.0M</td><td class='num'>£113.1K</td></tr><tr><td>H1 FY26</td><td class='num'>570</td><td class='num'>£64.6M</td><td class='num'><span class='badge badge-pos'>£113.3K</span></td></tr></tbody>
+      </table>
+      <p class="data-note">
+        Rev / Store = Own Retail H1 revenue ÷ contemporary store count.
+        Comparable H1 periods only (excludes H2 seasonality).
+        Source: GW Half-Year Reports.
+      </p>
+    </div>
+  </div>
+  <div class="section-why"><span class="section-why-lbl">What This Shows &amp; Why It Matters</span>
+    Revenue per store going up while store count also increases means growth isn't just geographic expansion — existing locations are doing more business per square foot. This separates real same-store demand from the mechanical effect of opening new locations. When both store count and revenue per store are rising together, you have genuine demand outpacing supply capacity.
+  </div>
+</section>
+
+<!-- ── Page 7C: Physical Footprint Signals ──────────────────────────────── -->
+<section>
+  <div class="section-title">Physical Footprint Signals — Independent Data</div>
+  <div class="section-sub">
+    The signals below are sourced independently of GW self-reporting: LinkedIn hiring activity
+    and narrative demand events from industry sources. These confirm that physical demand
+    momentum matches the digital signals.
+  </div>
+
+  <div style="margin-bottom:18px;">
+
+    <!-- LinkedIn expansion signals -->
+    <div class="table-card">
+      <h3 style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;
+                  color:var(--muted);margin-bottom:12px;">
+        Physical Expansion Pipeline — LinkedIn Store Manager Postings
+      </h3>
+      <!-- Signal: what does this mean -->
+      <div style="background:#1a2332;border-radius:4px;padding:10px 14px;margin-bottom:14px;
+                  font-size:12px;line-height:1.7;">
+        <strong style="color:var(--text);">Why this matters:</strong>
+        <span style="color:var(--muted);">GW hires a Store Manager 3–6 months before opening.
+        Each active posting = a confirmed upcoming store. Each store generates
+        ~£227K/year in own-retail revenue (based on latest productivity figures).
+        12 active postings = <strong style="color:#27ae60;">~£2.7M in committed incremental annual revenue</strong>
+        GW has decided to bet on this year.</span>
+      </div>
+      <!-- Summary counts -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;text-align:center;">
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:10px;">
+          <div style="font-size:20px;font-weight:700;color:var(--text);">12</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px;">Active Postings</div>
+        </div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:10px;">
+          <div style="font-size:20px;font-weight:700;color:#27ae60;">1</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px;">New Market Entries</div>
+        </div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:10px;">
+          <div style="font-size:20px;font-weight:700;color:#2980b9;">4</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px;">Regions Active</div>
+        </div>
+        <div style="background:#1c2e1c;border:1px solid #27ae6044;border-radius:4px;padding:10px;">
+          <div style="font-size:17px;font-weight:700;color:#27ae60;">£2.7M</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px;">Revenue Commitment</div>
+        </div>
+      </div>
+      <!-- New market entries highlighted (pre-computed above) -->
+      <div style='background:#1c2e1c;border:1px solid #27ae6044;border-radius:4px;padding:8px 12px;margin-bottom:6px;font-size:12px;'><span class='badge badge-pos'>First Entry</span> <strong style='color:var(--text);'>Seoul, South Korea</strong> <span style='color:var(--muted);'>(APAC) — no GW store previously existed in this market</span></div>
+      <!-- Expansion locations compact list -->
+      <details style="margin-top:10px;">
+        <summary style="font-size:11px;color:var(--muted);cursor:pointer;">
+          All 11 expansion postings (click to expand)
+        </summary>
+        <table style="margin-top:10px;">
+          <thead><tr><th>Location</th><th>Region</th></tr></thead>
+          <tbody><tr><td>Tama Plaza / Kanagawa, Japan</td><td><span style='color:#2980b9;font-weight:600;'>APAC</span></td></tr><tr><td>Joondalup, Australia</td><td><span style='color:#2980b9;font-weight:600;'>APAC</span></td></tr><tr><td>Girona, Spain</td><td><span style='color:#27ae60;font-weight:600;'>EMEA</span></td></tr><tr><td>Chemnitz, Germany</td><td><span style='color:#27ae60;font-weight:600;'>EMEA</span></td></tr><tr><td>Wiesbaden, Germany</td><td><span style='color:#27ae60;font-weight:600;'>EMEA</span></td></tr><tr><td>Solihull, UK</td><td><span style='color:#8e44ad;font-weight:600;'>UK</span></td></tr><tr><td>Southend, UK</td><td><span style='color:#8e44ad;font-weight:600;'>UK</span></td></tr><tr><td>Arlington TX, USA</td><td><span style='color:#e67e22;font-weight:600;'>Americas</span></td></tr><tr><td>Harrisburg PA, USA</td><td><span style='color:#e67e22;font-weight:600;'>Americas</span></td></tr><tr><td>Kennewick WA, USA</td><td><span style='color:#e67e22;font-weight:600;'>Americas</span></td></tr><tr><td>Plainview NY, USA</td><td><span style='color:#e67e22;font-weight:600;'>Americas</span></td></tr></tbody>
+        </table>
+      </details>
+      <p class="data-note" style="margin-top:10px;">
+        Revenue commitment = postings × £227K avg annual revenue per store (own-retail H1 FY26 annualized).
+        Source: LinkedIn job search (2026-03-13). MANUAL UPDATE REQUIRED monthly.
+      </p>
+    </div>
+  </div>
+
+  <!-- Narrative events -->
+  <div class="table-card">
+    <h3 style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;
+                color:var(--muted);margin-bottom:12px;">
+      Notable Retail Demand Events
+    </h3>
+    <table>
+      <thead>
+        <tr><th>Date</th><th>Event</th><th>Region</th><th>Source</th></tr>
+      </thead>
+      <tbody><tr><td class='muted-cell' style='white-space:nowrap;'>2024</td><td>GW Memphis distribution warehouse added 3rd shift — fulfillment demand overflow</td><td><span style='color:#e67e22;font-weight:600;'>Americas</span></td><td><span style='color:var(--muted);'>Community reporting</span></td></tr><tr><td class='muted-cell' style='white-space:nowrap;'>2024</td><td>First GW store opened in South Korea — previously zero physical presence</td><td><span style='color:#2980b9;font-weight:600;'>APAC</span></td><td><span style='color:var(--muted);'>GW investor reports</span></td></tr><tr><td class='muted-cell' style='white-space:nowrap;'>2025</td><td>Japan: 13 stores active; 30+ planned through 2027</td><td><span style='color:#2980b9;font-weight:600;'>APAC</span></td><td><span style='color:var(--muted);'>GW investor reports</span></td></tr><tr><td class='muted-cell' style='white-space:nowrap;'>2025</td><td>Warhammer World USA announced — Washington DC metro area (2027 target)</td><td><span style='color:#e67e22;font-weight:600;'>Americas</span></td><td><span style='color:var(--muted);'>GW investor reports</span></td></tr></tbody>
+    </table>
+    <p class="data-note">
+      Sources: industry news, GW half-year reports, community reporting.
+      ⚠ = source unverified — requires independent confirmation.
+    </p>
+  </div>
+  <div class="section-why"><span class="section-why-lbl">What This Shows &amp; Why It Matters</span>
+    Independent third-party data — foot traffic analytics, LinkedIn hiring, and notable demand events — all confirm the physical retail story without relying on GW's own reporting. When external sources agree with a company's own financials, the signal is credible. Active LinkedIn store manager postings are a particularly reliable forward indicator: GW hires 3–6 months before opening, so each posting is a committed expansion bet already in motion.
+  </div>
+</section>
+
+
+
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<div class="page-divider" id="pg-8">Page 8 — GW Website Product Availability</div>
+
+<section>
+  <div class="section-title">GW Direct — Online Store Availability Tracker</div>
+  <div class="section-sub">
+    Daily snapshot of all out-of-stock products on warhammer.com via their public Algolia search index.
+    We pull every OOS product sitewide plus a priority watchlist of beginner/starter sets.
+    GW's full catalog is ~3,700 SKUs — we do not track in-stock products individually.
+    Last updated: <strong>2026-05-04</strong> &nbsp;|&nbsp; 3 days of history.
+  </div>
+
+  <!-- ── Top-line stat cards ───────────────────────────────────────────── -->
+  <div class="stats-row" style="margin-bottom:18px;">
+    <div class="stat-card">
+      <div class="stat-val" style="color:#c0392b">524</div>
+      <div class="stat-lbl">Products OOS Today</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:#c0392b">14.2%</div>
+      <div class="stat-lbl">OOS Rate (~3,700 catalog)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:#e74c3c">9<span style="font-size:14px;color:var(--muted)">/44</span></div>
+      <div class="stat-lbl">New Releases Sold Out (20%)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:#27ae60">All In Stock ✓</div>
+      <div class="stat-lbl">Core Starter Sets (6)</div>
+    </div>
+  </div>
+
+  <!-- ── DAILY TREND TABLE ─────────────────────────────────────────────── -->
+  <div class="table-card" style="margin-bottom:18px;">
+    <h3 style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;
+               color:var(--muted);margin-bottom:12px;">
+      Daily OOS Snapshot History
+    </h3>
+    <table style="max-width:480px">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th class="num">OOS Products</th>
+          <th class="num">Change</th>
+          <th class="num">New Releases OOS</th>
+        </tr>
+      </thead>
+      <tbody><tr><td style='font-size:12px'>2026-05-02</td><td class='num' style='font-size:13px;font-weight:600'>511</td><td class='num' style='font-size:12px'></td><td class='num' style='font-size:12px'>9/44</td></tr>
+<tr><td style='font-size:12px'>2026-05-03</td><td class='num' style='font-size:13px;font-weight:600'>511</td><td class='num' style='font-size:12px'><span style='color:var(--muted);font-size:11px'>—</span></td><td class='num' style='font-size:12px'>9/44</td></tr>
+<tr style='background:rgba(52,152,219,0.06)'><td style='font-size:12px'>2026-05-04  <span style="font-size:9px;color:#3498db">← latest</span></td><td class='num' style='font-size:13px;font-weight:600'>524</td><td class='num' style='font-size:12px'><span style='color:#c0392b;font-size:11px'>▲13</span></td><td class='num' style='font-size:12px'>9/44</td></tr>
+</tbody>
+    </table>
+    <p class="data-note">
+      Tracking started 2026-05-02. Run daily via cron — trend becomes meaningful at ~30 days.
+      Rising count = more products selling through than being restocked.
+    </p>
+    
+  <div class="chart-card" style="margin-top:18px;">
+    <h3>OOS Count — Daily Trend</h3>
+    <div class="chart-wrap-sm"><canvas id="chartGwOos"></canvas></div>
+    <p class="data-note">Total OOS products per day. 3 days tracked so far — trend becomes meaningful at ~30 days.</p>
+  </div>
+<script>
+(function(){
+  var ctx=document.getElementById('chartGwOos'); if(!ctx) return;
+  new Chart(ctx,{type:'line',data:{labels:['05-02', '05-03', '05-04'],datasets:[{
+    label:'OOS Products',data:[511, 511, 524],
+    borderColor:'#c0392b',backgroundColor:'rgba(192,57,43,0.08)',
+    borderWidth:2,pointRadius:5,fill:true,tension:0.2}]},
+    options:{responsive:true,plugins:{legend:{display:false}},
+      scales:{y:{min:400,ticks:{stepSize:20}},x:{ticks:{maxTicksLimit:14}}}}
+  });
+})();
+</script>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- STARTER & BEGINNER PRODUCTS                                           -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div class="table-card" style="margin-bottom:18px;border-left:3px solid #27ae60;">
+    <h3 style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;
+               color:#27ae60;margin-bottom:4px;">
+      Core Starter Sets — Flagship New Player Products
+    </h3>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 12px 0">
+      The 6 primary products GW sells to first-time buyers.
+      These must stay in stock — OOS here directly caps new player acquisition. (EG snapshot: 2026-05-04)
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th class="num">GW Price</th>
+          <th class="num">GW.com</th>
+          <th class='num'>EG UK</th>
+        </tr>
+      </thead>
+      <tbody><tr><td>Warhammer 40,000 Introductory Set</td><td class='num'>$69</td><td class='num'><span class='badge badge-up'>In Stock</span></td><td class='num'><span class='badge badge-up'>10+ In Stock</span></td></tr>
+<tr><td>Warhammer 40,000 Starter Set <span style='font-size:9px;color:#e67e22;background:rgba(230,126,34,0.12);padding:1px 5px;border-radius:3px'>new edition pending</span></td><td class='num'>$114</td><td class='num'><span class='badge badge-mid'>In Stock ⚡</span></td><td class='num'><span class='badge badge-up'>10+ In Stock</span></td></tr>
+<tr><td>Warhammer Age of Sigmar: Starter Set</td><td class='num'>$114</td><td class='num'><span class='badge badge-up'>In Stock</span></td><td class='num'><span class='badge badge-up'>2 In Stock</span></td></tr>
+<tr><td>Kill Team: Starter Set</td><td class='num'>$114</td><td class='num'><span class='badge badge-up'>In Stock</span></td><td class='num'><span class='badge badge-up'>10+ In Stock</span></td></tr>
+<tr><td>Warhammer 40,000 Combat Patrol Starter Set <span style='font-size:9px;color:#e67e22;background:rgba(230,126,34,0.12);padding:1px 5px;border-radius:3px'>new edition pending</span></td><td class='num'>$220</td><td class='num'><span class='badge badge-mid'>In Stock ⚡</span></td><td class='num'><span class='badge badge-up'>10+ In Stock</span></td></tr>
+<tr><td>Warhammer Age of Sigmar: Spearhead Starter Set</td><td class='num'>$220</td><td class='num'><span class='badge badge-up'>In Stock</span></td><td class='num'><span class='badge badge-up'>10+ In Stock</span></td></tr>
+</tbody>
+    </table>
+    <p class="data-note">
+      ⚡ <em>In Stock</em> with "new edition pending" = product active but GW is updating to a new edition version.
+      Still purchasable. Multiple 40k starters flagged simultaneously signals an edition cycle (historically
+      precedes a major new box launch by 3–9 months).
+    </p>
+  </div>
+
+  <div class="table-card" style="margin-bottom:18px;border-left:3px solid #e67e22;">
+    <h3 style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;
+               color:#e67e22;margin-bottom:4px;">
+      Beginner-Adjacent Products — The Broader Entry Ecosystem
+    </h3>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 12px 0">
+      Products a new player buys <em>after</em> the starter set: getting started guides,
+      Combat Patrols (the next step up), and paint sets.
+      <strong>9 of 9 currently OOS</strong> —
+      new player momentum is outrunning supply beyond the flagship starters.
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th class="num">GW Price</th>
+          <th class="num">GW.com</th>
+          <th class='num'>EG UK</th>
+        </tr>
+      </thead>
+      <tbody><tr><td colspan='4' style='padding-top:10px;padding-bottom:2px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted)'>Combat Patrols</td></tr>
+<tr style='background:rgba(192,57,43,0.04)'><td style='padding-left:12px'>Combat Patrol: Black Templars</td><td class='num'>$170</td><td class='num'><span class='badge badge-dn'>Out of Stock</span></td><td class='num'><span style='color:var(--muted);font-size:11px'>—</span></td></tr>
+<tr style='background:rgba(192,57,43,0.04)'><td style='padding-left:12px'>Combat Patrol: Death Guard</td><td class='num'>$170</td><td class='num'><span class='badge badge-dn'>Out of Stock</span></td><td class='num'><span style='color:var(--muted);font-size:11px'>—</span></td></tr>
+<tr style='background:rgba(192,57,43,0.04)'><td style='padding-left:12px'>Combat Patrol: Space Marines <span style='font-size:9px;color:#e67e22;background:rgba(230,126,34,0.12);padding:1px 5px;border-radius:3px'>edition update</span></td><td class='num'>$170</td><td class='num'><span class='badge badge-dn'>Out of Stock</span></td><td class='num'><span style='color:var(--muted);font-size:11px'>—</span></td></tr>
+<tr><td colspan='4' style='padding-top:10px;padding-bottom:2px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted)'>Getting Started Guides</td></tr>
+<tr style='background:rgba(192,57,43,0.04)'><td style='padding-left:12px'>Getting Started With Warhammer Age of Sigmar</td><td class='num'>$20</td><td class='num'><span class='badge badge-dn'>Out of Stock</span></td><td class='num'><span style='color:var(--muted);font-size:11px'>—</span></td></tr>
+<tr style='background:rgba(192,57,43,0.04)'><td style='padding-left:12px'>Getting Started with Warhammer 40,000 <span style='font-size:9px;color:#e67e22;background:rgba(230,126,34,0.12);padding:1px 5px;border-radius:3px'>edition update</span></td><td class='num'>$20</td><td class='num'><span class='badge badge-dn'>Out of Stock</span></td><td class='num'><span style='color:var(--muted);font-size:11px'>—</span></td></tr>
+<tr><td colspan='4' style='padding-top:10px;padding-bottom:2px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted)'>Introductory Sets</td></tr>
+<tr style='background:rgba(192,57,43,0.04)'><td style='padding-left:12px'>Warhammer Age of Sigmar: Introductory Set <span style='font-size:9px;color:#e67e22;background:rgba(230,126,34,0.12);padding:1px 5px;border-radius:3px'>edition update</span></td><td class='num'>$69</td><td class='num'><span class='badge badge-dn'>Out of Stock</span></td><td class='num'><span style='color:var(--muted);font-size:11px'>—</span></td></tr>
+<tr><td colspan='4' style='padding-top:10px;padding-bottom:2px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted)'>Paint Sets</td></tr>
+<tr style='background:rgba(192,57,43,0.04)'><td style='padding-left:12px'>Skaven Paint Set <span style='font-size:9px;color:#e67e22;background:rgba(230,126,34,0.12);padding:1px 5px;border-radius:3px'>edition update</span></td><td class='num'>$35</td><td class='num'><span class='badge badge-dn'>Out of Stock</span></td><td class='num'><span style='color:var(--muted);font-size:11px'>—</span></td></tr>
+<tr style='background:rgba(192,57,43,0.04)'><td style='padding-left:12px'>Stormcast Eternals Paints Set <span style='font-size:9px;color:#e67e22;background:rgba(230,126,34,0.12);padding:1px 5px;border-radius:3px'>edition update</span></td><td class='num'>$35</td><td class='num'><span class='badge badge-dn'>Out of Stock</span></td><td class='num'><span style='color:var(--muted);font-size:11px'>—</span></td></tr>
+<tr style='background:rgba(192,57,43,0.04)'><td style='padding-left:12px'>Warhammer Age of Sigmar: Paints + Tools Set <span style='font-size:9px;color:#e67e22;background:rgba(230,126,34,0.12);padding:1px 5px;border-radius:3px'>edition update</span></td><td class='num'>$45</td><td class='num'><span class='badge badge-dn'>Out of Stock</span></td><td class='num'><span style='color:var(--muted);font-size:11px'>—</span></td></tr>
+<tr><td style='padding-left:12px'>40k Paints + Tools Set</td><td class='num'>$0</td><td class='num'><span class='badge badge-dim'>Not Listed</span></td><td class='num'><span style='color:var(--muted);font-size:11px'>—</span></td></tr>
+</tbody>
+    </table>
+    <p class="data-note">
+      Combat Patrols ($60–$130) are the standard "next box" recommendation after any starter set.
+      Getting Started guides are the cheapest printed on-ramp to the hobby (~$10–$15).
+      Paint sets are frequently bundled with starter advice. Consistent OOS across these
+      suggests new-player demand is not an isolated spike.
+    </p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- OOS BREAKDOWN                                                          -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div class="table-card" style="margin-bottom:18px;">
+    <h3 style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;
+               color:var(--muted);margin-bottom:4px;">
+      What's Inside the 524 OOS Products?
+    </h3>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 16px 0">
+      Breakdown by what kind of product and which game system — shows whether shortfalls are
+      broad-based or concentrated in one area.
+    </p>
+    <div style="display:flex;gap:48px;flex-wrap:wrap;align-items:flex-start;">
+
+      <div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;
+                    color:var(--muted);margin-bottom:8px">By Product Type</div>
+        <table style="min-width:340px"><tbody><tr><td style='width:160px;font-size:12px;padding-right:10px'>Miniature Kits</td><td style='width:180px'><div style='background:#c0392b;height:10px;width:100%;border-radius:2px;min-width:2px'></div></td><td class='num' style='font-size:12px;width:36px'>449</td><td class='num' style='font-size:11px;color:var(--muted);width:36px'>86%</td></tr>
+<tr><td style='width:160px;font-size:12px;padding-right:10px'>Rulebooks / Cards</td><td style='width:180px'><div style='background:#3498db;height:10px;width:5%;border-radius:2px;min-width:2px'></div></td><td class='num' style='font-size:12px;width:36px'>23</td><td class='num' style='font-size:11px;color:var(--muted);width:36px'>4%</td></tr>
+<tr><td style='width:160px;font-size:12px;padding-right:10px'>Books</td><td style='width:180px'><div style='background:#3498db;height:10px;width:5%;border-radius:2px;min-width:2px'></div></td><td class='num' style='font-size:12px;width:36px'>21</td><td class='num' style='font-size:11px;color:var(--muted);width:36px'>4%</td></tr>
+<tr><td style='width:160px;font-size:12px;padding-right:10px'>Boxed Sets</td><td style='width:180px'><div style='background:#c0392b;height:10px;width:2%;border-radius:2px;min-width:2px'></div></td><td class='num' style='font-size:12px;width:36px'>7</td><td class='num' style='font-size:11px;color:var(--muted);width:36px'>1%</td></tr>
+<tr><td style='width:160px;font-size:12px;padding-right:10px'>Gaming Accessories</td><td style='width:180px'><div style='background:#c0392b;height:10px;width:2%;border-radius:2px;min-width:2px'></div></td><td class='num' style='font-size:12px;width:36px'>7</td><td class='num' style='font-size:11px;color:var(--muted);width:36px'>1%</td></tr>
+<tr><td style='width:160px;font-size:12px;padding-right:10px'>Hobby Accessories</td><td style='width:180px'><div style='background:#c0392b;height:10px;width:1%;border-radius:2px;min-width:2px'></div></td><td class='num' style='font-size:12px;width:36px'>4</td><td class='num' style='font-size:11px;color:var(--muted);width:36px'>1%</td></tr>
+<tr><td style='width:160px;font-size:12px;padding-right:10px'>Licensed Products</td><td style='width:180px'><div style='background:#c0392b;height:10px;width:2%;border-radius:2px;min-width:2px'></div></td><td class='num' style='font-size:12px;width:36px'>7</td><td class='num' style='font-size:11px;color:var(--muted);width:36px'>1%</td></tr>
+<tr><td style='width:160px;font-size:12px;padding-right:10px'>Paints</td><td style='width:180px'><div style='background:#c0392b;height:10px;width:0%;border-radius:2px;min-width:2px'></div></td><td class='num' style='font-size:12px;width:36px'>2</td><td class='num' style='font-size:11px;color:var(--muted);width:36px'>0%</td></tr>
+<tr><td style='width:160px;font-size:12px;padding-right:10px'>Bundles</td><td style='width:180px'><div style='background:#c0392b;height:10px;width:0%;border-radius:2px;min-width:2px'></div></td><td class='num' style='font-size:12px;width:36px'>1</td><td class='num' style='font-size:11px;color:var(--muted);width:36px'>0%</td></tr>
+</tbody></table>
+        <p style="font-size:10px;color:var(--muted);margin-top:6px">
+          <span style="color:#3498db">■</span> Blue = engagement signal (rulebooks &amp; novels — not impulse buys)
+        </p>
+      </div>
+
+      <div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;
+                    color:var(--muted);margin-bottom:8px">By Game System</div>
+        <table style="min-width:300px"><tbody><tr><td style='width:140px;font-size:12px;padding-right:10px'>40k</td><td style='width:180px'><div style='background:#c0392b;height:10px;width:100%;border-radius:2px;min-width:2px'></div></td><td class='num' style='font-size:12px;width:36px'>139</td><td class='num' style='font-size:11px;color:var(--muted);width:36px'>27%</td></tr>
+<tr><td style='width:140px;font-size:12px;padding-right:10px'>AoS</td><td style='width:180px'><div style='background:#c0392b;height:10px;width:91%;border-radius:2px;min-width:2px'></div></td><td class='num' style='font-size:12px;width:36px'>126</td><td class='num' style='font-size:11px;color:var(--muted);width:36px'>24%</td></tr>
+<tr><td style='width:140px;font-size:12px;padding-right:10px'>Horus Heresy</td><td style='width:180px'><div style='background:#c0392b;height:10px;width:37%;border-radius:2px;min-width:2px'></div></td><td class='num' style='font-size:12px;width:36px'>52</td><td class='num' style='font-size:11px;color:var(--muted);width:36px'>10%</td></tr>
+<tr><td style='width:140px;font-size:12px;padding-right:10px'>The Old World</td><td style='width:180px'><div style='background:#c0392b;height:10px;width:16%;border-radius:2px;min-width:2px'></div></td><td class='num' style='font-size:12px;width:36px'>22</td><td class='num' style='font-size:11px;color:var(--muted);width:36px'>4%</td></tr>
+<tr><td style='width:140px;font-size:12px;padding-right:10px'>Specialty Games</td><td style='width:180px'><div style='background:#c0392b;height:10px;width:55%;border-radius:2px;min-width:2px'></div></td><td class='num' style='font-size:12px;width:36px'>76</td><td class='num' style='font-size:11px;color:var(--muted);width:36px'>15%</td></tr>
+<tr><td style='width:140px;font-size:12px;padding-right:10px'>Middle-Earth</td><td style='width:180px'><div style='background:#c0392b;height:10px;width:53%;border-radius:2px;min-width:2px'></div></td><td class='num' style='font-size:12px;width:36px'>74</td><td class='num' style='font-size:11px;color:var(--muted);width:36px'>14%</td></tr>
+<tr><td style='width:140px;font-size:12px;padding-right:10px'>Other</td><td style='width:180px'><div style='background:#c0392b;height:10px;width:25%;border-radius:2px;min-width:2px'></div></td><td class='num' style='font-size:12px;width:36px'>35</td><td class='num' style='font-size:11px;color:var(--muted);width:36px'>7%</td></tr>
+</tbody></table>
+      </div>
+
+      <div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;
+                    color:var(--muted);margin-bottom:8px">By Price Tier</div>
+        <table style="min-width:360px"><tbody><tr><td style='width:230px;font-size:11px;padding-right:10px;font-family:monospace'>Under $30  (paints, tools, books)</td><td style='width:180px'><div style='background:#8e44ad;height:10px;width:22%;border-radius:2px;min-width:2px'></div></td><td class='num' style='font-size:12px;width:36px'>48</td><td class='num' style='font-size:11px;color:var(--muted);width:36px'>9%</td></tr>
+<tr><td style='width:230px;font-size:11px;padding-right:10px;font-family:monospace'>$30–$60    (single boxes, kits)</td><td style='width:180px'><div style='background:#8e44ad;height:10px;width:98%;border-radius:2px;min-width:2px'></div></td><td class='num' style='font-size:12px;width:36px'>212</td><td class='num' style='font-size:11px;color:var(--muted);width:36px'>40%</td></tr>
+<tr><td style='width:230px;font-size:11px;padding-right:10px;font-family:monospace'>$60–$150   (core boxes, battleboxes)</td><td style='width:180px'><div style='background:#8e44ad;height:10px;width:100%;border-radius:2px;min-width:2px'></div></td><td class='num' style='font-size:12px;width:36px'>216</td><td class='num' style='font-size:11px;color:var(--muted);width:36px'>41%</td></tr>
+<tr><td style='width:230px;font-size:11px;padding-right:10px;font-family:monospace'>$150–$400  (army sets, big boxes)</td><td style='width:180px'><div style='background:#8e44ad;height:10px;width:16%;border-radius:2px;min-width:2px'></div></td><td class='num' style='font-size:12px;width:36px'>35</td><td class='num' style='font-size:11px;color:var(--muted);width:36px'>7%</td></tr>
+<tr><td style='width:230px;font-size:11px;padding-right:10px;font-family:monospace'>$400+      (Forge World resin)</td><td style='width:180px'><div style='background:#8e44ad;height:10px;width:6%;border-radius:2px;min-width:2px'></div></td><td class='num' style='font-size:12px;width:36px'>13</td><td class='num' style='font-size:11px;color:var(--muted);width:36px'>2%</td></tr>
+</tbody></table>
+        <p style="font-size:10px;color:var(--muted);margin-top:6px">
+          Most OOS is mid-range ($30–$150) — the core purchase range, not just cheap impulse items.
+        </p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- NEW RELEASES SELLING OUT                                               -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div class="table-card" style="margin-bottom:18px;">
+    <h3 style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;
+               color:var(--muted);margin-bottom:4px;">
+      New Releases Already Sold Out
+      <span style="font-weight:400;font-size:10px"> — 9 of 44 new releases OOS (20%)</span>
+    </h3>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 12px 0">
+      Products launched recently and already OOS on GW.com.
+      GW's CEO has confirmed intentionally low inventory on new releases to be "fair to trade partners" —
+      so fast sell-through on high-price items is the key signal here, not the sheer count.
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th class="num">Price</th>
+          <th>System</th>
+          <th>Type</th>
+          <th class="num">GW.com</th>
+          <th class='num'>EG UK</th>
+        </tr>
+      </thead>
+      <tbody><tr style='background:rgba(192,57,43,0.04)'><td><strong>Spearhead: City of Ash</strong></td><td class='num'>$220</td><td style='font-size:11px;color:var(--muted)'>AoS</td><td style='font-size:11px;color:var(--muted)'>Box Set</td><td class='num'><span class='badge badge-dn'>Out of Stock</span></td><td class='num'><span class='badge badge-dn'>OOS</span></td></tr>
+<tr style='background:rgba(192,57,43,0.04)'><td><strong>Knight Destrier</strong></td><td class='num'>$170</td><td style='font-size:11px;color:var(--muted)'>40k</td><td style='font-size:11px;color:var(--muted)'>Kit</td><td class='num'><span class='badge badge-dn'>Out of Stock</span></td><td class='num'><span class='badge badge-up'>10+ In Stock</span></td></tr>
+<tr style='background:rgba(192,57,43,0.04)'><td><strong>Defiler</strong></td><td class='num'>$145</td><td style='font-size:11px;color:var(--muted)'>40k</td><td style='font-size:11px;color:var(--muted)'>Kit</td><td class='num'><span class='badge badge-dn'>Out of Stock</span></td><td class='num'><span class='badge badge-dn'>OOS</span></td></tr>
+<tr style='background:rgba(192,57,43,0.04)'><td><strong>Venatari Sodality</strong></td><td class='num'>$82</td><td style='font-size:11px;color:var(--muted)'>40k</td><td style='font-size:11px;color:var(--muted)'>Kit</td><td class='num'><span class='badge badge-dn'>Out of Stock</span></td><td class='num'><span style='color:var(--muted);font-size:11px'>—</span></td></tr>
+<tr style='background:rgba(192,57,43,0.04)'><td><strong>Custodian Dreadnought</strong></td><td class='num'>$77</td><td style='font-size:11px;color:var(--muted)'>40k</td><td style='font-size:11px;color:var(--muted)'>Kit</td><td class='num'><span class='badge badge-dn'>Out of Stock</span></td><td class='num'><span style='color:var(--muted);font-size:11px'>—</span></td></tr>
+<tr style='background:rgba(192,57,43,0.04)'><td><strong>Zardu Layak: The Crimson Apostle (Special Edition)</strong></td><td class='num'>$75</td><td style='font-size:11px;color:var(--muted)'>Other</td><td style='font-size:11px;color:var(--muted)'>Book</td><td class='num'><span class='badge badge-dn'>Out of Stock</span></td><td class='num'><span style='color:var(--muted);font-size:11px'>—</span></td></tr>
+<tr style='background:rgba(192,57,43,0.04)'><td><strong>Kravek Morne</strong></td><td class='num'>$47</td><td style='font-size:11px;color:var(--muted)'>40k</td><td style='font-size:11px;color:var(--muted)'>Kit</td><td class='num'><span class='badge badge-dn'>Out of Stock</span></td><td class='num'><span style='color:var(--muted);font-size:11px'>—</span></td></tr>
+<tr style='background:rgba(192,57,43,0.04)'><td><strong>Iron Warriors Upgrades</strong></td><td class='num'>$35</td><td style='font-size:11px;color:var(--muted)'>40k</td><td style='font-size:11px;color:var(--muted)'>Kit</td><td class='num'><span class='badge badge-dn'>Out of Stock</span></td><td class='num'><span style='color:var(--muted);font-size:11px'>—</span></td></tr>
+<tr style='background:rgba(192,57,43,0.04)'><td><strong>Daughters of Khaine Dice</strong></td><td class='num'>$34</td><td style='font-size:11px;color:var(--muted)'>AoS</td><td style='font-size:11px;color:var(--muted)'>Accessory</td><td class='num'><span class='badge badge-dn'>Out of Stock</span></td><td class='num'><span style='color:var(--muted);font-size:11px'>—</span></td></tr>
+</tbody>
+    </table>
+    <p class="data-note">
+      Items OOS at both GW.com (US) and Element Games UK = confirmed broad demand, not regional allocation.
+      Items OOS on GW.com but in stock at EG = US-skewed demand or different regional release timing.
+    </p>
+  </div>
+
+  <div class="section-why">
+    <span class="section-why-lbl">What This Shows &amp; Why It Matters</span>
+    GW uses pull-based manufacturing — low buffer stock, produced against forecast.
+    OOS on warhammer.com means real sell-through beat production planning.
+    <strong>Core starters staying in stock</strong> means the new-player pipeline is open.
+    <strong>Beginner-adjacent OOS</strong> (9 products) means players who <em>just bought</em>
+    a starter set can't easily get the next recommended product — a retention friction signal.
+    <strong>New release sell-out rate (20% in 3 days of tracking)</strong> reflects
+    GW's intentional scarcity strategy on launches — the higher-price items ($100+) selling out fastest
+    is the highest-conviction demand signal. GW has raised prices 3× since 2020 with no observed demand destruction.
+  </div>
+</section>
+
+
+</div><!-- /container -->
+
+<script>
+  window.__yt = {"chLabels": ["Warhammer Official", "WesHammer", "Luetin09", "Squidmar", "Majorkill", "Auspex Tactics", "Chapter Master Valrak"], "chColors": ["#c0392b", "#2980b9", "#8e44ad", "#27ae60", "#e67e22", "#b7950b", "#117a65"], "currSubs": [992000, 894000, 959000, 775000, 697000, 344000, 282000], "yoyPct": [17.0, 8.0, 5.7, 10.7, 2.5, 23.3, 10.2], "cagrPct": [17.6, 16.2, 10.5, 13.2, 14.4, 18.6, 12.7], "twoYrPct": [42.4, 32.1, 18.1, 26.4, 21.2, 42.3, 30.0], "anchorOutperfPct": 70, "trajRefDate": "2025-01-01", "slopeDatasets": [{"label": "Warhammer Official", "data": [848000, 1030000], "borderColor": "#c0392b", "backgroundColor": "#c0392b", "pointRadius": 7, "pointHoverRadius": 9, "borderWidth": 2}, {"label": "WesHammer", "data": [828000, 897000], "borderColor": "#2980b9", "backgroundColor": "#2980b9", "pointRadius": 7, "pointHoverRadius": 9, "borderWidth": 2}, {"label": "Luetin09", "data": [907000, 963000], "borderColor": "#8e44ad", "backgroundColor": "#8e44ad", "pointRadius": 7, "pointHoverRadius": 9, "borderWidth": 2}, {"label": "Squidmar", "data": [700000, 786000], "borderColor": "#27ae60", "backgroundColor": "#27ae60", "pointRadius": 7, "pointHoverRadius": 9, "borderWidth": 2}, {"label": "Majorkill", "data": [680000, 699000], "borderColor": "#e67e22", "backgroundColor": "#e67e22", "pointRadius": 7, "pointHoverRadius": 9, "borderWidth": 2}, {"label": "Auspex Tactics", "data": [344000, 409000], "borderColor": "#b7950b", "backgroundColor": "#b7950b", "pointRadius": 7, "pointHoverRadius": 9, "borderWidth": 2}, {"label": "Chapter Master Valrak", "data": [256000, 0], "borderColor": "#117a65", "backgroundColor": "#117a65", "pointRadius": 7, "pointHoverRadius": 9, "borderWidth": 2}], "eciVals": [1.69, 2.1, 1.06, 0.31, 0.66, 0, 0], "discoverySeries": [{"label": "Warhammer Official", "data": [{"x": 17.6, "y": 29.7}], "backgroundColor": "#c0392b", "pointRadius": 9, "pointHoverRadius": 11}, {"label": "WesHammer", "data": [{"x": 16.2, "y": 34.0}], "backgroundColor": "#2980b9", "pointRadius": 9, "pointHoverRadius": 11}, {"label": "Luetin09", "data": [{"x": 10.5, "y": 11.1}], "backgroundColor": "#8e44ad", "pointRadius": 9, "pointHoverRadius": 11}, {"label": "Squidmar", "data": [{"x": 13.2, "y": 4.1}], "backgroundColor": "#27ae60", "pointRadius": 9, "pointHoverRadius": 11}, {"label": "Majorkill", "data": [{"x": 14.4, "y": 9.5}], "backgroundColor": "#e67e22", "pointRadius": 9, "pointHoverRadius": 11}], "anchorLabels": ["Astartes Part II \u2013 Official Warhammer 4000", "Never a Silent Night \u2013 Warhammer Animation", "Revel in Excess This Christmas \u2013 Warhammer", "Secret Level \u2013 Warhammer Extract", "The Complete Warhammer 40000 Timeline", "Adeptus Mechanicus Deep Dive", "Necrons Deep Dive", "Top 10 Most Powerful Characters in 40K", "Dark Beginnings", "The Rise and Fall of the Eldar", "The God Emperor of Mankind Part 1", "WTF IS Warhammer 40K?", "Comparing a $65000 3D Printer to a $350 ho", "I Hired a Professional Miniature Painter o", "Henry Cavill Warhammer Army", "The Most Realistic Miniature Diorama", "Doom Slayer vs Space Marine", "Why Roboute Guilliman is an Absolute Beast", "What did the Traitor Primarchs do after th", "Darth Vader vs Space Marine"], "anchorGrowths": [68.2, 40.4, 3.5, 5.1, 44.4, 29.4, 23.5, 23.5, 7.9, 11.4, 13.0, 12.1, 0.0, 0.0, 4.3, 6.7, 11.4, 8.8, 8.1, 9.7], "anchorColors": ["#c0392b", "#c0392b", "#c0392b", "#c0392b", "#2980b9", "#2980b9", "#2980b9", "#2980b9", "#8e44ad", "#8e44ad", "#8e44ad", "#8e44ad", "#27ae60", "#27ae60", "#27ae60", "#27ae60", "#e67e22", "#e67e22", "#e67e22", "#e67e22"], "typeLabels": ["Official Media", "Lore Education", "Hobby Content", "Entertainment / Commentary"], "typeAvgs": [29.7, 19.7, 4.1, 10.6], "typeColors": ["#c0392b", "#2980b9", "#27ae60", "#e67e22"], "multiyear": {"years": ["2023", "2024", "2025", "2026"], "chDatasets": [{"label": "Warhammer Official", "data": [610000, 696000, 848000, 991000], "borderColor": "#c0392b", "backgroundColor": "#c0392b", "pointRadius": 6, "borderWidth": 2, "tension": 0.2, "spanGaps": false}, {"label": "WesHammer", "data": [569000, 676000, 828000, 893000], "borderColor": "#2980b9", "backgroundColor": "#2980b9", "pointRadius": 6, "borderWidth": 2, "tension": 0.2, "spanGaps": false}, {"label": "Luetin09", "data": [710000, 811000, 907000, 958000], "borderColor": "#8e44ad", "backgroundColor": "#8e44ad", "pointRadius": 6, "borderWidth": 2, "tension": 0.2, "spanGaps": false}, {"label": "Squidmar", "data": [534000, 613000, 700000, 775000], "borderColor": "#27ae60", "backgroundColor": "#27ae60", "pointRadius": 6, "borderWidth": 2, "tension": 0.2, "spanGaps": false}, {"label": "Majorkill", "data": [465000, 575000, 680000, 697000], "borderColor": "#e67e22", "backgroundColor": "#e67e22", "pointRadius": 6, "borderWidth": 2, "tension": 0.2, "spanGaps": false}, {"label": "Auspex Tactics", "data": [238000, 279000, 344000, 397000], "borderColor": "#b7950b", "backgroundColor": "#b7950b", "pointRadius": 6, "borderWidth": 2, "tension": 0.2, "spanGaps": false}, {"label": "Chapter Master Valrak", "data": [197000, 217000, 256000, 282000], "borderColor": "#117a65", "backgroundColor": "#117a65", "pointRadius": 6, "borderWidth": 2, "tension": 0.2, "spanGaps": false}], "ecoDataset": {"label": "Ecosystem Total", "data": [3323000, 3867000, 4563000, 4993000], "borderColor": "#ffffff", "backgroundColor": "#ffffff", "pointRadius": 7, "borderWidth": 2, "tension": 0.2, "spanGaps": false, "borderDash": [5, 4]}}, "reddit": {"subLabels": ["r/Warhammer", "r/Warhammer40k", "r/AgeOfSigmar", "r/minipainting"], "subColors": ["#c0392b", "#2980b9", "#8e44ad", "#27ae60"], "yoyVals": [13.3, 22.9, 7.2, 3.1], "trajDatasets": [{"label": "r/Warhammer", "data": [{"x": "2025-03-03", "y": 392000}, {"x": "2026-02-22", "y": 444154}], "borderColor": "#c0392b", "backgroundColor": "#c0392b", "pointRadius": 5, "borderWidth": 2}, {"label": "r/Warhammer40k", "data": [{"x": "2024-10-01", "y": 1000000}, {"x": "2025-03-03", "y": 1200000}, {"x": "2026-02-22", "y": 1474620}], "borderColor": "#2980b9", "backgroundColor": "#2980b9", "pointRadius": 5, "borderWidth": 2}, {"label": "r/AgeOfSigmar", "data": [{"x": "2025-03-03", "y": 235000}, {"x": "2026-02-22", "y": 251919}], "borderColor": "#8e44ad", "backgroundColor": "#8e44ad", "pointRadius": 5, "borderWidth": 2}, {"label": "r/minipainting", "data": [{"x": "2025-03-03", "y": 1200000}, {"x": "2026-02-22", "y": 1237385}], "borderColor": "#27ae60", "backgroundColor": "#27ae60", "pointRadius": 5, "borderWidth": 2}], "myLabels": ["r/Warhammer", "r/Warhammer40k", "r/AgeOfSigmar", "r/minipainting"], "myColors": ["#c0392b", "#2980b9", "#8e44ad", "#27ae60"], "my2023": [296000, 589000, 197000, 1100000], "my2024": [338000, 783000, 214000, 1200000], "my2026": [444154, 1474620, 251919, 1237385]}, "steam": {"monthlyLabels": ["2025-01", "2025-02", "2025-03", "2025-04", "2025-05", "2025-06", "2025-07", "2025-08", "2025-09", "2025-10", "2025-11", "2025-12", "2026-01"], "monthlyDatasets": [{"label": "Total War: WH3", "data": [null, 20542.3, 20783.6, 21410.1, 19026.8, 19960.2, 22361.0, 20574.2, 21789.7, 20665.2, 19758.0, 34996.8, 29720.3], "borderColor": "#2980b9", "backgroundColor": "#2980b9", "pointRadius": 4, "borderWidth": 2, "tension": 0.1, "spanGaps": true}, {"label": "Space Marine 2", "data": [null, 8455.3, 6652.4, 7842.3, 7612.2, 8204.4, 9494.6, 7603.1, 14785.0, 10861.6, 10139.6, 11520.3, 12758.5], "borderColor": "#27ae60", "backgroundColor": "#27ae60", "pointRadius": 4, "borderWidth": 2, "tension": 0.1, "spanGaps": true}, {"label": "Darktide", "data": [6746.6, 5258.3, 4952.1, 5589.3, 5728.1, 11593.3, 9943.8, 5347.0, 4749.6, 5779.8, 5699.5, 14499.2, 8609.2], "borderColor": "#c0392b", "backgroundColor": "#c0392b", "pointRadius": 4, "borderWidth": 2, "tension": 0.1, "spanGaps": true}, {"label": "Vermintide 2", "data": [null, 2478.6, 2303.7, 1875.3, 2111.0, 2176.0, 1718.3, 1709.2, 1769.0, 2727.7, 8928.6, 7477.2, 3848.0], "borderColor": "#e67e22", "backgroundColor": "#e67e22", "pointRadius": 4, "borderWidth": 2, "tension": 0.1, "spanGaps": true}], "totalCCU": 33511, "posYoYCount": 1, "titleCount": 4, "hist": {"strongCount": 1, "stableCount": 3, "bestTitle": "Space Marine 2", "bestYoy": 76.7, "threeYrNorm": ["Vermintide 2"], "stabMin": 2.1, "stabMax": 13.3, "posCount": 4, "baseYr": 2023, "prevYr": 2025, "currYr": 2026}}, "tournament": {"labels": ["World Championships of Warhammer", "Las Vegas Open"], "years": [2023, 2024, 2025], "datasets": [{"label": "2023", "data": [175, 950]}, {"label": "2024", "data": [274, 907]}, {"label": "2025", "data": [411, 1095]}]}, "slopeBaseLbl": "Jan 2025", "slopeLatestLbl": "May 2026", "retail": {"ownStores2025": 570, "ownStores2017": 462, "indie2025": 8100, "indie2020": 4900, "tradeH1Latest": 209.0, "tradeH1LatestLabel": "H1 FY26", "tradeGrowthPct": 72.9, "activeAppUsers": 790000, "appLatestLabel": "H1 FY26", "appYoyPct": 14.0, "liOpeningsCount": 12, "newMarketsCount": 1, "newMarkets": ["Seoul, South Korea"], "storeCountYears": [2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025], "storeCountVals": [462, 507, 524, 531, 523, 526, 526, 548, 570], "indieCountYears": [2020, 2021, 2022, 2023, 2024, 2025], "indieCountVals": [4900, 5400, 6200, 6500, 7200, 8100], "rcLabels": ["H1 FY23", "H1 FY24", "H1 FY25", "H1 FY26"], "rcRetail": [48.7, 56.5, 62.0, 64.6], "rcTrade": [120.9, 140.3, 169.2, 209.0], "rcOnline": [42.7, 45.6, 43.0, 45.4], "rcTradeShare": [56.9, 57.9, 61.7, 65.5], "tradeShareFirst": 56.9, "tradeShareLast": 65.5, "appLabels": ["H1 FY23", "FY23", "H1 FY24", "FY24", "H1 FY25", "H1 FY26"], "appVals": [346000, 427000, 576000, 565000, 695000, 790000], "scOwnYears": [2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025], "scOwnIdx": [100.0, 109.7, 113.4, 114.9, 113.2, 113.9, 113.9, 118.6, 123.4], "scOwnBase": 2017, "scIndYears": [2020, 2021, 2022, 2023, 2024, 2025], "scIndIdx": [100.0, 110.2, 126.5, 132.7, 146.9, 165.3], "scIndBase": 2020, "scIndIdxAligned": [null, null, null, 100.0, 110.2, 126.5, 132.7, 146.9, 165.3], "rpsLabels": ["H1 FY23", "H1 FY24", "H1 FY25", "H1 FY26"], "rpsVals": [92.6, 107.4, 113.1, 113.3], "rpsFirst": 92.6, "rpsLast": 113.3, "rpsGrowthPct": 22.4, "storeThreadsLabels": ["2023-01", "2023-02", "2023-03", "2023-04", "2023-05", "2023-06", "2023-07", "2023-08", "2023-09", "2023-10", "2023-11", "2023-12", "2024-01", "2024-02", "2024-03", "2024-04", "2024-05", "2024-06", "2024-07", "2024-08", "2024-09", "2024-10", "2024-11", "2024-12", "2025-01", "2025-02", "2025-03", "2025-04", "2025-05", "2025-06", "2025-07", "2025-08", "2025-09", "2025-10", "2025-11", "2025-12", "2026-01", "2026-02", "2026-03"], "storeThreadsVals": [35, 30, 28, 37, 44, 84, 39, 25, 38, 25, 34, 29, 29, 22, 18, 30, 22, 21, 23, 24, 34, 43, 37, 29, 38, 31, 26, 26, 25, 20, 40, 31, 23, 33, 26, 22, 18, 18, 9], "catYears": ["2023", "2024", "2025"], "catDatasets": [{"label": "Community Moments & Store Visits", "data": [294, 227, 246], "color": "#3498db"}, {"label": "Events & Organised Play", "data": [70, 45, 28], "color": "#27ae60"}, {"label": "Finds & Bargains", "data": [19, 18, 18], "color": "#e67e22"}, {"label": "Finding a Store", "data": [18, 10, 13], "color": "#9b59b6"}, {"label": "Pricing & Value", "data": [18, 14, 20], "color": "#e74c3c"}, {"label": "Stock & Availability", "data": [16, 4, 2], "color": "#f39c12"}, {"label": "Store Culture & Etiquette", "data": [5, 9, 3], "color": "#1abc9c"}, {"label": "GW Store News", "data": [1, 4, 10], "color": "#8e44ad"}, {"label": "Store Closures / Health", "data": [7, 1, 1], "color": "#95a5a6"}], "catChangeData": [{"label": "Stock & Availability", "value": -99, "actual": -99, "color": "#e74c3c", "capped": false, "confirmed": true}, {"label": "Finds & Bargains", "value": -70, "actual": -70, "color": "#c0392b66", "capped": false, "confirmed": false}, {"label": "Store Closures", "value": -66, "actual": -66, "color": "#c0392b66", "capped": false, "confirmed": false}, {"label": "Pricing & Value", "value": -47, "actual": -47, "color": "#c0392b66", "capped": false, "confirmed": false}, {"label": "Store Etiquette", "value": -45, "actual": -45, "color": "#c0392b66", "capped": false, "confirmed": false}, {"label": "Events & Organised Play", "value": -41, "actual": -41, "color": "#e74c3c", "capped": false, "confirmed": true}, {"label": "Community Visits", "value": -7, "actual": -7, "color": "#7f8c8d", "capped": false, "confirmed": true}, {"label": "GW Store News", "value": 55, "actual": 55, "color": "#27ae6066", "capped": false, "confirmed": false}, {"label": "Finding a Store", "value": 110, "actual": 571, "color": "#27ae6066", "capped": true, "confirmed": false}]}, "reddit_intel": [{"label": "Hobby & Painting", "pct": 63.3, "color": "#2980b9", "trend": "\u2192 Stable", "trendDir": "\u2192"}, {"label": "General Discussion", "pct": 20.6, "color": "#8e44ad", "trend": "\u2191 Growing", "trendDir": "\u2191"}, {"label": "Community & Humour", "pct": 6.5, "color": "#f39c12", "trend": "\u2191 Growing", "trendDir": "\u2191"}, {"label": "Lore & Narrative", "pct": 3.8, "color": "#16a085", "trend": "\u2193 Declining", "trendDir": "\u2193"}, {"label": "New Releases & News", "pct": 3.1, "color": "#e74c3c", "trend": "\u2192 Stable", "trendDir": "\u2192"}, {"label": "Video Games & Digital", "pct": 1.6, "color": "#27ae60", "trend": "\u2191 Emerging", "trendDir": "\u2191"}, {"label": "New Player / Getting Started", "pct": 0.6, "color": "#1abc9c", "trend": "\u2191 Emerging", "trendDir": "\u2191"}, {"label": "Competitive & Tournaments", "pct": 0.4, "color": "#c0392b", "trend": "\u2192 Niche", "trendDir": "\u2192"}, {"label": "Store & Retail", "pct": 0.1, "color": "#7f8c8d", "trend": "~ Marginal", "trendDir": "~"}, {"label": "Pricing & Value", "pct": 0.0, "color": "#e67e22", "trend": "~ Watch", "trendDir": "~"}], "bcp": {"monthLabels": ["2023-03", "2023-04", "2023-05", "2023-06", "2023-07", "2023-08", "2023-09", "2023-10", "2023-11", "2023-12", "2024-01", "2024-02", "2024-03", "2024-04", "2024-05", "2024-06", "2024-07", "2024-08", "2024-09", "2024-10", "2024-11", "2024-12", "2025-01", "2025-02", "2025-03", "2025-04", "2025-05", "2025-06", "2025-07", "2025-08", "2025-09", "2025-10", "2025-11", "2025-12", "2026-01", "2026-02", "2026-03"], "monthVals": [597, 605, 553, 430, 593, 592, 587, 600, 606, 603, 605, 614, 615, 611, 613, 617, 613, 618, 614, 614, 619, 611, 613, 615, 620, 618, 617, 618, 614, 617, 611, 620, 615, 610, 617, 615, 567], "monthPlayerVals": [12027, 11445, 10370, 7463, 10896, 10454, 10783, 11018, 11358, 10604, 12159, 11853, 12707, 12292, 11458, 11599, 11593, 12683, 12686, 11206, 12245, 10447, 12754, 11933, 13217, 11702, 12424, 11380, 11892, 11899, 12742, 12409, 12283, 10028, 14073, 12239, 11532], "avgPlayers": 19.4, "totalEvents": 22317, "totalPlayers": 431853, "snapDate": "2026-03-15"}};
+  
+(function() {
+  const d = window.__yt;
+
+  // ── Shared axis/plugin defaults ────────────────────────────
+  const grid  = { color: '#1e2530' };
+  const xTick = { color: '#999', font: { size: 11 } };
+  const yTick = { color: '#999', font: { size: 11 } };
+  const leg   = { display: true, position: 'bottom',
+                  labels: { color: '#aaa', boxWidth: 12, font: { size: 11 } } };
+
+  const barOpts = (yLabel) => ({
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false },
+               tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y?.toLocaleString()}` } } },
+    scales: { x: { ticks: xTick, grid },
+              y: { ticks: yTick, grid,
+                   title: { display: !!yLabel, text: yLabel, color: '#888', font: { size: 11 } } } }
+  });
+
+  // ── Chart 4: ECI bar ─────────────────────────────────────
+  new Chart(document.getElementById('chartECI'), {
+    type: 'bar',
+    data: { labels: d.chLabels, datasets: [{
+      data: d.eciVals,
+      backgroundColor: d.eciVals.map(v => v > 2.0 ? '#2980b999' : v >= 1.0 ? '#e67e2299' : '#c0392b99')
+    }] },
+    options: { ...barOpts('ECI (ratio)'),
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ECI ${ctx.parsed.y?.toFixed(2)}×` } } } }
+  });
+
+  // ── Chart 5: Discovery scatter (view growth vs sub growth) ─
+  // One dataset per channel — single point each, for per-channel legend color.
+  new Chart(document.getElementById('chartDiscovery'), {
+    type: 'scatter',
+    data: { datasets: d.discoverySeries.map(ds => ({
+      label: ds.label,
+      data: ds.data,
+      backgroundColor: ds.backgroundColor,
+      pointRadius: ds.pointRadius,
+      pointHoverRadius: ds.pointHoverRadius,
+    })) },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: leg, tooltip: { callbacks: {
+        label: ctx => ` ${ctx.dataset.label}: view +${ctx.parsed.y.toFixed(1)}% / sub +${ctx.parsed.x.toFixed(1)}%`
+      } } },
+      scales: {
+        x: { ticks: xTick, grid, title: { display: true, text: 'Subscriber Growth — 3yr CAGR (%) [YoY if CAGR unavailable]', color: '#888', font: { size: 11 } } },
+        y: { ticks: yTick, grid, title: { display: true, text: 'Avg Anchor View Growth (%)', color: '#888', font: { size: 11 } } }
+      }
+    }
+  });
+
+  // ── Chart 6: Anchor view growth horizontal bar ───────────
+  new Chart(document.getElementById('chartAnchorGrowth'), {
+    type: 'bar',
+    data: { labels: d.anchorLabels,
+      datasets: [{ data: d.anchorGrowths, backgroundColor: d.anchorColors }] },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.x >= 0 ? '+' : ''}${ctx.parsed.x?.toFixed(1)}% views` } } },
+      scales: { x: { ticks: xTick, grid }, y: { ticks: { color: '#ccc', font: { size: 10 } }, grid } }
+    }
+  });
+
+  // ── Chart 7: Content-type avg view growth bar ─────────────
+  if (d.typeLabels && d.typeLabels.length && document.getElementById('chartContentType')) {
+    new Chart(document.getElementById('chartContentType'), {
+      type: 'bar',
+      data: { labels: d.typeLabels,
+        datasets: [{ data: d.typeAvgs, backgroundColor: d.typeColors }] },
+      options: { ...barOpts('Avg View Growth %'),
+        plugins: { legend: { display: false },
+          tooltip: { callbacks: { label: ctx =>
+            ` ${ctx.parsed.y >= 0 ? '+' : ''}${ctx.parsed.y?.toFixed(1)}% avg growth` } } } }
+    });
+  }
+
+  // ── Chart 8: Slopegraph dumbbell — channel rank comparison ────
+  if (d.slopeDatasets && d.slopeDatasets.length && document.getElementById('chartSlope')) {
+    function fmtSubsSlope(v) {
+      if (v == null) return 'N/A';
+      if (v >= 1e6) return (v/1e6).toFixed(2) + 'M';
+      if (v >= 1e3) return Math.round(v/1e3) + 'K';
+      return v.toLocaleString();
+    }
+    new Chart(document.getElementById('chartSlope'), {
+      type: 'line',
+      data: {
+        labels: [d.slopeBaseLbl || 'Baseline', d.slopeLatestLbl || 'Latest'],
+        datasets: d.slopeDatasets.map(ds => ({
+          label: ds.label, data: ds.data, tension: 0, fill: false,
+          borderColor: ds.borderColor, backgroundColor: ds.backgroundColor,
+          pointRadius: ds.pointRadius, pointHoverRadius: ds.pointHoverRadius,
+          borderWidth: ds.borderWidth,
+        }))
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: true, position: 'bottom',
+          labels: { color: '#aaa', boxWidth: 12, font: { size: 11 } } },
+          tooltip: { callbacks: {
+            label: ctx => ` ${ctx.dataset.label}: ${fmtSubsSlope(ctx.parsed.y)}`
+          } } },
+        scales: {
+          x: { ticks: { color: '#ccc', font: { size: 12, weight: '500' } }, grid },
+          y: { ticks: { ...yTick, callback: v => fmtSubsSlope(v) }, grid,
+               title: { display: true, text: 'Subscribers', color: '#888', font: { size: 11 } } }
+        }
+      }
+    });
+  }
+
+})();
+
+  
+(function() {
+  const d = window.__yt;
+  const r = d.reddit;
+  if (!r) return;
+
+  const grid  = { color: '#1e2530' };
+  const xTick = { color: '#ccc', font: { size: 11 } };
+  const yTick = { color: '#999', font: { size: 11 } };
+  const leg   = { display: true, position: 'bottom',
+                  labels: { color: '#aaa', boxWidth: 12, font: { size: 11 } } };
+
+  // ── Chart R3: Multi-year grouped bar — 2023 / 2024 / 2026 ────────────────
+  if (document.getElementById('chartRedditMultiYear')) {
+    const alpha = (hex, a) => hex + Math.round(a*255).toString(16).padStart(2,'0');
+    new Chart(document.getElementById('chartRedditMultiYear'), {
+      type: 'bar',
+      data: {
+        labels: r.myLabels,
+        datasets: [
+          { label: '2023', data: r.my2023,
+            backgroundColor: r.myColors.map(c => alpha(c, 0.45)), borderColor: r.myColors, borderWidth: 1 },
+          { label: '2024', data: r.my2024,
+            backgroundColor: r.myColors.map(c => alpha(c, 0.70)), borderColor: r.myColors, borderWidth: 1 },
+          { label: '2026', data: r.my2026,
+            backgroundColor: r.myColors.map(c => alpha(c, 1.00)), borderColor: r.myColors, borderWidth: 1 },
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: leg, tooltip: { callbacks: {
+          label: ctx => ` ${ctx.dataset.label}: ${(ctx.parsed.y/1000).toFixed(0)}K`
+        }}},
+        scales: {
+          x: { ticks: xTick, grid },
+          y: { ticks: { ...yTick, callback: v => (v/1000).toFixed(0)+'K' }, grid,
+               title: { display: true, text: 'Members', color: '#888', font: { size: 11 } } }
+        }
+      }
+    });
+  }
+
+})();
+
+  
+(function() {
+  const d = window.__yt;
+  const s = d.steam;
+  if (!s) return;
+
+  const grid  = { color: '#1e2530' };
+  const xTick = { color: '#ccc', font: { size: 11 } };
+  const yTick = { color: '#999', font: { size: 11 } };
+  const leg   = { display: true, position: 'bottom',
+                  labels: { color: '#aaa', boxWidth: 12, font: { size: 11 } } };
+
+  // ── Chart S1: Monthly Avg Players — Structural Engagement ────────────────
+  new Chart(document.getElementById('chartSteamMonthlyAvg'), {
+    type: 'line',
+    data: {
+      labels: s.monthlyLabels,
+      datasets: s.monthlyDatasets.map(ds => ({
+        label: ds.label, data: ds.data,
+        borderColor: ds.borderColor, backgroundColor: ds.backgroundColor,
+        pointRadius: ds.pointRadius, borderWidth: ds.borderWidth,
+        tension: ds.tension, spanGaps: ds.spanGaps, fill: false,
+      }))
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: leg, tooltip: { callbacks: {
+        label: ctx => ` ${ctx.dataset.label}: ${(ctx.parsed.y||0).toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0})}`
+      }}},
+      scales: {
+        x: { ticks: xTick, grid },
+        y: { ticks: { ...yTick, callback: v => v.toLocaleString() }, grid,
+             title: { display: true, text: 'Avg Players / Month', color: '#888', font: { size: 11 } } }
+      }
+    }
+  });
+
+})();
+
+  
+(function() {
+  var my = window.__yt.multiyear;
+  var el = document.getElementById('chartMultiYear');
+  if (!my || !el) return;
+
+  function fmtSubs(v) {
+    if (v == null) return 'N/A';
+    if (v >= 1e6) return (v / 1e6).toFixed(2) + 'M';
+    if (v >= 1e3) return Math.round(v / 1e3) + 'K';
+    return v.toLocaleString();
+  }
+
+  new Chart(el, {
+    type: 'line',
+    data: {
+      labels: my.years,
+      datasets: my.chDatasets.concat([my.ecoDataset])
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { color: '#cdd9e5', font: { size: 11 }, boxWidth: 14 }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              return ctx.dataset.label + ': ' + fmtSubs(ctx.parsed.y);
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#6e7681', font: { size: 12 } },
+          grid:  { color: '#21262d' }
+        },
+        y: {
+          ticks: {
+            color: '#6e7681',
+            callback: function(v) {
+              if (v >= 1e6) return (v / 1e6).toFixed(1) + 'M';
+              if (v >= 1e3) return Math.round(v / 1e3) + 'K';
+              return v;
+            }
+          },
+          grid: { color: '#21262d' }
+        }
+      }
+    }
+  });
+})();
+
+  
+(function() {
+  var ctx = document.getElementById('chartTournament');
+  if (!ctx) return;
+  var t = window.__yt && window.__yt.tournament;
+  if (!t) return;
+
+  var palette = ['#2980b955', '#e67e2255', '#27ae6099'];
+  var borders = ['#2980b9',   '#e67e22',   '#27ae60'];
+  var grid  = { color: '#1e2530' };
+  var xTick = { color: '#ccc', font: { size: 11 } };
+  var yTick = { color: '#999', font: { size: 11 } };
+
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: t.labels,
+      datasets: t.datasets.map(function(ds, i) {
+        return {
+          label: ds.label,
+          data: ds.data,
+          backgroundColor: palette[i % palette.length],
+          borderColor: borders[i % borders.length],
+          borderWidth: 1
+        };
+      })
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, position: 'bottom',
+          labels: { color: '#aaa', boxWidth: 12, font: { size: 11 } } },
+        tooltip: { callbacks: {
+          label: function(ctx) {
+            return ' ' + ctx.dataset.label + ': ' + ctx.parsed.y.toLocaleString() + ' players';
+          }
+        }}
+      },
+      scales: {
+        x: { ticks: xTick, grid: grid },
+        y: { ticks: Object.assign({}, yTick, { callback: function(v) { return v.toLocaleString(); } }),
+             grid: grid,
+             title: { display: true, text: 'Players', color: '#888', font: { size: 11 } } }
+      }
+    }
+  });
+})();
+
+  
+(function() {
+  var ctx = document.getElementById('chartBcpMonthly');
+  if (!ctx) return;
+  var bcp = window.__yt && window.__yt.bcp;
+  if (!bcp || !bcp.monthLabels || !bcp.monthLabels.length) return;
+  var grid  = { color: '#1e2530' };
+  var xTick = { color: '#999', font: { size: 10 } };
+  var yTick = { color: '#999', font: { size: 11 } };
+  var evts  = bcp.monthVals || [];
+  var plrs  = bcp.monthPlayerVals || bcp.monthVals || [];
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: bcp.monthLabels,
+      datasets: [{
+        label: 'Players',
+        data:  plrs,
+        backgroundColor: '#27ae6066',
+        borderColor:     '#27ae60',
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: {
+          label: function(c) {
+            var i = c.dataIndex;
+            var e = evts[i] || 0;
+            return ' ' + c.parsed.y.toLocaleString() + ' players  (' + e + ' events)';
+          }
+        }}
+      },
+      scales: {
+        x: { ticks: xTick, grid: grid },
+        y: { beginAtZero: true, ticks: {
+               color: '#999', font: { size: 11 },
+               callback: function(v) { return v >= 1000 ? (v/1000).toFixed(0)+'k' : v; }
+             }, grid: grid,
+             title: { display: true, text: 'Players attending', color: '#888', font: { size: 11 } } }
+      }
+    }
+  });
+})();
+
+  
+(function() {
+  var d = window.__yt;
+  if (!d || !d.retail) return;
+  var r = d.retail;
+
+  // ── chartStoreCount: indexed growth (base=100 at each series' start year) ──
+  // Both lines share a single y-axis so growth RATES are directly comparable.
+  var scCtx = document.getElementById('chartStoreCount');
+  if (scCtx) {
+    new Chart(scCtx, {
+      type: 'line',
+      data: {
+        labels: r.scOwnYears,
+        datasets: [
+          {
+            label: 'GW-Operated Stores (base ' + r.scOwnBase + ' = 100)',
+            data: r.scOwnIdx,
+            borderColor: '#c0392b', backgroundColor: '#c0392b22',
+            tension: 0.3, pointRadius: 4, fill: false
+          },
+          {
+            label: 'Independent Stockists (base ' + r.scIndBase + ' = 100)',
+            data: r.scIndIdxAligned,
+            borderColor: '#2980b9', backgroundColor: '#2980b922',
+            tension: 0.3, pointRadius: 4, fill: false,
+            spanGaps: false
+          }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, position: 'bottom',
+                    labels: { color: '#aaa', boxWidth: 12, font: { size: 11 } } },
+          tooltip: { callbacks: {
+            label: function(ctx) {
+              return ' ' + ctx.dataset.label.split(' (')[0] + ': ' + ctx.parsed.y.toFixed(1) + ' (indexed)';
+            }
+          }}
+        },
+        scales: {
+          x: { ticks: { color: '#999', font: { size: 11 } }, grid: { color: '#1e2530' } },
+          y: {
+            min: 90,
+            ticks: { color: '#999', font: { size: 11 },
+                     callback: function(v) { return v; } },
+            grid: { color: '#1e2530' },
+            title: { display: true, text: 'Growth Index (start year = 100)', color: '#888', font: { size: 11 } }
+          }
+        }
+      }
+    });
+  }
+
+  // ── chartAppUsers: My Warhammer app active users line chart ──────────────
+  var appCtx = document.getElementById('chartAppUsers');
+  if (appCtx && r.appLabels) {
+    new Chart(appCtx, {
+      type: 'line',
+      data: {
+        labels: r.appLabels,
+        datasets: [{
+          label: 'My Warhammer Active Users',
+          data: r.appVals,
+          borderColor: '#e67e22', backgroundColor: '#e67e2222',
+          tension: 0.3, pointRadius: 5, fill: true
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: {
+            label: function(ctx) { return ' ' + ctx.parsed.y.toLocaleString() + ' active users'; }
+          }}
+        },
+        scales: {
+          x: { ticks: { color: '#999', font: { size: 11 } }, grid: { color: '#1e2530' } },
+          y: {
+            ticks: { color: '#999', font: { size: 11 },
+                     callback: function(v) { return (v/1000).toFixed(0) + 'K'; } },
+            grid: { color: '#1e2530' },
+            title: { display: true, text: 'Active Users', color: '#888', font: { size: 11 } }
+          }
+        }
+      }
+    });
+  }
+
+  // ── chartRevChannel: trade revenue (£M) + trade share % on dual axis ────────
+  // Left axis = trade channel £M (the absolute demand signal)
+  // Right axis = trade share % (how dominant trade is becoming vs other channels)
+  var rcCtx = document.getElementById('chartRevChannel');
+  if (rcCtx) {
+    new Chart(rcCtx, {
+      type: 'line',
+      data: {
+        labels: r.rcLabels,
+        datasets: [
+          {
+            label: 'Trade Revenue (£M)',
+            data: r.rcTrade,
+            borderColor: '#2980b9', backgroundColor: '#2980b933',
+            tension: 0.3, pointRadius: 6, borderWidth: 2, fill: true, yAxisID: 'y'
+          },
+          {
+            label: 'Trade Share of Total (%)',
+            data: r.rcTradeShare,
+            borderColor: '#e67e22', backgroundColor: 'transparent',
+            tension: 0.3, pointRadius: 5, borderWidth: 2,
+            borderDash: [5, 3], yAxisID: 'y2'
+          }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, position: 'bottom',
+                    labels: { color: '#aaa', boxWidth: 12, font: { size: 11 } } },
+          tooltip: { callbacks: {
+            label: function(ctx) {
+              return ctx.datasetIndex === 0
+                ? ' Trade: £' + ctx.parsed.y.toFixed(1) + 'M'
+                : ' Trade Share: ' + ctx.parsed.y.toFixed(1) + '%';
+            }
+          }}
+        },
+        scales: {
+          x: { ticks: { color: '#999', font: { size: 11 } }, grid: { color: '#1e2530' } },
+          y: {
+            type: 'linear', position: 'left',
+            ticks: { color: '#2980b9', font: { size: 11 },
+                     callback: function(v) { return '£' + v + 'M'; } },
+            grid: { color: '#1e2530' },
+            title: { display: true, text: 'Trade Revenue (£M)', color: '#2980b9', font: { size: 11 } }
+          },
+          y2: {
+            type: 'linear', position: 'right',
+            min: 50, max: 75,
+            ticks: { color: '#e67e22', font: { size: 11 },
+                     callback: function(v) { return v + '%'; } },
+            grid: { drawOnChartArea: false },
+            title: { display: true, text: 'Trade Share (%)', color: '#e67e22', font: { size: 11 } }
+          }
+        }
+      }
+    });
+  }
+
+  // ── chartStoreThreads: Reddit store discussion volume over time ──────────
+  var stCtx = document.getElementById('chartStoreThreads');
+  if (stCtx && r.storeThreadsLabels && r.storeThreadsLabels.length > 1) {
+    new Chart(stCtx, {
+      type: 'bar',
+      data: {
+        labels: r.storeThreadsLabels,
+        datasets: [{
+          label: 'Store-related posts (r/Warhammer + r/Warhammer40k)',
+          data: r.storeThreadsVals,
+          backgroundColor: '#8e44ad88', borderColor: '#8e44ad',
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: {
+            label: function(ctx) { return ' ' + ctx.parsed.y + ' store-related posts'; }
+          }}
+        },
+        scales: {
+          x: { ticks: { color: '#999', font: { size: 10 } }, grid: { color: '#1e2530' } },
+          y: {
+            ticks: { color: '#999', font: { size: 11 } },
+            grid: { color: '#1e2530' },
+            title: { display: true, text: 'Posts / Month', color: '#888', font: { size: 11 } }
+          }
+        }
+      }
+    });
+  }
+
+  // ── chartRevPerStore: Own Retail revenue per GW store (£K per H1) ─────────
+  var rpsCtx = document.getElementById('chartRevPerStore');
+  if (rpsCtx && r.rpsLabels) {
+    new Chart(rpsCtx, {
+      type: 'line',
+      data: {
+        labels: r.rpsLabels,
+        datasets: [{
+          label: 'Own Retail Revenue per Store (£K, H1)',
+          data: r.rpsVals,
+          borderColor: '#27ae60', backgroundColor: '#27ae6022',
+          tension: 0.3, pointRadius: 6, borderWidth: 2, fill: true
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: {
+            label: function(ctx) { return ' £' + ctx.parsed.y.toFixed(1) + 'K per store (H1)'; }
+          }}
+        },
+        scales: {
+          x: { ticks: { color: '#999', font: { size: 11 } }, grid: { color: '#1e2530' } },
+          y: {
+            min: 80,
+            ticks: { color: '#999', font: { size: 11 },
+                     callback: function(v) { return '£' + v + 'K'; } },
+            grid: { color: '#1e2530' },
+            title: { display: true, text: 'Revenue per Store (£K, H1)', color: '#888', font: { size: 11 } }
+          }
+        }
+      }
+    });
+  }
+
+  // ── chartStoreCats: Discussion category breakdown by year (stacked) ──────
+  var catCtx = document.getElementById('chartStoreCats');
+  if (catCtx && r.catDatasets && r.catDatasets.length > 0) {
+    new Chart(catCtx, {
+      type: 'bar',
+      data: {
+        labels: r.catYears,
+        datasets: r.catDatasets.map(function(ds) {
+          return { label: ds.label, data: ds.data,
+            backgroundColor: ds.color + 'cc', borderColor: ds.color, borderWidth: 1 };
+        })
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { color: '#ccc', font: { size: 10 }, boxWidth: 12 } } },
+        scales: {
+          x: { stacked: true, ticks: { color: '#999' }, grid: { color: '#1e2530' } },
+          y: { stacked: true, ticks: { color: '#999', stepSize: 50 }, grid: { color: '#1e2530' },
+               title: { display: true, text: 'Posts', color: '#888', font: { size: 11 } } }
+        }
+      }
+    });
+  }
+
+  // ── chartStoreCatsChange: Horizontal diverging bar — norm. engagement Δ % ─
+  var chgCtx = document.getElementById('chartStoreCatsChange');
+  if (chgCtx && r.catChangeData && r.catChangeData.length > 0) {
+    var chgLabels  = r.catChangeData.map(function(d) { return d.label; });
+    var chgVals    = r.catChangeData.map(function(d) { return d.value; });
+    var chgColors  = r.catChangeData.map(function(d) { return d.color; });
+    var chgActual  = r.catChangeData.map(function(d) { return d.actual; });
+    var chgCapped  = r.catChangeData.map(function(d) { return d.capped; });
+    new Chart(chgCtx, {
+      type: 'bar',
+      data: {
+        labels: chgLabels,
+        datasets: [{
+          data: chgVals,
+          backgroundColor: chgColors,
+          borderColor: chgColors.map(function(c) { return c.replace(/[0-9a-f]{2}$/i, 'ff'); }),
+          borderWidth: 1,
+          borderRadius: 3
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: {
+            label: function(ctx) {
+              var actual = chgActual[ctx.dataIndex];
+              var capped = chgCapped[ctx.dataIndex];
+              return ' ' + (actual >= 0 ? '+' : '') + actual + '%' + (capped ? ' (capped at ±110 for display)' : '');
+            }
+          }}
+        },
+        scales: {
+          x: {
+            min: -115, max: 115,
+            ticks: { color: '#999', font: { size: 10 },
+              callback: function(v) { return (v >= 0 ? '+' : '') + v + '%'; } },
+            grid: { color: '#1e2530' },
+            title: { display: true, text: 'Normalized Engagement Change (2023 → 2025)', color: '#888', font: { size: 10 } }
+          },
+          y: { ticks: { color: '#ccc', font: { size: 10 } }, grid: { color: '#1e253000' } }
+        }
+      }
+    });
+  }
+
+  // ── chartRedditIntel: Community topic engagement share ───────────────────
+  var intelCtx = document.getElementById('chartRedditIntel');
+  if (intelCtx && window.__yt.reddit_intel && window.__yt.reddit_intel.length > 0) {
+    var intelData = window.__yt.reddit_intel;
+    new Chart(intelCtx, {
+      type: 'doughnut',
+      data: {
+        labels: intelData.map(function(d) { return d.label + ' ' + d.pct.toFixed(1) + '%'; }),
+        datasets: [{
+          data:            intelData.map(function(d) { return d.pct; }),
+          backgroundColor: intelData.map(function(d) { return d.color + 'cc'; }),
+          borderColor:     intelData.map(function(d) { return d.color; }),
+          borderWidth: 1.5,
+          hoverOffset: 8
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        cutout: '58%',
+        plugins: {
+          legend: {
+            display: true, position: 'right',
+            labels: { color: '#ccc', boxWidth: 12, font: { size: 10 }, padding: 8 }
+          },
+          tooltip: { callbacks: {
+            label: function(ctx) {
+              var d = intelData[ctx.dataIndex];
+              return ' ' + d.pct.toFixed(1) + '% of engagement  ' + d.trend;
+            }
+          }}
+        }
+      }
+    });
+  }
+})();
+
+  
+(function() {
+  var d  = window.__yt;
+  var el = document.getElementById('exec-summary-body');
+  if (!d || !el) return;
+
+  // ── Formatters ────────────────────────────────────────────────────────────
+  function fmtBig(n) {
+    if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+    if (n >= 1e3) return Math.round(n / 1e3) + 'K';
+    return n.toLocaleString();
+  }
+  function fmtPct(n, dec) {
+    var d2 = (dec === undefined ? 1 : dec);
+    return (n >= 0 ? '+' : '') + Number(n).toFixed(d2) + '%';
+  }
+
+  // ── Ecosystem multi-year metrics (2023 → 2026) ────────────────────────────
+  var myEco    = d.multiyear ? d.multiyear.ecoDataset.data : [];
+  var myYears  = d.multiyear ? d.multiyear.years : [];
+  var eco2023  = myEco[0]                   || null;
+  var eco2026  = myEco[myEco.length - 1]    || null;
+  var eco3yrGrowth = (eco2023 && eco2026)
+    ? ((eco2026 - eco2023) / eco2023 * 100).toFixed(1) : null;
+  var eco3yrCagr = (eco2023 && eco2026)
+    ? ((Math.pow(eco2026 / eco2023, 1 / 3) - 1) * 100).toFixed(1) : null;
+
+  // ── Channel CAGR average ──────────────────────────────────────────────────
+  var cagrVals  = (d.cagrPct || []).filter(function(v) { return v != null; });
+  var ytAvgCagr = cagrVals.length
+    ? (cagrVals.reduce(function(a, b) { return a + b; }, 0) / cagrVals.length)
+    : null;
+
+  // ── Strongest ECI channel ─────────────────────────────────────────────────
+  var eciVals = d.eciVals || [];
+  var maxEci = -Infinity, maxEciIdx = -1;
+  for (var i = 0; i < eciVals.length; i++) {
+    if (eciVals[i] != null && eciVals[i] > maxEci) {
+      maxEci = eciVals[i]; maxEciIdx = i;
+    }
+  }
+  var topEciLabel = maxEciIdx >= 0 ? d.chLabels[maxEciIdx] : null;
+  var topEciVal   = maxEci > 0     ? maxEci.toFixed(2)      : null;
+
+  // ── Anchor outperformance ─────────────────────────────────────────────────
+  var anchorPct = d.anchorOutperfPct;
+
+  // ── YouTube YoY ──────────────────────────────────────────────────────────
+  var ytAvgYoy = d.yoyPct.reduce(function(a, b) { return a + b; }, 0) / d.yoyPct.length;
+  var ytTotal  = d.currSubs.reduce(function(a, b) { return a + b; }, 0);
+  var ytN      = d.chLabels.length;
+
+  // ── Reddit signals — all computed from my2024/my2026 arrays (2024→2026 window) ────
+  var rMy2024  = d.reddit.my2024 || [];
+  var rMy2026  = d.reddit.my2026 || [];
+  // Per-subreddit 2024→2026 growth rates
+  var rTwoYrFull = rMy2024.map(function(v, i) {
+    var curr = rMy2026[i];
+    return (v && curr) ? (curr - v) / v * 100 : null;
+  });
+  var rTwoYr  = rTwoYrFull.filter(function(v) { return v != null; });
+  var rAvgYoy = rTwoYr.length
+    ? rTwoYr.reduce(function(a, b) { return a + b; }, 0) / rTwoYr.length : 0;
+  // Total 2026 members from my2026 array (consistent with 2-year growth calc)
+  var rTotal  = rMy2026.reduce(function(a, b) { return a + (b || 0); }, 0);
+  // Fastest-growing subreddit by 2024→2026 growth
+  var rMaxVal  = -Infinity, rFastIdx = -1;
+  rTwoYrFull.forEach(function(v, i) { if (v != null && v > rMaxVal) { rMaxVal = v; rFastIdx = i; } });
+  var rFastLbl = rFastIdx >= 0 ? d.reddit.subLabels[rFastIdx] : d.reddit.subLabels[0];
+  var rFastYoy = rMaxVal;
+
+  // ── Steam signals ─────────────────────────────────────────────────────────
+  var steamCCU    = d.steam.totalCCU;
+  var steamPos    = d.steam.posYoYCount;
+  var steamN      = d.steam.titleCount;
+  var sh          = d.steam.hist;                    // STEAM_HISTORICAL_DATA metrics
+  var shPosCount  = sh ? sh.posCount : steamPos;
+  var steamPosPct = shPosCount / steamN;
+
+  // ── Overall trajectory ────────────────────────────────────────────────────
+  var posCount = 0;
+  if (ytAvgYoy > 3)       posCount++;
+  if (rAvgYoy  > 3)       posCount++;
+  if (steamPosPct >= 0.5) posCount++;
+  var trajectory = posCount >= 3 ? 'accelerating' : posCount >= 2 ? 'stable' : 'mixed';
+
+  // ── Build paragraphs ──────────────────────────────────────────────────────
+
+  // P1: Ecosystem structural growth 2023–2026
+  var p1 = eco2023 && eco2026
+    ? 'Creator ecosystem subscribers grew from ' + fmtBig(eco2023) + ' (2023) to ' +
+      fmtBig(eco2026) + ' (2026), representing ' + eco3yrGrowth + '% total growth and a ' +
+      eco3yrCagr + '% 3-year CAGR. Channel-level 3-year CAGR averaged ' +
+      (ytAvgCagr != null ? fmtPct(ytAvgCagr) : 'n/a') + ' across the tracked creator set. ' +
+      'Growth remains positive despite the absence of major franchise release events in the ' +
+      'measurement window.'
+    : ytN + ' tracked channels, ' + fmtBig(ytTotal) + ' combined subscribers — ' +
+      fmtPct(ytAvgYoy) + ' YoY growth on the latest completed-year comparison.';
+
+  // P2: Anchor discovery signal
+  var p2 = anchorPct + '% of tracked anchor videos are compounding in views faster than their ' +
+    'channel\u2019s subscriber growth rate, indicating sustained algorithmic discovery ' +
+    'independent of upload cadence.' +
+    (topEciLabel && topEciVal
+      ? ' The strongest discovery signal is observed in ' + topEciLabel + ' with an ECI of ' +
+        topEciVal + '\u00d7 — anchor view growth is outpacing structural subscriber ' +
+        'accumulation by that multiple.'
+      : '');
+
+  // P3: Reddit community — uses 2024→2026 two-year growth for accurate current-window framing
+  var rSubCount = d.reddit.subLabels ? d.reddit.subLabels.length : rTwoYr.length;
+  var p3 = 'Reddit community expansion across ' + rSubCount + ' core subreddits: ' +
+    fmtBig(rTotal) + ' combined members, ' + fmtPct(rAvgYoy, 1) + ' average 2-year growth (2024\u21922026). ' +
+    (rFastIdx >= 0
+      ? rFastLbl + ' is the fastest-growing contributor at ' + fmtPct(rFastYoy, 1) + ' over the 2-year window. '
+      : '') +
+    'Broad-based community expansion confirms top-of-funnel demand accumulation at the IP level.';
+
+  // P4: Steam — uses STEAM_HISTORICAL_DATA metrics (structural Feb-over-Feb, 3-yr, stability)
+  var p4;
+  if (sh) {
+    var strongPart = sh.strongCount > 0
+      ? sh.strongCount + ' of ' + steamN + ' title' + (sh.strongCount > 1 ? 's' : '') +
+        ' show' + (sh.strongCount === 1 ? 's' : '') +
+        ' strong engagement expansion (structural YoY >+20%): ' +
+        sh.bestTitle + ' (' + fmtPct(sh.bestYoy) + ' Feb ' + sh.prevYr + '\u2192' + sh.currYr + '). '
+      : '';
+    var stablePart = sh.stableCount > 0
+      ? sh.stableCount + ' title' + (sh.stableCount > 1 ? 's' : '') +
+        ' show' + (sh.stableCount === 1 ? 's' : '') + ' stable structural engagement. '
+      : '';
+    var normPart = sh.threeYrNorm && sh.threeYrNorm.length > 0
+      ? 'On a ' + (sh.currYr - sh.baseYr) + '-year view (Feb ' + sh.baseYr +
+        '\u2013' + sh.currYr + '), ' + sh.threeYrNorm.join(' and ') +
+        ' show' + (sh.threeYrNorm.length === 1 ? 's' : '') +
+        ' post-release normalization consistent with mature title cycles. '
+      : '';
+    var stabPart = (sh.stabMin != null && sh.stabMax != null)
+      ? 'Engagement Stability Ratios range from ' + sh.stabMin + '% to ' + sh.stabMax +
+        '% (current avg \u00f7 all-time peak) — new releases drive ecosystem spikes while ' +
+        'established titles anchor durable baseline activity. ' +
+        'Live CCU across the ' + steamN + '-title portfolio: ' + steamCCU.toLocaleString() + '.'
+      : 'Live CCU: ' + steamCCU.toLocaleString() + ' across ' + steamN + ' titles.';
+    p4 = strongPart + stablePart + normPart + stabPart;
+  } else {
+    p4 = 'Steam franchise-wide live CCU: ' + steamCCU.toLocaleString() +
+      ' concurrent players across ' + steamN + ' titles. ' + shPosCount + ' of ' + steamN +
+      ' titles show positive structural year-over-year engagement.';
+  }
+
+  // P5: Retail & physical expansion signals
+  var rt = d.retail;
+  var p5;
+  if (rt) {
+    var storePart = 'GW-operated store network expanded from ' + rt.ownStores2017 + ' (2017) to ' +
+      rt.ownStores2025 + ' (2025). Independent stockist network grew from ' +
+      rt.indie2020.toLocaleString() + ' (2020) to ' + rt.indie2025.toLocaleString() + ' (2025). ';
+    var tradePart = 'Trade channel (independent retailers) H1 revenue: ' +
+      '\u00a3' + rt.tradeH1Latest.toFixed(1) + 'M (' + rt.tradeH1LatestLabel + '), ' +
+      fmtPct(rt.tradeGrowthPct) + ' vs comparable prior period. ';
+    var liPart = rt.liOpeningsCount > 0
+      ? rt.liOpeningsCount + ' active Store Manager postings signal continued physical expansion' +
+        (rt.newMarketsCount > 0
+          ? ' including ' + rt.newMarketsCount + ' new market entr' +
+            (rt.newMarketsCount > 1 ? 'ies' : 'y') + ' (' + (rt.newMarkets || []).join(', ') + ').'
+          : '.')
+        + ' '
+      : '';
+    var appPart = rt.activeAppUsers
+      ? 'My Warhammer app: ' + fmtBig(rt.activeAppUsers) + ' active users' +
+        (rt.appYoyPct ? ' (+' + rt.appYoyPct.toFixed(0) + '% YoY' +
+         (rt.appLatestLabel ? ', ' + rt.appLatestLabel : '') + ').' : '.')
+      : '';
+    p5 = storePart + tradePart + liPart + appPart;
+  } else {
+    p5 = 'Physical retail data not available in this report version.';
+  }
+
+  // P6: Overall signal assessment
+  var p6 = 'Across all signal layers (digital + physical), current data indicates Warhammer franchise demand ' +
+    'is <strong>' + trajectory + '</strong>. The 2023\u20132026 multi-year subscriber data ' +
+    'confirms that structural expansion is continuing, not reversing \u2014 consistent with ' +
+    'IP-level strength accumulating independently of release cycle events.';
+
+  el.innerHTML = [p1, p2, p3, p4, p5, p6].map(function(p) {
+    return '<p>' + p + '</p>';
+  }).join('');
+})();
+
+</script>
+</body>
+</html>

@@ -2105,7 +2105,7 @@ function luSummary(s){
   if(!s) return null;
   var pct=s.pct_from_peak;
   var col=pct>-20?'var(--green)':pct>-50?'var(--yellow)':'var(--red)';
-  return {pct:pct,col:col,trend:s.trend,peak:s.peak_value,peakDate:s.peak_date,current:s.current_value};
+  return {pct:pct,col:col,trend:s.trend_12w,peak:s.peak_value,peakDate:s.peak_date,current:s.current_value};
 }
 
 // -------- LOOKUP helpers (cold-start handling + advanced fields) ----------
@@ -2388,6 +2388,54 @@ async function runLookup(){
   // DEMAND INTELLIGENCE section
   h+='<div class="section-lbl" style="margin:20px 0 12px">DEMAND INTELLIGENCE</div>';
 
+  // Reddit (consumer/fandom signal)
+  var redditData=(soc.series&&soc.series.reddit)||[];
+  var redditSum=luSummary(sumFor('Reddit'));
+  var redditHtml='';
+  if(redditData.length){
+    var rCurrent=redditData[redditData.length-1].count;
+    redditHtml='<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Weekly Reddit mention volume — aggregated across general finance subs + brand-specific subs</div>'
+      +'<div style="height:120px"><canvas id="lu-reddit-chart"></canvas></div>'
+      +luStatRow([
+        {l:'Trend',v:redditSum?redditSum.trend:'--',c:redditSum&&redditSum.trend==='rising'?'var(--green)':'var(--red)'},
+        {l:'vs Peak',v:redditSum?redditSum.pct.toFixed(0)+'%':'--',c:redditSum?redditSum.col:'var(--t3)'},
+        {l:'Peak',v:redditSum&&redditSum.peak!=null?Math.round(redditSum.peak)+' mentions/wk':'--',s:redditSum?redditSum.peakDate:''},
+        {l:'Current',v:rCurrent!=null?rCurrent+' mentions/wk':'--'}
+      ])
+      +luInsight(
+        redditSum?
+        'Reddit mentions are at '+redditSum.pct.toFixed(0)+'% of their '+redditSum.peakDate+' peak ('+Math.round(redditSum.peak)+'/week). Currently '+rCurrent+'/week. '
+        +'Reddit volume is a leading consumer-fandom indicator — sustained growth tends to precede stock-price strength.'
+        :'Reddit data available.',
+        redditSum&&redditSum.pct<-50
+      );
+  }
+  h+=luPanel('Reddit Mentions','ARCTIC SHIFT + REDDIT API','bc',redditHtml||'<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">No Reddit data — try the Advanced panel to set a custom search term (e.g. "Build-A-Bear" for BBW, "Chilis" for EAT) if the ticker alone returned nothing.</div>');
+
+  // YouTube (creator + commentary signal)
+  var ytData=(soc.series&&soc.series.youtube)||[];
+  var ytViewsSum=luSummary(sumFor('YouTube views'));
+  var ytHtml='';
+  if(ytData.length){
+    var ytLast=ytData[ytData.length-1]||{};
+    ytHtml='<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Weekly YouTube views (bars) + video uploads (line) — creator + commentary signal</div>'
+      +'<div style="height:120px"><canvas id="lu-yt-chart"></canvas></div>'
+      +luStatRow([
+        {l:'Views Trend',v:ytViewsSum?ytViewsSum.trend:'--',c:ytViewsSum&&ytViewsSum.trend==='rising'?'var(--green)':'var(--red)'},
+        {l:'vs Peak',v:ytViewsSum?ytViewsSum.pct.toFixed(0)+'%':'--',c:ytViewsSum?ytViewsSum.col:'var(--t3)'},
+        {l:'Peak Views',v:ytViewsSum&&ytViewsSum.peak!=null?Math.round(ytViewsSum.peak).toLocaleString()+' /wk':'--',s:ytViewsSum?ytViewsSum.peakDate:''},
+        {l:'Current',v:ytLast.views!=null?Math.round(ytLast.views).toLocaleString()+' views, '+(ytLast.videos||0)+' vids':'--'}
+      ])
+      +luInsight(
+        ytViewsSum?
+        'YouTube weekly views peaked at '+Math.round(ytViewsSum.peak).toLocaleString()+' in '+ytViewsSum.peakDate+'. Now '+Math.round(ytLast.views||0).toLocaleString()+'/week ('+ytViewsSum.pct.toFixed(0)+'% from peak). '
+        +'Falling views with steady upload count typically signals fading audience interest; falling uploads signal fading creator interest. Either is bearish for consumer-brand momentum.'
+        :'YouTube data available.',
+        ytViewsSum&&ytViewsSum.pct<-50
+      );
+  }
+  h+=luPanel('YouTube Views + Uploads','YOUTUBE DATA API','br',ytHtml||'<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">No YouTube data</div>');
+
   // StockTwits (primary social signal)
   var twitsData=(soc.series&&soc.series.stocktwits)||[];
   var twitsHtml='';
@@ -2567,6 +2615,33 @@ async function runLookup(){
         scales:{
           x:{grid:{display:false},ticks:{font:{family:"'DM Mono',monospace",size:9},color:'#4a6070'}},
           y:{grid:{color:'rgba(28,42,56,.5)'},ticks:{font:{family:"'DM Mono',monospace",size:9},color:'#4a6070',callback:function(v){return v+'%';}}}
+        }
+      }});
+    }
+
+    // Reddit weekly mention bars
+    if(redditData.length){
+      var rLabels=redditData.slice(-52).map(function(r){return r.date.slice(5);});
+      var rVals=redditData.slice(-52).map(function(r){return r.count||0;});
+      luBar('lu-reddit-chart',rLabels,rVals,'rgba(0,229,255,.45)');
+    }
+
+    // YouTube views (bars) + videos (line) — dual axis like StockTwits
+    if(ytData.length){
+      var ytL=ytData.slice(-52).map(function(r){return r.date.slice(5);});
+      var ytV=ytData.slice(-52).map(function(r){return r.views||0;});
+      var ytVids=ytData.slice(-52).map(function(r){return r.videos||0;});
+      _luMk('lu-yt-chart',{type:'bar',data:{labels:ytL,datasets:[
+        {type:'bar',label:'Views',data:ytV,backgroundColor:'rgba(255,68,102,.35)',borderWidth:0,borderRadius:1,yAxisID:'y1'},
+        {type:'line',label:'Videos',data:ytVids,borderColor:'#00ff9d',backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,tension:.3,yAxisID:'y2'}
+      ]},options:{
+        responsive:true,maintainAspectRatio:false,
+        interaction:{mode:'index',intersect:false},
+        plugins:{legend:{labels:{font:{family:"'DM Mono',monospace",size:9},color:'#8899aa',boxWidth:8}}},
+        scales:{
+          x:{grid:{display:false},ticks:{maxTicksLimit:8,maxRotation:0,font:{family:"'DM Mono',monospace",size:9},color:'#4a6070'}},
+          y1:{position:'left',grid:{color:'rgba(28,42,56,.5)'},ticks:{font:{family:"'DM Mono',monospace",size:9},color:'#ff4466',callback:function(v){return v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(0)+'K':v;}}},
+          y2:{position:'right',grid:{display:false},ticks:{font:{family:"'DM Mono',monospace",size:9},color:'#00ff9d'}}
         }
       }});
     }

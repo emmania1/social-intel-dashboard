@@ -70,6 +70,24 @@ main{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:28px 40p
 .ll-meta{font-family:var(--fm);font-size:10px;color:var(--t3);line-height:1.6}
 .lu-adv-input{background:var(--s1);border:1px solid var(--b2);border-radius:6px;padding:8px 12px;font-family:var(--fm);font-size:11px;color:var(--text);outline:none;flex:1;min-width:180px}
 .lu-adv-input:focus{border-color:var(--cyan)}
+.pe-block{background:rgba(0,229,255,.04);border-left:2px solid var(--cyan);padding:10px 14px;margin-bottom:14px;border-radius:0 6px 6px 0}
+.pe-row{font-family:var(--fm);font-size:10px;color:var(--t2);line-height:1.65;margin-bottom:4px}
+.pe-row:last-child{margin-bottom:0}
+.pe-row b{color:var(--cyan);font-weight:700;margin-right:6px;text-transform:uppercase;letter-spacing:.06em;font-size:9px;display:inline-block;min-width:88px}
+.peak-table{width:100%;border-collapse:collapse;font-family:var(--fm);font-size:11px}
+.peak-table th{text-align:left;padding:8px 10px;background:var(--s2);color:var(--t3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--b2);font-weight:600}
+.peak-table th.num{text-align:right}
+.peak-table td{padding:9px 10px;border-bottom:1px solid var(--b1);color:var(--text)}
+.peak-table td.num{text-align:right;color:var(--t2)}
+.peak-table tr:hover td{background:var(--s2)}
+.peak-pill{display:inline-block;padding:2px 8px;border-radius:8px;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.peak-pill.rising{background:rgba(0,255,157,.15);color:var(--green)}
+.peak-pill.falling{background:rgba(255,68,102,.15);color:var(--red)}
+.peak-pill.flat{background:rgba(255,193,7,.12);color:var(--yellow)}
+.peak-pill.insufficient-data{background:rgba(122,134,148,.15);color:var(--t3)}
+.qt-block{background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:12px 14px;margin-bottom:14px;font-family:var(--fm);font-size:10px;color:var(--t2);line-height:1.7}
+.qt-block b{color:var(--cyan);font-weight:700;font-size:9px;text-transform:uppercase;letter-spacing:.06em;display:inline-block;min-width:140px;margin-right:6px}
+.qt-block code{background:var(--s1);padding:1px 6px;border-radius:3px;color:var(--text);font-size:10px}
 .sr-item{display:flex;align-items:center;gap:12px;padding:10px 16px;cursor:pointer;transition:background .15s}
 .sr-item:hover{background:var(--s2)}
 .sr-ticker{font-family:var(--fm);font-size:12px;font-weight:600;color:var(--cyan);width:48px;flex-shrink:0}
@@ -2101,6 +2119,13 @@ function luInsight(text,warn){
     +'<div class="insight-text">'+text+'</div></div>';
 }
 
+function luExplain(what,how,why){
+  return '<div class="pe-block">'
+    +'<div class="pe-row"><b>What:</b> '+what+'</div>'
+    +'<div class="pe-row"><b>How to read:</b> '+how+'</div>'
+    +'<div class="pe-row"><b>Why it matters:</b> '+why+'</div></div>';
+}
+
 function luSummary(s){
   if(!s) return null;
   var pct=s.pct_from_peak;
@@ -2327,10 +2352,44 @@ async function runLookup(){
   // Unified Timeline
   if(aligned.length>4){
     h+=luPanel('Unified Signal Timeline','ALL SIGNALS NORMALIZED 0-100','bc',
-      '<div style="font-family:var(--fm);font-size:10px;color:var(--t3);margin-bottom:8px">'
-      +'Stock (cyan) vs Google Trends (purple) vs StockTwits activity (orange) vs Wikipedia views (blue). '
-      +'All normalized 0-100 to show lead/lag relationships. Social signals typically lead price by 2-8 weeks.</div>'
+      luExplain(
+        'Stock price (cyan) alongside three social signals (Trends in purple, StockTwits in orange, Wikipedia in blue), all rescaled 0-100 so they share one axis.',
+        'Look for the social lines moving <i>before</i> the stock line. Social peaking while stock keeps climbing is a divergence — historically a topping signal. Social rising while stock is flat often precedes upside.',
+        'Social demand typically leads price by 2-8 weeks. This is the single most useful chart for spotting inflection points the market has not priced yet.'
+      )
       +'<div style="height:200px"><canvas id="lu-unified"></canvas></div>'
+    );
+  }
+
+  // Peak Detection table — all signals at a glance
+  if(summaries && summaries.length){
+    var peakRows=summaries.map(function(s){
+      var pct=s.pct_from_peak;
+      var pctCol='var(--t3)';
+      var pctTxt='--';
+      if(pct!=null){ pctTxt=(pct>0?'+':'')+pct.toFixed(1)+'%'; pctCol=pct>-10?'var(--green)':pct>-50?'var(--yellow)':'var(--red)'; }
+      var trend=s.trend_12w||'--';
+      return '<tr>'
+        +'<td>'+s.metric+'</td>'
+        +'<td>'+(s.peak_date||'--')+'</td>'
+        +'<td class="num">'+(s.peak_value!=null?Number(s.peak_value).toLocaleString(undefined,{maximumFractionDigits:2}):'--')+'</td>'
+        +'<td>'+(s.current_date||'--')+'</td>'
+        +'<td class="num">'+(s.current_value!=null?Number(s.current_value).toLocaleString(undefined,{maximumFractionDigits:2}):'--')+'</td>'
+        +'<td class="num" style="color:'+pctCol+'">'+pctTxt+'</td>'
+        +'<td><span class="peak-pill '+trend+'">'+trend+'</span></td>'
+        +'</tr>';
+    }).join('');
+    h+=luPanel('Peak Detection — All Signals','OVERVIEW','bc',
+      luExplain(
+        'All 9 demand signals in one table — when each one peaked, the value at peak, the latest value, percent change from peak, and the 12-week trend classification.',
+        '<b>% vs peak</b> is the most actionable column. Within -10% of peak = at-or-near max engagement (green). Below -50% = clearly fading (red). 12w trend tells you whether the most recent slice is rising, flat, or falling regardless of where the peak was.',
+        'Aggregate signal health is what the Social Health Score above measures. This table is the breakdown — it tells you <i>which</i> signals are confirming and <i>which</i> are diverging so you can size your conviction.'
+      )
+      +'<table class="peak-table"><thead><tr>'
+      +'<th>Metric</th><th>Peak date</th><th class="num">Peak value</th>'
+      +'<th>Current date</th><th class="num">Current</th>'
+      +'<th class="num">% vs peak</th><th>12w trend</th>'
+      +'</tr></thead><tbody>'+peakRows+'</tbody></table>'
     );
   }
 
@@ -2410,7 +2469,13 @@ async function runLookup(){
         redditSum&&redditSum.pct<-50
       );
   }
-  h+=luPanel('Reddit Mentions','ARCTIC SHIFT + REDDIT API','bc',redditHtml||'<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">No Reddit data — try the Advanced panel to set a custom search term (e.g. "Build-A-Bear" for BBW, "Chilis" for EAT) if the ticker alone returned nothing.</div>');
+  h+=luPanel('Reddit Mentions','ARCTIC SHIFT + REDDIT API','bc',
+    luExplain(
+      'Weekly mention count aggregated across general finance subs (r/stocks, r/investing, r/wallstreetbets) and any brand-specific subs the system auto-discovers (e.g. r/buildabear for BBW, r/crocs for CROX).',
+      'Bars = mentions per week. Sustained growth above baseline matters far more than one-week spikes. Compare current to peak: within -10% = active fandom, beyond -50% = clearly fading interest.',
+      'Reddit is a leading consumer-brand indicator. Sustained mention growth precedes earnings beats and viral product cycles by 2-4 weeks. Strong on the BBW/CROX/EAT class of names where consumers congregate in dedicated subs.'
+    )
+    +(redditHtml||'<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">No Reddit data — try the Advanced panel to set a custom search term (e.g. "Build-A-Bear" for BBW, "Chilis" for EAT) if the ticker alone returned nothing.</div>'));
 
   // YouTube (creator + commentary signal)
   var ytData=(soc.series&&soc.series.youtube)||[];
@@ -2434,7 +2499,13 @@ async function runLookup(){
         ytViewsSum&&ytViewsSum.pct<-50
       );
   }
-  h+=luPanel('YouTube Views + Uploads','YOUTUBE DATA API','br',ytHtml||'<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">No YouTube data</div>');
+  h+=luPanel('YouTube Views + Uploads','YOUTUBE DATA API','br',
+    luExplain(
+      'Weekly aggregate of YouTube views (red bars) and video upload count (green line) for videos matching the company/ticker search terms.',
+      'Views measure audience demand for content about the company. Uploads measure creator interest. <b>Both falling</b> = fading mindshare. <b>Views up but uploads flat</b> = audience growing without new supply (often bullish). <b>Uploads up but views flat</b> = creators piling on but no one watching (often a top).',
+      'YouTube is the strongest leading indicator for consumer brands with active creator ecosystems (Crocs collabs, Warhammer hobbyists, IP-driven names like BBW). Spikes typically coincide with product launches or viral moments.'
+    )
+    +(ytHtml||'<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">No YouTube data</div>'));
 
   // StockTwits (primary social signal)
   var twitsData=(soc.series&&soc.series.stocktwits)||[];
@@ -2467,7 +2538,13 @@ async function runLookup(){
         twitsSum&&twitsSum.pct<-50
       );
   }
-  h+=luPanel('StockTwits Social Signal','REAL DATA','bo',twitsHtml||'<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">No StockTwits data</div>');
+  h+=luPanel('StockTwits Social Signal','REAL DATA','bo',
+    luExplain(
+      'Weekly StockTwits messages tagged with the ticker symbol (orange bars), plus the percent of those messages flagged bullish vs bearish by the poster (green line).',
+      'Volume bars + bullish % line on the same chart. Bullish % >60 = retail leaning positive, <40 = leaning negative. Volume <i>and</i> bullishness both matter: high volume + rising bullishness often precedes squeezes; collapsing volume often precedes price weakness regardless of bullish %.',
+      'StockTwits is the most direct retail-trader sentiment signal — these are users explicitly stating an opinion on the stock. Best for high-retail tickers (CROX, BBW, GME-class). For B2B names this signal is usually thin.'
+    )
+    +(twitsHtml||'<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">No StockTwits data</div>'));
 
   // Google Trends
   var trendsData=(soc.series&&soc.series.trends)||[];
@@ -2491,7 +2568,13 @@ async function runLookup(){
         trendsSum&&trendsSum.pct<-50
       );
   }
-  h+=luPanel('Google Trends','PYTRENDS REAL DATA','bp',trendsHtml||'<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">No Trends data</div>');
+  h+=luPanel('Google Trends','PYTRENDS REAL DATA','bp',
+    luExplain(
+      'Weekly Google search interest for the company/brand on a 0-100 scale (100 = peak interest during the window).',
+      'Real-time consumer awareness proxy. Sustained levels = brand presence intact; spikes = news/viral moments; sustained decline = falling consumer awareness. Compare the 12w trend to where current sits vs peak.',
+      'Search is the most upstream indicator of consumer demand — searches happen before purchases. Declining search interest typically leads product weakness by 1-2 quarters. The cleanest lead-indicator for consumer-cyclical names.'
+    )
+    +(trendsHtml||'<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">No Trends data</div>'));
 
   // Wikipedia (consumer awareness proxy)
   var wikiData=(soc.series&&soc.series.wikipedia)||[];
@@ -2514,7 +2597,94 @@ async function runLookup(){
         wikiSum&&wikiSum.pct<-60
       );
   }
-  h+=luPanel('Wikipedia Views','BRAND AWARENESS PROXY','bg',wikiHtml||'<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">No Wikipedia data</div>');
+  h+=luPanel('Wikipedia Views','BRAND AWARENESS PROXY','bg',
+    luExplain(
+      'Weekly pageviews on the company\'s Wikipedia article (the system auto-locates the right article from the company name).',
+      'Passive interest signal — no clicks, no engagement, just someone looking the company up. Spikes coincide with news or viral moments; sustained baseline = healthy brand awareness; sustained decline = fading mindshare.',
+      'Wikipedia views are unfiltered by social-media algorithms, so they are the cleanest awareness proxy available. Sustained decline in a consumer-facing name is a quiet but serious bearish signal.'
+    )
+    +(wikiHtml||'<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">No Wikipedia data</div>'));
+
+  // SEC EDGAR filings cadence
+  var secData=(soc.series&&soc.series.sec)||[];
+  var secSum=luSummary(sumFor('SEC'));
+  var secHtml='';
+  if(secData.length){
+    var sLast=secData[secData.length-1]||{};
+    secHtml='<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Weekly SEC filing count — 8-K, 10-Q, 10-K, Form 4 (insider), Form 13G/13D, S-1, etc.</div>'
+      +'<div style="height:100px"><canvas id="lu-sec-chart"></canvas></div>'
+      +luStatRow([
+        {l:'Trend',v:secSum?secSum.trend:'--',c:secSum&&secSum.trend==='rising'?'var(--green)':'var(--red)'},
+        {l:'vs Peak',v:secSum?secSum.pct.toFixed(0)+'%':'--',c:secSum?secSum.col:'var(--t3)'},
+        {l:'Peak',v:secSum&&secSum.peak!=null?Math.round(secSum.peak)+' filings/wk':'--',s:secSum?secSum.peakDate:''},
+        {l:'Current',v:sLast.count!=null?sLast.count+' filings/wk':'--'}
+      ]);
+  }
+  h+=luPanel('SEC EDGAR Filings','SEC.GOV','bp',
+    luExplain(
+      'Weekly count of SEC filings filed by the issuer or its insiders — 8-K (material events), 10-Q/10-K (quarterly/annual), Form 4 (insider buys/sells), 13G/13D (large-holder positions), S-1 (offerings).',
+      'Steady background of 1-2/week is normal. <b>Spikes in 8-K</b> = breaking news (acquisition, exec change, restatement). <b>Form 4 clusters</b> = insider activity — open the filings to see whether it is buying or selling. A quiet name suddenly active is a watch flag.',
+      'Insider behavior and unexpected filing activity often precede market-moving disclosures by days. This panel tells you when to go read EDGAR, not what is in the filings.'
+    )
+    +(secHtml||'<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">No SEC data</div>'));
+
+  // News article coverage volume
+  var newsData=(soc.series&&soc.series.news)||[];
+  var newsSum=luSummary(sumFor('News'));
+  var newsHtml='';
+  if(newsData.length){
+    var nLast=newsData[newsData.length-1]||{};
+    newsHtml='<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Weekly news article count mentioning the ticker — source: '+((soc.inputs&&soc.inputs.news_source)||(d&&d.social&&d.social.inputs&&d.social.inputs.news_source)||'GDELT/NewsAPI')+'</div>'
+      +'<div style="height:100px"><canvas id="lu-news-chart"></canvas></div>'
+      +luStatRow([
+        {l:'Trend',v:newsSum?newsSum.trend:'--',c:newsSum&&newsSum.trend==='rising'?'var(--green)':'var(--red)'},
+        {l:'vs Peak',v:newsSum?newsSum.pct.toFixed(0)+'%':'--',c:newsSum?newsSum.col:'var(--t3)'},
+        {l:'Peak',v:newsSum&&newsSum.peak!=null?Math.round(newsSum.peak)+' articles/wk':'--',s:newsSum?newsSum.peakDate:''},
+        {l:'Current',v:nLast.count!=null?nLast.count+' articles/wk':'--'}
+      ]);
+  }
+  h+=luPanel('News Article Coverage','GDELT / NEWSAPI','bo',
+    luExplain(
+      'Weekly count of news articles mentioning the ticker, from GDELT or NewsAPI (whichever returned data — shown in the subtitle).',
+      'Volume bars. Sustained baseline = normal coverage; spikes = news cycles (earnings, M&A, scandals, product launches). <b>Falling coverage in a normally-active name</b> = company falling out of the news cycle, often a watch flag.',
+      'News attention coincides with — and sometimes precedes — stock-price events. Useful as a confirmation signal: a stock running on no news coverage is suspicious; a stock falling with no news is often a recovery candidate.'
+    )
+    +(newsHtml||'<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">No news data</div>'));
+
+  // StockTwits sentiment chart (bullish ratio over time, separate from volume)
+  var sentTagged=twitsData.filter(function(r){return (Number(r.bullish)||0)+(Number(r.bearish)||0)>0;});
+  if(sentTagged.length>3){
+    h+=luPanel('StockTwits Sentiment Ratio','BULLISH / BEARISH OVER TIME','bg',
+      luExplain(
+        'Weekly fraction of StockTwits messages that the poster explicitly tagged bullish, plotted as a line (0.0 = all bearish, 1.0 = all bullish).',
+        'Only messages the user tagged are counted, so this is a directional sentiment read separate from raw volume above. Sustained moves above 0.60 or below 0.40 are meaningful. A sentiment <i>turn</i> (from bearish to bullish or vice-versa) at high volume is the strongest signal here.',
+        'Sentiment turns often precede price moves by 1-3 weeks on retail-heavy names. For institutional-owned names this signal is noise — check StockTwits Volume above first to see if there is enough retail activity to matter.'
+      )
+      +'<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Bullish ratio: 0 = all bearish, 1 = all bullish. Recent 52 weeks.</div>'
+      +'<div style="height:120px"><canvas id="lu-sent-chart"></canvas></div>'
+    );
+  }
+
+  // Query transparency — what the system actually searched
+  var inp=(d&&d.social&&d.social.inputs)||{};
+  var qtBlock='';
+  if(inp.reddit_queries||inp.youtube_queries||inp.wikipedia_title||inp.subreddits_searched){
+    qtBlock='<div class="qt-block">'
+      +(inp.search_term?'<div><b>Search term:</b> <code>'+inp.search_term+'</code></div>':'')
+      +(inp.reddit_queries&&inp.reddit_queries.length?'<div><b>Reddit queries:</b> '+inp.reddit_queries.map(function(q){return '<code>'+q+'</code>';}).join(' · ')+'</div>':'')
+      +(inp.subreddits_searched&&inp.subreddits_searched.length?'<div><b>Subreddits searched:</b> '+inp.subreddits_searched.map(function(s){
+        var disc=(inp.discovered_subreddits||[]).some(function(x){return x.name&&x.name.toLowerCase()===s.toLowerCase();});
+        return disc?'<code style="color:var(--green)">r/'+s+'</code>':'<code>r/'+s+'</code>';
+      }).join(' · ')+(inp.discovered_subreddits&&inp.discovered_subreddits.length?' <span style="color:var(--green);font-size:9px">(green = auto-discovered)</span>':'')+'</div>':'')
+      +(inp.youtube_queries&&inp.youtube_queries.length?'<div><b>YouTube queries:</b> '+inp.youtube_queries.map(function(q){return '<code>'+q+'</code>';}).join(' · ')+'</div>':'')
+      +(inp.wikipedia_title?'<div><b>Wikipedia article:</b> <code>'+inp.wikipedia_title+'</code></div>':'')
+      +(inp.news_source?'<div><b>News source:</b> <code>'+inp.news_source+'</code></div>':'')
+      +(inp.start&&inp.end?'<div><b>Date window:</b> <code>'+inp.start+' → '+inp.end+'</code></div>':'')
+      +'</div>';
+  }
+  if(qtBlock){
+    h+='<div class="section-lbl" style="margin:20px 0 12px">QUERY TRANSPARENCY — WHAT THE SYSTEM SEARCHED</div>'+qtBlock;
+  }
 
   // Narrative summary
   if(narrative.headline){
@@ -2688,6 +2858,38 @@ async function runLookup(){
       var wLabels=wikiData.slice(-52).map(function(r){return r.date.slice(5);});
       var wVals=wikiData.slice(-52).map(function(r){return r.views||0;});
       luBar('lu-wiki-chart',wLabels,wVals,'rgba(74,158,255,.35)');
+    }
+
+    // SEC filings bar
+    if(secData.length){
+      var secLabels=secData.slice(-52).map(function(r){return r.date.slice(5);});
+      var secVals=secData.slice(-52).map(function(r){return r.count||0;});
+      luBar('lu-sec-chart',secLabels,secVals,'rgba(123,97,255,.45)');
+    }
+
+    // News article coverage bar
+    if(newsData.length){
+      var nLabels=newsData.slice(-52).map(function(r){return r.date.slice(5);});
+      var nVals=newsData.slice(-52).map(function(r){return r.count||0;});
+      luBar('lu-news-chart',nLabels,nVals,'rgba(255,107,53,.45)');
+    }
+
+    // StockTwits sentiment ratio line
+    if(sentTagged.length>3){
+      var sentLast=sentTagged.slice(-52);
+      var sLabels=sentLast.map(function(r){return r.date.slice(5);});
+      var sVals=sentLast.map(function(r){return r.bullish_ratio!=null?r.bullish_ratio:null;});
+      _luMk('lu-sent-chart',{type:'line',data:{labels:sLabels,datasets:[{
+        data:sVals,borderColor:'#00ff9d',backgroundColor:'rgba(0,255,157,.08)',
+        borderWidth:1.8,pointRadius:0,tension:.3,fill:true,spanGaps:true
+      }]},options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return c.parsed.y!=null?(c.parsed.y*100).toFixed(0)+'% bullish':'no data';}}}},
+        scales:{
+          x:{grid:{display:false},ticks:{maxTicksLimit:8,maxRotation:0,font:{family:"'DM Mono',monospace",size:9},color:'#4a6070'}},
+          y:{min:0,max:1,grid:{color:'rgba(28,42,56,.5)'},ticks:{font:{family:"'DM Mono',monospace",size:9},color:'#00ff9d',callback:function(v){return (v*100).toFixed(0)+'%';}}}
+        }
+      }});
     }
   });
 

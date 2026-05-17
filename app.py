@@ -19,6 +19,7 @@ from datetime import date, timedelta
 import pandas as pd
 from dotenv import load_dotenv
 from flask import Flask, Response, jsonify, render_template, request  # noqa: F401
+from flask_cors import CORS
 
 from lib.analysis import (
     align_weekly,
@@ -41,6 +42,9 @@ from lib.youtube import fetch_youtube_weekly
 load_dotenv()
 
 app = Flask(__name__)
+# Allow cross-origin requests from any client. This is a public read-only
+# data API with no auth/session cookies, so `*` is safe.
+CORS(app, origins="*")
 app.config["JSON_SORT_KEYS"] = False
 # Disable static-file caching during dev so JS/CSS edits show up on refresh.
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0

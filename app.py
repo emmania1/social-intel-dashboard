@@ -102,6 +102,40 @@ def resolve():
     return jsonify({"ticker": ticker, **info})
 
 
+@app.route("/api/financials")
+def financials():
+    """Fast per-ticker yfinance snapshot for the dashboard's price tiles.
+
+    Returns {"ticker": "BBW", "info": {...}}. Wrapping in "info" matches
+    the frontend's existing contract (d.info.currentPrice etc.) and keeps
+    this endpoint distinct from /api/full, which bundles social + alerts
+    and takes ~60s. This one is ~2-5s.
+    """
+    ticker = (request.args.get("ticker") or "").strip().upper()
+    if not ticker:
+        return jsonify({"error": "ticker required"}), 400
+
+    # Reuse the curl_cffi-impersonating session so Yahoo doesn't block
+    # Render's datacenter IPs.
+    from lib.stock import _ticker as _yf_ticker
+    try:
+        t = _yf_ticker(ticker)
+        info = t.info or {}
+    except Exception as exc:  # noqa: BLE001
+        print(f"[financials] {ticker}: {exc}")
+        return jsonify({"ticker": ticker, "info": {}, "error": str(exc)}), 502
+
+    # yfinance's info dict can contain NaN/Inf for fields that don't apply
+    # (e.g. forwardPE on a loss-making name). Strip them so the response
+    # serialises under app.json.allow_nan=False.
+    import math
+    clean = {
+        k: (None if isinstance(v, float) and (math.isnan(v) or math.isinf(v)) else v)
+        for k, v in info.items()
+    }
+    return jsonify({"ticker": ticker, "info": clean})
+
+
 def _run_generate(
     ticker: str,
     company: str = "",

@@ -297,6 +297,10 @@ main{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:28px 40p
 .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px}
 .chart-wrap{position:relative;height:200px;margin:12px 0}
 .litem-signal{font-family:var(--fm);font-size:10px;color:var(--orange);padding:4px 8px;background:rgba(255,107,53,.06);border-radius:4px;display:inline-block;line-height:1.4;margin-top:2px}
+.litem-summary{font-family:var(--fm);font-size:11px;color:var(--t2);line-height:1.65;margin:6px 0 4px;padding:8px 12px;background:rgba(255,255,255,.025);border-left:2px solid var(--b2);border-radius:0 4px 4px 0}
+.litem-url{font-family:var(--fm);font-size:9px;color:var(--t3);margin-top:4px}
+.litem-url a{color:var(--cyan);text-decoration:none;border-bottom:1px dotted rgba(0,229,255,.3)}
+.litem-url a:hover{border-bottom-color:var(--cyan)}
 .hname{font-size:36px;font-weight:800;line-height:1;letter-spacing:-.02em}
 .alert-bar{margin-bottom:20px}
 .sigval{font-family:var(--fm);font-size:16px;font-weight:500;line-height:1.2}
@@ -844,11 +848,11 @@ const COVERAGE={
 function tick(){const n=new Date();document.getElementById('ltime').textContent=n.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+' . '+n.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}
 setInterval(tick,1000);tick();
 
-async function callClaude(prompt,sys){
+async function callClaude(prompt,sys,maxTok){
   const r=await fetch(CLAUDE_API,{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({model:MODEL,max_tokens:1500,tools:[{type:'web_search_20250305',name:'web_search'}],system:sys||'',messages:[{role:'user',content:prompt}]})
+    body:JSON.stringify({model:MODEL,max_tokens:maxTok||1500,tools:[{type:'web_search_20250305',name:'web_search'}],system:sys||'',messages:[{role:'user',content:prompt}]})
   });
   if(!r.ok){
     let detail='API '+r.status;
@@ -2288,10 +2292,15 @@ async function runLookup(){
   );
 
   var newsP=callClaude(
-    'Search for and return the 4 most recent news articles about '+ticker+' ('+companyName+'). '
-    +'Return as JSON array only (no markdown): [{"title":"...","publisher":"...","date":"May 16 2026","sentiment":"bullish|bearish|neutral","signal":"one sentence investment implication"}]. '
-    +'JSON array only.',
-    'Return valid JSON array only. No other text.'
+    'Use web search to find the 5 most recent news articles about '+ticker+' ('+companyName+'). '
+    +'For each article: open the link, READ the actual content, then summarize what is in the article — not just the headline. '
+    +'Return as a JSON array only (no markdown, no commentary): '
+    +'[{"title":"exact headline","publisher":"outlet (e.g. Reuters, Bloomberg, WSJ)","date":"YYYY-MM-DD or \\"May 16 2026\\"","url":"https://...","sentiment":"bullish|bearish|neutral","summary":"2-3 sentences describing what the article actually reports — specific numbers, quotes, named people, events, what was said and by whom. NOT a restatement of the headline.","signal":"one-sentence equity-research takeaway"}]. '
+    +'5 items. JSON array only.',
+    'You are an equity research analyst. Return ONLY a valid JSON array starting with [ and ending with ]. '
+    +'Each "summary" must reflect the actual content of the article you read — specific facts, numbers, names, quotes. '
+    +'If you cannot access an article, skip it and find another. Do not fabricate content.',
+    3500
   );
 
   // Build the HTML structure immediately
@@ -2715,14 +2724,18 @@ async function runLookup(){
         var items=JSON.parse(newsRaw.slice(s,e2+1));
         newsEl.innerHTML=items.map(function(n){
           var sc=n.sentiment==='bullish'?'bg':n.sentiment==='bearish'?'br':'bc';
+          var titleHtml=n.url
+            ? '<a href="'+n.url+'" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px dotted var(--t3)">'+n.title+'</a>'
+            : n.title;
           return '<div class="litem">'
-            +'<div class="litem-title">'+n.title+'</div>'
+            +'<div class="litem-title">'+titleHtml+'</div>'
             +'<div class="litem-meta">'
             +'<span class="litem-src">'+n.publisher+'</span>'
             +'<span>'+n.date+'</span>'
             +'<span class="badge '+sc+'">'+n.sentiment+'</span>'
             +'</div>'
-            +'<div class="litem-signal '+(n.sentiment==='bullish'?'pos':n.sentiment==='bearish'?'neg':'')+'">'+n.signal+'</div>'
+            +(n.summary?'<div class="litem-summary">'+n.summary+'</div>':'')
+            +(n.signal?'<div class="litem-signal '+(n.sentiment==='bullish'?'pos':n.sentiment==='bearish'?'neg':'')+'">'+n.signal+'</div>':'')
             +'</div>';
         }).join('');
       }catch(e){

@@ -18,7 +18,7 @@ from datetime import date, timedelta
 
 import pandas as pd
 from dotenv import load_dotenv
-from flask import Flask, Response, jsonify, render_template, request  # noqa: F401
+from flask import Flask, Response, jsonify, render_template, request, send_from_directory  # noqa: F401
 from flask_cors import CORS
 
 from lib.analysis import (
@@ -79,10 +79,9 @@ def _resolve_dates(start: str | None, end: str | None) -> tuple[str, str]:
 
 @app.route("/")
 def index():
-    # Pass a per-request cache-buster so browsers never serve stale JS/CSS
-    # from previous versions of the app.
-    import time as _t
-    return render_template("index.html", cb=str(int(_t.time())))
+    # Serves dashboard.html from the project root as a raw static file.
+    # SEND_FILE_MAX_AGE_DEFAULT=0 above keeps the browser from caching it.
+    return send_from_directory(app.root_path, "dashboard.html")
 
 
 @app.route("/api/health")

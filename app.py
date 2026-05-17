@@ -99,16 +99,24 @@ def resolve():
     return jsonify({"ticker": ticker, **info})
 
 
-@app.route("/api/generate", methods=["POST"])
-def generate():
-    payload = request.get_json(force=True, silent=True) or request.form.to_dict()
-    ticker = (payload.get("ticker") or "").strip().upper()
-    company = (payload.get("company") or "").strip()
-    custom_term = (payload.get("custom_term") or "").strip()
-    start, end = _resolve_dates(payload.get("start"), payload.get("end"))
-
+def _run_generate(
+    ticker: str,
+    company: str = "",
+    custom_term: str = "",
+    start: str | None = None,
+    end: str | None = None,
+) -> dict:
+    """Core social-data fetch. Returns the payload dict that /api/generate
+    serialises. Extracted so /api/full can reuse the same logic without
+    going through Flask's routing layer.
+    """
+    ticker = ticker.strip().upper()
     if not ticker:
-        return jsonify({"error": "ticker is required"}), 400
+        raise ValueError("ticker is required")
+
+    start, end = _resolve_dates(start, end)
+    company = (company or "").strip()
+    custom_term = (custom_term or "").strip()
 
     # Auto-resolve company name from yfinance if not provided. If the lookup
     # fails (Yahoo sometimes blocks cloud IPs or the symbol is unusual), we
@@ -143,7 +151,6 @@ def generate():
         """Seconds remaining before the global deadline."""
         return max(1.0, deadline - time.time())
 
-    # Run all fetchers in parallel (all I/O bound)
     with ThreadPoolExecutor(max_workers=9) as pool:
         f_stock = pool.submit(fetch_stock, ticker, start, end)
         f_trends = pool.submit(fetch_trends, search_term, start, end)
@@ -161,8 +168,6 @@ def generate():
         f_sec = pool.submit(fetch_sec_filings_weekly, ticker, start, end)
         f_news = pool.submit(fetch_news_with_fallback, ticker, company, start, end)
 
-        # Each fetcher waits up to `budget()` seconds. If the deadline is hit
-        # we return an empty frame and the response ships with partial data.
         stock_df = _safe(f_stock, "stock", timeout=budget())
         trends_df = _safe(f_trends, "trends", timeout=budget())
         reddit_df = _safe(f_reddit, "reddit", timeout=budget())
@@ -173,7 +178,6 @@ def generate():
         news_result = _safe(f_news, "news", default=(pd.DataFrame(), "unavailable"), timeout=budget())
 
     news_df, news_source = news_result if isinstance(news_result, tuple) else (news_result, "unknown")
-
     wiki_df, wiki_title = wiki_result if isinstance(wiki_result, tuple) else (wiki_result, None)
 
     # Roll daily sources into weekly buckets so they align with the rest.
@@ -195,7 +199,6 @@ def generate():
 
     health = social_health_score(summaries)
 
-    # Pick the single best non-stock source to pair with stock on the master chart
     hero = pick_hero_signal(
         {
             "trends": trends_df,
@@ -252,7 +255,7 @@ def generate():
         }
     )
 
-    payload = {
+    return {
         "inputs": {
             "ticker": ticker,
             "company": company,
@@ -282,6 +285,25 @@ def generate():
         "hero": {"key": hero_key, "col": hero[1] if hero else None} if hero else None,
         "narrative": narrative,
     }
+
+
+@app.route("/api/generate", methods=["POST"])
+def generate():
+    payload_in = request.get_json(force=True, silent=True) or request.form.to_dict()
+    ticker = (payload_in.get("ticker") or "").strip().upper()
+    if not ticker:
+        return jsonify({"error": "ticker is required"}), 400
+
+    try:
+        payload = _run_generate(
+            ticker,
+            company=(payload_in.get("company") or "").strip(),
+            custom_term=(payload_in.get("custom_term") or "").strip(),
+            start=payload_in.get("start"),
+            end=payload_in.get("end"),
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
 
     # Persist snapshot so the user builds their own longitudinal dataset
     try:
@@ -427,6 +449,244 @@ def export_csv():
         mimetype="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+COVERAGE_TICKERS = frozenset({"BBW", "GAW", "CROX", "EAT"})
+
+
+def _fetch_yfinance_financials(ticker: str) -> dict:
+    """Fetch yfinance-derived snapshot for /api/full.
+
+    Returns a flat dict of valuation/margin/price fields plus earningsHistory
+    (last 8 quarters) and revenueHistory (annual). Individual field failures
+    fall back to None so a single broken source doesn't sink the whole call.
+    """
+    # Reuse the curl_cffi-impersonating session from lib.stock so Yahoo
+    # doesn't block us when called from Render's datacenter IPs.
+    from lib.stock import _ticker as _yf_ticker
+
+    try:
+        t = _yf_ticker(ticker)
+        info = t.info or {}
+    except Exception as exc:  # noqa: BLE001
+        print(f"[financials] info failed for {ticker}: {exc}")
+        return {}
+
+    earnings_history: list[dict] = []
+    try:
+        eh = t.earnings_history
+        if eh is not None and not eh.empty:
+            for idx, row in eh.tail(8).iterrows():
+                est = row.get("epsEstimate")
+                act = row.get("epsActual")
+                surprise = row.get("surprisePercent")
+                est_f = float(est) if pd.notna(est) else None
+                act_f = float(act) if pd.notna(act) else None
+                surp_f = float(surprise) if pd.notna(surprise) else None
+                beat = act_f > est_f if (est_f is not None and act_f is not None) else None
+                earnings_history.append({
+                    "date": str(idx)[:10],
+                    "estimate": est_f,
+                    "actual": act_f,
+                    "surprise_pct": surp_f,
+                    "beat": beat,
+                })
+    except Exception as exc:  # noqa: BLE001
+        print(f"[financials] earnings_history failed for {ticker}: {exc}")
+
+    revenue_history: list[dict] = []
+    try:
+        fin = t.income_stmt
+        if fin is not None and not fin.empty and "Total Revenue" in fin.index:
+            row = fin.loc["Total Revenue"]
+            for col_date, val in row.items():
+                if pd.isna(val):
+                    continue
+                try:
+                    year = col_date.year if hasattr(col_date, "year") else int(str(col_date)[:4])
+                except Exception:  # noqa: BLE001
+                    continue
+                revenue_history.append({"year": year, "value": float(val)})
+            revenue_history.sort(key=lambda x: x["year"])
+    except Exception as exc:  # noqa: BLE001
+        print(f"[financials] revenue_history failed for {ticker}: {exc}")
+
+    next_earnings_date = None
+    try:
+        cal = t.calendar
+        if isinstance(cal, dict):
+            ed = cal.get("Earnings Date")
+            if ed:
+                first = ed[0] if isinstance(ed, list) and ed else ed
+                next_earnings_date = str(first)[:10]
+        elif cal is not None and hasattr(cal, "loc") and "Earnings Date" in getattr(cal, "index", []):
+            val = cal.loc["Earnings Date"]
+            next_earnings_date = str(val.iloc[0])[:10] if hasattr(val, "iloc") else str(val)[:10]
+    except Exception as exc:  # noqa: BLE001
+        print(f"[financials] calendar failed for {ticker}: {exc}")
+
+    return {
+        "currentPrice": info.get("currentPrice"),
+        "previousClose": info.get("previousClose"),
+        "marketCap": info.get("marketCap"),
+        "revenue": info.get("totalRevenue"),
+        "revenueGrowth": info.get("revenueGrowth"),
+        "grossMargin": info.get("grossMargins"),
+        "operatingMargin": info.get("operatingMargins"),
+        "netMargin": info.get("profitMargins"),
+        "forwardPE": info.get("forwardPE"),
+        "trailingPE": info.get("trailingPE"),
+        "priceToBook": info.get("priceToBook"),
+        "eps": info.get("trailingEps"),
+        "fiftyTwoWeekLow": info.get("fiftyTwoWeekLow"),
+        "fiftyTwoWeekHigh": info.get("fiftyTwoWeekHigh"),
+        "enterpriseToEbitda": info.get("enterpriseToEbitda"),
+        "enterpriseToRevenue": info.get("enterpriseToRevenue"),
+        "freeCashflow": info.get("freeCashflow"),
+        "nextEarningsDate": next_earnings_date,
+        "longName": info.get("longName"),
+        "shortName": info.get("shortName"),
+        "sector": info.get("sector"),
+        "exchange": info.get("exchange"),
+        "description": info.get("longBusinessSummary"),
+        "earningsHistory": earnings_history,
+        "revenueHistory": revenue_history,
+    }
+
+
+def _compute_alerts(ticker: str, financials: dict, social: dict) -> list[dict]:
+    """Threshold-driven alerts derived from financials + social data.
+
+    Severity is 'info' for positive signals (beats, surges, near-highs) and
+    'warn' for negative ones (misses, collapses, near-lows). Front-end
+    decides colour/icon by severity, type is for filtering/grouping.
+    """
+    alerts: list[dict] = []
+
+    price = financials.get("currentPrice")
+    hi = financials.get("fiftyTwoWeekHigh")
+    lo = financials.get("fiftyTwoWeekLow")
+    if isinstance(price, (int, float)) and isinstance(hi, (int, float)) and hi > 0 and price >= hi * 0.95:
+        alerts.append({
+            "severity": "info",
+            "type": "near_52w_high",
+            "message": f"${price:.2f} within 5% of 52-week high (${hi:.2f})",
+        })
+    if isinstance(price, (int, float)) and isinstance(lo, (int, float)) and lo > 0 and price <= lo * 1.05:
+        alerts.append({
+            "severity": "warn",
+            "type": "near_52w_low",
+            "message": f"${price:.2f} within 5% of 52-week low (${lo:.2f})",
+        })
+
+    eh = financials.get("earningsHistory") or []
+    if eh:
+        latest = eh[-1]
+        beat = latest.get("beat")
+        surp = latest.get("surprise_pct")
+        if beat is True:
+            msg = "Last quarter beat estimates"
+            if isinstance(surp, (int, float)):
+                msg += f" by {surp:.1f}%"
+            alerts.append({"severity": "info", "type": "earnings_beat", "message": msg})
+        elif beat is False:
+            msg = "Last quarter missed estimates"
+            if isinstance(surp, (int, float)):
+                msg += f" by {abs(surp):.1f}%"
+            alerts.append({"severity": "warn", "type": "earnings_miss", "message": msg})
+
+    for s in social.get("summaries", []) or []:
+        metric = s.get("metric")
+        if metric == "Stock price":
+            continue
+        trend = s.get("trend_12w")
+        pct = s.get("pct_from_peak")
+        if trend == "rising" and isinstance(pct, (int, float)) and pct >= -10:
+            alerts.append({
+                "severity": "info",
+                "type": "social_rising",
+                "message": f"{metric}: rising 12-wk trend, within 10% of peak",
+            })
+        elif trend == "falling" and isinstance(pct, (int, float)) and pct <= -50:
+            alerts.append({
+                "severity": "warn",
+                "type": "social_falling",
+                "message": f"{metric}: falling trend, {abs(pct):.0f}% below peak",
+            })
+
+    health = social.get("health_score")
+    if isinstance(health, (int, float)):
+        if health >= 80:
+            alerts.append({
+                "severity": "info",
+                "type": "strong_health",
+                "message": f"Social health {health:.0f}/100 — near peak engagement",
+            })
+        elif health <= 25:
+            alerts.append({
+                "severity": "warn",
+                "type": "weak_health",
+                "message": f"Social health {health:.0f}/100 — well below peak",
+            })
+
+    return alerts
+
+
+@app.route("/api/full")
+def api_full():
+    """Master endpoint: /api/generate output + yfinance financials + alerts
+    in a single round-trip.
+
+    Runs social and financial fetches in parallel so wall-clock is bounded
+    by max(social, financials) rather than the sum.
+    """
+    ticker = (request.args.get("ticker") or "").strip().upper()
+    if not ticker:
+        return jsonify({"error": "ticker required"}), 400
+
+    company_arg = (request.args.get("company") or "").strip()
+    custom_term = (request.args.get("custom_term") or "").strip()
+    start = request.args.get("start")
+    end = request.args.get("end")
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        f_social = pool.submit(_run_generate, ticker, company_arg, custom_term, start, end)
+        f_fin = pool.submit(_fetch_yfinance_financials, ticker)
+
+        try:
+            social = f_social.result()
+        except Exception as exc:  # noqa: BLE001
+            print(f"[full] social fetch failed: {exc}")
+            social = {"error": str(exc), "series": {}, "summaries": [], "health_score": None}
+        try:
+            financials = f_fin.result()
+        except Exception as exc:  # noqa: BLE001
+            print(f"[full] financials fetch failed: {exc}")
+            financials = {}
+
+    company_name = (
+        social.get("inputs", {}).get("company")
+        or financials.get("longName")
+        or financials.get("shortName")
+        or ticker
+    )
+    alerts = _compute_alerts(ticker, financials, social)
+
+    payload = {
+        "ticker": ticker,
+        "company": company_name,
+        "isCoverage": ticker in COVERAGE_TICKERS,
+        "financials": financials,
+        "social": social,
+        "alerts": alerts,
+    }
+
+    try:
+        body = json.dumps(payload, allow_nan=False)
+    except (ValueError, TypeError) as exc:
+        print(f"[full] serialize failed: {exc}")
+        return jsonify({"error": f"Internal serialization error: {exc}"}), 500
+    return Response(body, mimetype="application/json")
 
 
 if __name__ == "__main__":

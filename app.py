@@ -150,6 +150,46 @@ def financials():
     return jsonify({"ticker": ticker, "info": clean})
 
 
+@app.route("/api/claude", methods=["POST"])
+def claude_proxy():
+    """Proxy to Anthropic's Messages API using a server-side API key.
+
+    The frontend dashboard.html calls callClaude() throughout — search,
+    morning notes, screeners, thesis builder. The Anthropic API can't be
+    hit directly from the browser without exposing the key, so we forward
+    the request body verbatim and inject the auth headers here.
+    """
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        return jsonify({
+            "error": "ANTHROPIC_API_KEY not set on the server. "
+                     "Add it in Render's Environment tab."
+        }), 503
+
+    body = request.get_json(force=True, silent=True) or {}
+    body.setdefault("model", "claude-sonnet-4-6")
+    body.setdefault("max_tokens", 1500)
+
+    import requests as http
+    try:
+        r = http.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            },
+            json=body,
+            timeout=120,
+        )
+    except http.exceptions.Timeout:
+        return jsonify({"error": "Anthropic API timeout (>120s)"}), 504
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"error": f"Proxy failed: {exc}"}), 502
+
+    return Response(r.content, status=r.status_code, mimetype="application/json")
+
+
 def _run_generate(
     ticker: str,
     company: str = "",

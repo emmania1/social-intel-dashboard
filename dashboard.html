@@ -337,7 +337,7 @@ main{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:28px 40p
 </div>
 <div class="search-wrap in-header">
 <div class="search-icon">🔍</div>
-<input class="search-input" id="searchInput" placeholder="Search or ask anything…  (e.g. 'BBW Reddit trend' or 'what's the strongest signal this week?')" oninput="handleSearch(this.value)" onkeydown="handleSearchKey(event)"/>
+<input class="search-input" id="searchInput" placeholder="Search or ask anything…" oninput="handleSearch(this.value, this)" onkeydown="handleSearchKey(event)"/>
 <div class="search-results" id="searchResults"></div>
 </div>
 <div class="hmeta"><span id="ltime"></span><br>PILLSBURY LAKE RESEARCH</div>
@@ -391,6 +391,11 @@ main{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:28px 40p
 </div>
 <div class="alert-time">THIS WEEK</div>
 </div>
+</div>
+<div class="search-wrap" style="margin:8px 0 28px;max-width:760px">
+<div class="search-icon">🔍</div>
+<input class="search-input" id="homeSearchInput" placeholder="Search companies, features, or ask anything…  (e.g. 'BBW Reddit trend' or 'what's the strongest signal this week?')" oninput="handleSearch(this.value, this)" onkeydown="handleSearchKey(event)"/>
+<div class="search-results" id="homeSearchResults"></div>
 </div>
 <div class="stats-row">
 <div class="stat-card">
@@ -1023,13 +1028,23 @@ const SEARCH_INDEX=[
   {ticker:'LOOKUP',name:'Universal Ticker Lookup',type:'FEATURE'},
 ];
 
-function handleSearch(val){
-  const res=document.getElementById('searchResults');
+// Two search inputs share these handlers: #searchInput in the header
+// (compact, always visible) and #homeSearchInput on the OVERVIEW tab
+// (prominent). The dropdown for each is the .search-results inside the
+// same .search-wrap, so we don't hardcode IDs.
+function _searchResultsFor(inputEl){
+  inputEl = inputEl || document.getElementById('searchInput');
+  const wrap = inputEl ? inputEl.closest('.search-wrap') : null;
+  return wrap ? wrap.querySelector('.search-results') : document.getElementById('searchResults');
+}
+
+function handleSearch(val, inputEl){
+  const res=_searchResultsFor(inputEl);
+  if(!res) return;
   if(!val.trim()){res.classList.remove('show');return;}
   const q=val.toLowerCase();
   const matches=SEARCH_INDEX.filter(i=>i.ticker.toLowerCase().includes(q)||i.name.toLowerCase().includes(q));
   if(!matches.length&&val.length>2){
-    // Show "analyze any ticker" option
     res.innerHTML=`<div class="sr-section">ANY TICKER</div><div class="sr-item" onclick="goSearch('${val.toUpperCase()}')"><span class="sr-ticker">${val.toUpperCase()}</span><span class="sr-name">Look up ${val.toUpperCase()} in Ticker Lookup</span><span class="sr-type">LOOKUP -></span></div>`;
     res.classList.add('show');return;
   }
@@ -1038,13 +1053,16 @@ function handleSearch(val){
 }
 
 function handleSearchKey(e){
-  if(e.key==='Escape'){document.getElementById('searchResults').classList.remove('show');}
+  const res=_searchResultsFor(e.target);
+  if(e.key==='Escape' && res){res.classList.remove('show');}
   if(e.key==='Enter'){const v=e.target.value.trim();if(v)goSearch(v.toUpperCase());}
 }
 
 function goSearch(ticker){
-  document.getElementById('searchResults').classList.remove('show');
-  document.getElementById('searchInput').value='';
+  // Close every search dropdown and clear every search input — works for
+  // both the header search and the home-tab search.
+  document.querySelectorAll('.search-results').forEach(r=>r.classList.remove('show'));
+  document.querySelectorAll('.search-input').forEach(i=>{i.value='';});
   const features=['THESIS','VALUATION','EARNINGS','SCREENER','LOOKUP'];
   if(features.includes(ticker)){showTab(ticker.toLowerCase());return;}
   if(COVERAGE[ticker]){openCompany(ticker);return;}
@@ -1052,7 +1070,10 @@ function goSearch(ticker){
 }
 
 document.addEventListener('click',e=>{
-  if(!e.target.closest('.search-wrap'))document.getElementById('searchResults').classList.remove('show');
+  // Clicking outside any .search-wrap closes every dropdown.
+  if(!e.target.closest('.search-wrap')){
+    document.querySelectorAll('.search-results').forEach(r=>r.classList.remove('show'));
+  }
 });
 
 

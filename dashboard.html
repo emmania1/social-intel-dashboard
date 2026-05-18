@@ -2267,6 +2267,8 @@ async function runLookup(){
   }
   clearInterval(progressTimer);
   var pbar=document.getElementById('luProgressBar'); if(pbar) pbar.style.width='100%';
+  // Expose the last lookup payload so the chat bubble can read it as context.
+  window.__lastLookup=d;
 
   // Also get Claude brief + news in parallel
   var fins=d?d.financials||{}:{};
@@ -2926,6 +2928,83 @@ async function runLookup(){
 
 // -- AI CHAT ---------------------------------------------------
 let chatOpen=false,chatHistory=[];
+
+// Detect which tab is currently visible by scanning [id^="tab-"] for the
+// one without display:none. Falls back to 'home' if nothing matches.
+function getActiveTabName(){
+  var tabs=document.querySelectorAll('[id^="tab-"]');
+  for(var i=0;i<tabs.length;i++){
+    var t=tabs[i];
+    // Inline style trumps; element with no inline display attr is visible.
+    if(t.style.display!=='none') return t.id.replace('tab-','');
+  }
+  return 'home';
+}
+
+// Build the chat context block: active tab + the data actually rendered on
+// that tab. Lookup uses window.__lastLookup; company tabs use the COVERAGE
+// constant. Kept under ~2KB so we don't blow the prompt.
+function buildChatContext(){
+  var tab=getActiveTabName();
+  var dateStr=new Date().toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'});
+  var lines=['Active tab: '+tab.toUpperCase()+' | Today: '+dateStr];
+
+  // Always include a compact coverage roll-up so cross-name questions work.
+  if(typeof COVERAGE!=='undefined' && COVERAGE){
+    var covLines=[];
+    ['BBW','GAW','CROX','EAT'].forEach(function(t){
+      var c=COVERAGE[t]; if(!c) return;
+      covLines.push(t+' ('+c.name+'): '+(c.signals||[]).map(function(s){return s.label;}).join('; ')+(c.thesis?' | Thesis: '+c.thesis:''));
+    });
+    if(covLines.length) lines.push('\nCOVERAGE SNAPSHOT:\n'+covLines.join('\n'));
+  }
+
+  // Lookup tab — include the latest /api/full payload (window.__lastLookup).
+  if(tab==='lookup' && window.__lastLookup){
+    var d=window.__lastLookup;
+    var f=d.financials||{};
+    var s=d.social||{};
+    lines.push('\nCURRENT LOOKUP — '+(d.ticker||'?')+' ('+(d.company||'')+'):');
+    var fin=[];
+    if(f.currentPrice!=null) fin.push('Price $'+f.currentPrice);
+    if(f.marketCap!=null) fin.push('MktCap '+f.marketCap.toLocaleString());
+    if(f.sector) fin.push('Sector '+f.sector);
+    if(f.revenue!=null) fin.push('Revenue '+f.revenue.toLocaleString());
+    if(f.revenueGrowth!=null) fin.push('RevGrowth '+(f.revenueGrowth*100).toFixed(1)+'%');
+    if(f.grossMargin!=null) fin.push('GM '+(f.grossMargin*100).toFixed(1)+'%');
+    if(f.forwardPE!=null) fin.push('FwdPE '+f.forwardPE.toFixed(1)+'x');
+    if(fin.length) lines.push('  '+fin.join(' | '));
+    if(s.health_score!=null) lines.push('  Signal Health: '+s.health_score+'/100');
+    if(s.summaries && s.summaries.length){
+      lines.push('  Signal status:');
+      s.summaries.forEach(function(sum){
+        var pct=sum.pct_from_peak;
+        lines.push('    - '+sum.metric+': '+(sum.trend_12w||'?')+(pct!=null?' / '+pct.toFixed(0)+'% vs peak':''));
+      });
+    }
+    if(s.narrative && s.narrative.headline){
+      lines.push('  Narrative: '+s.narrative.headline);
+    }
+    if(d.alerts && d.alerts.length){
+      lines.push('  Alerts: '+d.alerts.map(function(a){return a.message;}).join(' | '));
+    }
+  }
+
+  // Company tab (BBW/EAT/CROX/GAW) — pull from COVERAGE for the focused ticker.
+  if(['bbw','eat','crox','gaw'].indexOf(tab)>-1 && typeof COVERAGE!=='undefined'){
+    var T=tab.toUpperCase();
+    var c=COVERAGE[T];
+    if(c){
+      lines.push('\nTAB FOCUS: '+T+' — '+c.name);
+      lines.push('  Sector: '+(c.sector||'?')+' | Health: '+(c.healthColor||'?'));
+      lines.push('  Thesis: '+(c.thesis||'?'));
+      if(c.signals) lines.push('  Latest signals: '+c.signals.map(function(s){return s.label;}).join(' | '));
+      lines.push('  (Note: user is viewing the full BEARWATCH/SIGNUM/CROCS-DEMAND/BRINKER dashboard inside this tab — point them at specific panels by name if relevant.)');
+    }
+  }
+
+  return lines.join('\n');
+}
 function toggleChat(){
   chatOpen=!chatOpen;
   document.getElementById('aiWindow').classList.toggle('open',chatOpen);
@@ -2945,11 +3024,15 @@ async function sendChat(){
   msgs.innerHTML+='<div class="msg user">'+msg+'</div>';
   msgs.innerHTML+='<div class="msg thinking" id="thinking">Thinking...</div>';
   msgs.scrollTop=msgs.scrollHeight;
-  const covCtx='BBW: Reddit 1,759 posts Mar 26 (51% of Aug 25 peak). Grogu IP active. | EAT: Sentiment -0.022 Apr 26 (FIRST NEGATIVE). Social 50-85% off peak. Stock only -13.5% off peak. | CROX: Echo Clog +200% YoY. Non-legacy outperforming. Stock +24% off trough. | GAW: Space Marine 2 ~10K DAU. 3.2M+ Reddit. Luetin09 +24.5% YoY.';
+  const ctx=buildChatContext();
   try{
     const reply=await callClaude(
-      'You are the SIGNAL dashboard AI for Pillsbury Lake Research. Coverage: BBW, EAT, CROX, GAW.\n\nCOVERAGE CONTEXT:\n'+covCtx+'\n\nQUESTION: '+msg+'\n\nAnswer in 2-4 sentences max. Reference specific data.',
-      'Sharp equity research AI. Max 4 sentences. Reference specific numbers.'
+      'You are the SIGNAL dashboard AI for Pillsbury Lake Research. Coverage: BBW, EAT, CROX, GAW.\n'
+      +'You see the same dashboard the user is looking at. The CONTEXT block below describes which tab they are on and the actual data rendered there.\n\n'
+      +'CONTEXT:\n'+ctx+'\n\n'
+      +'USER QUESTION: '+msg+'\n\n'
+      +'Answer in 2-5 sentences. Reference specific numbers from the CONTEXT. If the question is about the current tab, prioritise data from that tab. If the data the user is asking about is not in CONTEXT, say so rather than guessing.',
+      'Sharp equity research AI for Pillsbury Lake Research. You see the same dashboard data the user does. Reference specific numbers from the CONTEXT block when answering. Concise — 2-5 sentences.'
     );
     document.getElementById('thinking').remove();
     msgs.innerHTML+='<div class="msg ai">'+reply+'</div>';

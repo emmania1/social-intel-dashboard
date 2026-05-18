@@ -901,12 +901,28 @@ function showTab(name){
 }
 
 function openCompany(ticker){
-  // Opens SIGNAL v6 in lookup tab focused on that ticker
+  const t=(ticker||'').toLowerCase();
+  // BBW/EAT/CROX/GAW have dedicated tabs with their full demand dashboards.
+  // Route there directly instead of dumping the user in the generic lookup.
+  if(['bbw','eat','crox','gaw'].includes(t)){
+    showTab(t);
+    // Light up the matching .ntab so it looks "active" — showTab only does
+    // this for click events; programmatic calls miss it.
+    document.querySelectorAll('.ntab').forEach(b=>{
+      if(b.getAttribute('onclick')==="showTab('"+t+"')") b.classList.add('active');
+      else b.classList.remove('active');
+    });
+    return;
+  }
+  // Anything else: open the Ticker Lookup tab pre-populated with the ticker
+  // and auto-run the lookup.
   showTab('lookup');
-  document.querySelectorAll('.ntab').forEach(t=>t.classList.remove('active'));
-  // Try to set the ticker in the iframe
-  const iframe=document.querySelector('#tab-lookup iframe');
-  // company tab opened via showTab
+  const input=document.getElementById('lookupTicker');
+  if(input && ticker){
+    input.value=ticker;
+    if(typeof handleLookupInput==='function') handleLookupInput(ticker);
+    if(typeof runLookup==='function') runLookup();
+  }
 }
 
 // -- PORTFOLIO CARDS --------------------------------------------------------

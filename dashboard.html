@@ -873,11 +873,17 @@ const COVERAGE={
 function tick(){const n=new Date();document.getElementById('ltime').textContent=n.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+' . '+n.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}
 setInterval(tick,1000);tick();
 
-async function callClaude(prompt,sys,maxTok){
+async function callClaude(prompt,sys,maxTok,toolsArg){
+  // tools defaults to web_search. Pass [] explicitly to disable — cuts
+  // per-call input tokens dramatically (each search page can add 5-10K)
+  // which matters under the 10K/min default Anthropic rate limit.
+  const tools = (toolsArg===undefined) ? [{type:'web_search_20250305',name:'web_search'}] : toolsArg;
+  const body = {model:MODEL,max_tokens:maxTok||1500,system:sys||'',messages:[{role:'user',content:prompt}]};
+  if(Array.isArray(tools) && tools.length) body.tools = tools;
   const r=await fetch(CLAUDE_API,{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({model:MODEL,max_tokens:maxTok||1500,tools:[{type:'web_search_20250305',name:'web_search'}],system:sys||'',messages:[{role:'user',content:prompt}]})
+    body:JSON.stringify(body)
   });
   if(!r.ok){
     let detail='API '+r.status;
@@ -2349,7 +2355,9 @@ async function runLookup(){
     +(narrative.headline?', Signal: '+narrative.headline:'')
     +'. Sentence 1: what the company does and its current financial position. '
     +'Sentence 2: the most important signal or risk right now based on the data. Be specific with numbers.',
-    'Senior equity research analyst. Exactly 2 sentences. Specific numbers. Direct.'
+    'Senior equity research analyst. Exactly 2 sentences. Specific numbers. Direct.',
+    600,
+    []
   );
 
   var newsP=callClaude(
@@ -2788,6 +2796,7 @@ async function runLookup(){
   // any rate-limit failure on one and silently leave the other showing its
   // "Loading…" placeholder forever. Now each panel renders or errors on its
   // own, with a clear message if Anthropic returns a rate-limit error.
+  // Wrap the global aiErrorMsg() helper so panels can render rich HTML.
   function _aiErrorMsg(e){
     var raw=(e && e.message)||String(e||'');
     if(/rate.?limit/i.test(raw)){
@@ -3032,6 +3041,19 @@ async function runLookup(){
 }
 
 
+// Friendly translation of common AI errors. Used by both the lookup tab
+// (brief / news) and the chat bubble.
+function aiErrorMsg(e){
+  var raw=(e && e.message)||String(e||'');
+  if(/rate.?limit/i.test(raw)){
+    return 'Anthropic rate limit hit (10K input tokens/min on default tier). Wait 60s and retry, or raise your tier at https://console.anthropic.com/settings/limits.';
+  }
+  if(/503/.test(raw)){
+    return 'ANTHROPIC_API_KEY not set on the server. Add it in Render → Environment.';
+  }
+  return raw || 'unknown error';
+}
+
 // -- AI CHAT ---------------------------------------------------
 let chatOpen=false,chatHistory=[];
 
@@ -3138,13 +3160,15 @@ async function sendChat(){
       +'CONTEXT:\n'+ctx+'\n\n'
       +'USER QUESTION: '+msg+'\n\n'
       +'Answer in 2-5 sentences. Reference specific numbers from the CONTEXT. If the question is about the current tab, prioritise data from that tab. If the data the user is asking about is not in CONTEXT, say so rather than guessing.',
-      'Sharp equity research AI for Pillsbury Lake Research. You see the same dashboard data the user does. Reference specific numbers from the CONTEXT block when answering. Concise — 2-5 sentences.'
+      'Sharp equity research AI for Pillsbury Lake Research. You see the same dashboard data the user does. Reference specific numbers from the CONTEXT block when answering. Concise — 2-5 sentences.',
+      800,
+      []  // no web_search: chat answers from the page context, not the web
     );
     document.getElementById('thinking').remove();
     msgs.innerHTML+='<div class="msg ai">'+reply+'</div>';
   }catch(e){
     document.getElementById('thinking').remove();
-    msgs.innerHTML+='<div class="msg ai" style="color:var(--red)">Error: '+e.message+'</div>';
+    msgs.innerHTML+='<div class="msg ai" style="color:var(--red)">'+aiErrorMsg(e)+'</div>';
   }
   msgs.scrollTop=msgs.scrollHeight;
   document.getElementById('aiSend').disabled=false;

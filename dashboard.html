@@ -873,12 +873,14 @@ const COVERAGE={
 function tick(){const n=new Date();document.getElementById('ltime').textContent=n.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+' . '+n.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}
 setInterval(tick,1000);tick();
 
-async function callClaude(prompt,sys,maxTok,toolsArg){
+async function callClaude(prompt,sys,maxTok,toolsArg,modelOverride){
   // tools defaults to web_search. Pass [] explicitly to disable — cuts
   // per-call input tokens dramatically (each search page can add 5-10K)
   // which matters under the 10K/min default Anthropic rate limit.
+  // modelOverride lets callers route cheap/fast tasks (chat) to Haiku 4.5
+  // and keep Sonnet for reasoning-heavy tasks (Brief, News, Thesis).
   const tools = (toolsArg===undefined) ? [{type:'web_search_20250305',name:'web_search'}] : toolsArg;
-  const body = {model:MODEL,max_tokens:maxTok||1500,system:sys||'',messages:[{role:'user',content:prompt}]};
+  const body = {model: modelOverride || MODEL, max_tokens:maxTok||1500,system:sys||'',messages:[{role:'user',content:prompt}]};
   if(Array.isArray(tools) && tools.length) body.tools = tools;
   const r=await fetch(CLAUDE_API,{
     method:'POST',
@@ -3162,7 +3164,8 @@ async function sendChat(){
       +'Answer in 2-5 sentences. Reference specific numbers from the CONTEXT. If the question is about the current tab, prioritise data from that tab. If the data the user is asking about is not in CONTEXT, say so rather than guessing.',
       'Sharp equity research AI for Pillsbury Lake Research. You see the same dashboard data the user does. Reference specific numbers from the CONTEXT block when answering. Concise — 2-5 sentences.',
       800,
-      []  // no web_search: chat answers from the page context, not the web
+      [],  // no web_search: chat answers from the page context, not the web
+      'claude-haiku-4-5'  // chat runs on Haiku 4.5 — faster, ~4× cheaper, separate rate-limit pool from Sonnet
     );
     document.getElementById('thinking').remove();
     msgs.innerHTML+='<div class="msg ai">'+reply+'</div>';

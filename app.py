@@ -28,6 +28,7 @@ from lib.analysis import (
     social_health_score,
     summarise_series,
 )
+from lib.docs import delete_doc, get_all_text, list_docs, save_doc
 from lib.drive_reader import COVERAGE_FILES, DriveAuthError, read_coverage_data
 from lib.news import fetch_news_with_fallback
 from lib.reddit import fetch_reddit_weekly
@@ -148,6 +149,59 @@ def financials():
         for k, v in info.items()
     }
     return jsonify({"ticker": ticker, "info": clean})
+
+
+@app.route("/api/docs/upload", methods=["POST"])
+def docs_upload():
+    """Accept a multipart file upload for a ticker, parse it to text, store
+    both the original and the extracted text on the persistent disk."""
+    ticker = (request.args.get("ticker") or "").strip().upper()
+    if not ticker:
+        return jsonify({"error": "ticker query param required"}), 400
+    if "file" not in request.files:
+        return jsonify({"error": "no file in request body"}), 400
+    f = request.files["file"]
+    if not f.filename:
+        return jsonify({"error": "no filename"}), 400
+    try:
+        meta = save_doc(ticker, f.filename, f.read())
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify({"ticker": ticker, **meta})
+
+
+@app.route("/api/docs", methods=["GET"])
+def docs_list():
+    """List every uploaded doc for a ticker."""
+    ticker = (request.args.get("ticker") or "").strip().upper()
+    if not ticker:
+        return jsonify({"error": "ticker required"}), 400
+    return jsonify({"ticker": ticker, "docs": list_docs(ticker)})
+
+
+@app.route("/api/docs/text", methods=["GET"])
+def docs_text():
+    """Concatenated text of every doc for a ticker, capped. Used by the
+    chat bubble to ground answers in the user's uploaded research."""
+    ticker = (request.args.get("ticker") or "").strip().upper()
+    if not ticker:
+        return jsonify({"error": "ticker required"}), 400
+    try:
+        max_chars = max(1000, min(int(request.args.get("max_chars", 80000)), 200000))
+    except (TypeError, ValueError):
+        max_chars = 80000
+    return jsonify({"ticker": ticker, **get_all_text(ticker, max_chars=max_chars)})
+
+
+@app.route("/api/docs/<ticker>/<path:filename>", methods=["DELETE"])
+def docs_delete(ticker, filename):
+    try:
+        ok = delete_doc(ticker, filename)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if not ok:
+        return jsonify({"error": "not found"}), 404
+    return jsonify({"ok": True})
 
 
 @app.route("/api/claude", methods=["POST"])

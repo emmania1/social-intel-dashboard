@@ -314,6 +314,20 @@ main{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:28px 40p
 .no-data-warn{font-family:var(--fm);font-size:11px;color:var(--t2);padding:14px 16px;background:var(--s2);border-radius:6px;border-left:2px solid var(--yellow);line-height:1.65}
 .no-data-warn b{color:var(--yellow);font-weight:700}
 .no-data-warn code{background:var(--s1);padding:1px 6px;border-radius:3px;color:var(--text)}
+.docs-bar{background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.docs-icon{font-size:16px}
+.docs-label{font-family:var(--fm);font-size:11px;color:var(--t2);letter-spacing:.08em;font-weight:600;flex:0 0 auto}
+.docs-zone{flex:1 1 240px;min-width:200px;border:1px dashed var(--b2);border-radius:6px;padding:10px 14px;font-family:var(--fm);font-size:11px;color:var(--t3);cursor:pointer;transition:all .15s;text-align:center;display:block;position:relative}
+.docs-zone:hover,.docs-zone.dragover{border-color:var(--cyan);color:var(--cyan);background:rgba(0,229,255,.04)}
+.docs-zone input[type=file]{position:absolute;width:0;height:0;opacity:0}
+.docs-list{display:flex;gap:6px;flex-wrap:wrap;align-items:center;flex:2 1 320px;min-width:0}
+.doc-chip{background:var(--s1);border:1px solid var(--b2);border-radius:14px;padding:4px 10px;font-family:var(--fm);font-size:10px;color:var(--text);display:inline-flex;align-items:center;gap:6px;max-width:280px}
+.doc-chip-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:170px}
+.doc-chip-size{color:var(--t3);font-size:9px;flex:0 0 auto}
+.doc-chip-x{cursor:pointer;color:var(--t3);font-weight:700;padding:0 4px;flex:0 0 auto;font-size:13px;line-height:1}
+.doc-chip-x:hover{color:var(--red)}
+.docs-empty{font-family:var(--fm);font-size:10px;color:var(--t3);font-style:italic}
+.docs-loading{font-family:var(--fm);font-size:10px;color:var(--cyan)}
 .hname{font-size:36px;font-weight:800;line-height:1;letter-spacing:-.02em}
 .alert-bar{margin-bottom:20px}
 .sigval{font-family:var(--fm);font-size:16px;font-weight:500;line-height:1.2}
@@ -482,6 +496,15 @@ main{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:28px 40p
 <button class="chip" onclick="setLookup(\'SBUX\')">SBUX</button>
 <button class="chip" onclick="setLookup(\'CMG\')">CMG</button>
 </div>
+<div class="docs-bar" data-ticker="" id="docs-bar-lookup" style="margin-top:14px">
+<span class="docs-icon">📎</span>
+<span class="docs-label">DOCS</span>
+<label class="docs-zone" ondragover="docDragOver(event)" ondragleave="docDragLeave(event)" ondrop="docDrop(event)">
+<input type="file" accept=".pdf,.txt,.md,.csv" multiple onchange="docSelect(event)"/>
+Drop a PDF / TXT here or click to browse — attaches to whichever ticker you just analysed
+</label>
+<div class="docs-list"><span class="docs-empty">Run a lookup first — docs will attach to that ticker</span></div>
+</div>
 <div id="lookupResult"></div>
 </div>
 </div>
@@ -579,19 +602,55 @@ main{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:28px 40p
 </div>
 <!-- BBW TAB -->
   <div id="tab-bbw" style="display:none">
-    <iframe src="/dashboards/bbw" style="width:100%;height:calc(100vh - 140px);border:0;display:block;background:#0d1117" loading="lazy"></iframe>
+    <div class="docs-bar" data-ticker="BBW">
+      <span class="docs-icon">📎</span>
+      <span class="docs-label">DOCS · BBW</span>
+      <label class="docs-zone" ondragover="docDragOver(event)" ondragleave="docDragLeave(event)" ondrop="docDrop(event)">
+        <input type="file" accept=".pdf,.txt,.md,.csv" multiple onchange="docSelect(event)"/>
+        Drop a PDF / TXT here or click to browse
+      </label>
+      <div class="docs-list"><span class="docs-loading">Loading…</span></div>
+    </div>
+    <iframe src="/dashboards/bbw" style="width:100%;height:calc(100vh - 220px);border:0;display:block;background:#0d1117" loading="lazy"></iframe>
   </div>
   <!-- EAT TAB -->
   <div id="tab-eat" style="display:none">
-    <iframe src="/dashboards/eat" style="width:100%;height:calc(100vh - 140px);border:0;display:block;background:#0d1117" loading="lazy"></iframe>
+    <div class="docs-bar" data-ticker="EAT">
+      <span class="docs-icon">📎</span>
+      <span class="docs-label">DOCS · EAT</span>
+      <label class="docs-zone" ondragover="docDragOver(event)" ondragleave="docDragLeave(event)" ondrop="docDrop(event)">
+        <input type="file" accept=".pdf,.txt,.md,.csv" multiple onchange="docSelect(event)"/>
+        Drop a PDF / TXT here or click to browse
+      </label>
+      <div class="docs-list"><span class="docs-loading">Loading…</span></div>
+    </div>
+    <iframe src="/dashboards/eat" style="width:100%;height:calc(100vh - 220px);border:0;display:block;background:#0d1117" loading="lazy"></iframe>
   </div>
   <!-- CROX TAB -->
   <div id="tab-crox" style="display:none">
-    <iframe src="/dashboards/crox" style="width:100%;height:calc(100vh - 140px);border:0;display:block;background:#0d1117" loading="lazy"></iframe>
+    <div class="docs-bar" data-ticker="CROX">
+      <span class="docs-icon">📎</span>
+      <span class="docs-label">DOCS · CROX</span>
+      <label class="docs-zone" ondragover="docDragOver(event)" ondragleave="docDragLeave(event)" ondrop="docDrop(event)">
+        <input type="file" accept=".pdf,.txt,.md,.csv" multiple onchange="docSelect(event)"/>
+        Drop a PDF / TXT here or click to browse
+      </label>
+      <div class="docs-list"><span class="docs-loading">Loading…</span></div>
+    </div>
+    <iframe src="/dashboards/crox" style="width:100%;height:calc(100vh - 220px);border:0;display:block;background:#0d1117" loading="lazy"></iframe>
   </div>
   <!-- GAW TAB -->
   <div id="tab-gaw" style="display:none">
-    <iframe src="/dashboards/gaw" style="width:100%;height:calc(100vh - 140px);border:0;display:block;background:#0d1117" loading="lazy"></iframe>
+    <div class="docs-bar" data-ticker="GAW">
+      <span class="docs-icon">📎</span>
+      <span class="docs-label">DOCS · GAW</span>
+      <label class="docs-zone" ondragover="docDragOver(event)" ondragleave="docDragLeave(event)" ondrop="docDrop(event)">
+        <input type="file" accept=".pdf,.txt,.md,.csv" multiple onchange="docSelect(event)"/>
+        Drop a PDF / TXT here or click to browse
+      </label>
+      <div class="docs-list"><span class="docs-loading">Loading…</span></div>
+    </div>
+    <iframe src="/dashboards/gaw" style="width:100%;height:calc(100vh - 220px);border:0;display:block;background:#0d1117" loading="lazy"></iframe>
   </div>
   <!-- MORNING NOTE TAB -->
 <div id="tab-morning-note" style="display:none">
@@ -905,6 +964,9 @@ function showTab(name){
   // Init charts for company tabs
   if(['bbw','eat','crox','gaw'].includes(name)){
     requestAnimationFrame(()=>initCompanyCharts(name));
+    // Refresh the docs-bar for this ticker — if the user uploaded from
+    // another device since the last visit, this picks it up.
+    if(typeof refreshDocsList==='function') refreshDocsList(name.toUpperCase());
   }
 }
 
@@ -2322,6 +2384,9 @@ async function runLookup(){
   var pbar=document.getElementById('luProgressBar'); if(pbar) pbar.style.width='100%';
   // Expose the last lookup payload so the chat bubble can read it as context.
   window.__lastLookup=d;
+  // Retarget the lookup-tab docs-bar at this ticker so any PDFs the user
+  // drops here from now on get filed under d.ticker.
+  if(typeof setLookupDocsTicker==='function') setLookupDocsTicker(d.ticker);
 
   // Also get Claude brief + news in parallel
   var fins=d?d.financials||{}:{};
@@ -3056,6 +3121,145 @@ function aiErrorMsg(e){
   return raw || 'unknown error';
 }
 
+// =========== PER-TICKER DOCUMENT UPLOAD ===========
+// Each company tab + the Ticker Lookup tab has a .docs-bar. Drop a PDF
+// (or .txt/.md/.csv) on it, it goes to /api/docs/upload, server parses
+// + stores on the persistent disk, refreshDocsList re-fetches the list.
+// On the chat side, chatContextWithDocs() pulls every doc's extracted
+// text and stitches it into the prompt so Claude can answer from your
+// uploaded research.
+
+function docTickerOf(el){
+  var bar = el.closest('.docs-bar');
+  return bar ? bar.dataset.ticker : null;
+}
+
+async function refreshDocsList(ticker){
+  if(!ticker) return;
+  var bars = document.querySelectorAll('.docs-bar[data-ticker="' + ticker + '"] .docs-list');
+  if(!bars.length) return;
+  bars.forEach(function(el){ el.innerHTML = '<span class="docs-loading">Loading…</span>'; });
+  try {
+    var r = await fetch('/api/docs?ticker=' + encodeURIComponent(ticker));
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    var data = await r.json();
+    var html;
+    if(data.docs && data.docs.length){
+      html = data.docs.map(function(d){
+        var fnSafe = (d.filename||'').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        var sizeKB = (d.size/1024).toFixed(d.size>10240 ? 0 : 1);
+        return '<span class="doc-chip" title="' + d.filename + ' · ' + d.char_count.toLocaleString() + ' chars extracted · uploaded ' + (d.uploaded||'').slice(0,16).replace('T',' ') + '">'
+          + '<span class="doc-chip-name">' + d.filename + '</span>'
+          + '<span class="doc-chip-size">' + sizeKB + 'KB</span>'
+          + '<span class="doc-chip-x" onclick="deleteDocConfirm(\'' + ticker + '\',\'' + fnSafe + '\')" title="Delete">×</span>'
+          + '</span>';
+      }).join('');
+    } else {
+      html = '<span class="docs-empty">No docs yet — drop one to feed the chat about ' + ticker + '</span>';
+    }
+    bars.forEach(function(el){ el.innerHTML = html; });
+  } catch(e){
+    bars.forEach(function(el){ el.innerHTML = '<span class="docs-empty" style="color:var(--red)">Failed to load: ' + e.message + '</span>'; });
+  }
+}
+
+async function uploadDoc(ticker, file){
+  var lists = document.querySelectorAll('.docs-bar[data-ticker="' + ticker + '"] .docs-list');
+  lists.forEach(function(el){
+    el.innerHTML = '<span class="docs-loading">Uploading ' + file.name + ' (' + (file.size/1024).toFixed(0) + 'KB)…</span>';
+  });
+  var fd = new FormData();
+  fd.append('file', file);
+  try {
+    var r = await fetch('/api/docs/upload?ticker=' + encodeURIComponent(ticker), {method:'POST', body: fd});
+    var data = await r.json();
+    if(!r.ok) throw new Error(data.error || ('HTTP ' + r.status));
+  } catch(e){
+    alert('Upload failed for ' + file.name + ': ' + e.message);
+  }
+  refreshDocsList(ticker);
+}
+
+async function deleteDocConfirm(ticker, filename){
+  if(!confirm('Delete "' + filename + '" from ' + ticker + '?')) return;
+  try {
+    var r = await fetch('/api/docs/' + encodeURIComponent(ticker) + '/' + encodeURIComponent(filename), {method:'DELETE'});
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+  } catch(e){
+    alert('Delete failed: ' + e.message);
+  }
+  refreshDocsList(ticker);
+}
+
+function docDragOver(e){ e.preventDefault(); e.currentTarget.classList.add('dragover'); }
+function docDragLeave(e){ e.currentTarget.classList.remove('dragover'); }
+function docDrop(e){
+  e.preventDefault(); e.currentTarget.classList.remove('dragover');
+  var ticker = docTickerOf(e.currentTarget);
+  if(!ticker){ alert('No ticker is attached to this drop zone yet — run a lookup first.'); return; }
+  Array.from(e.dataTransfer.files).forEach(function(f){ uploadDoc(ticker, f); });
+}
+function docSelect(e){
+  var ticker = docTickerOf(e.target);
+  if(!ticker){ alert('No ticker is attached to this drop zone yet — run a lookup first.'); e.target.value=''; return; }
+  Array.from(e.target.files).forEach(function(f){ uploadDoc(ticker, f); });
+  e.target.value = '';
+}
+
+// Which ticker is the user currently looking at? Drives both the lookup
+// docs-bar retargeting and the chat's doc-injection.
+function getActiveTicker(){
+  var tab = getActiveTabName();
+  if(['bbw','eat','crox','gaw'].indexOf(tab) > -1) return tab.toUpperCase();
+  if(tab === 'lookup' && window.__lastLookup && window.__lastLookup.ticker) return window.__lastLookup.ticker;
+  return null;
+}
+
+// Update the lookup-tab docs-bar to point at the ticker the user just
+// analysed. Called from runLookup() once /api/full returns.
+function setLookupDocsTicker(ticker){
+  var bar = document.getElementById('docs-bar-lookup');
+  if(!bar) return;
+  bar.dataset.ticker = ticker || '';
+  var label = bar.querySelector('.docs-label');
+  if(label) label.textContent = ticker ? 'DOCS · ' + ticker : 'DOCS';
+  if(ticker){
+    refreshDocsList(ticker);
+  } else {
+    var list = bar.querySelector('.docs-list');
+    if(list) list.innerHTML = '<span class="docs-empty">Run a lookup first — docs will attach to that ticker</span>';
+  }
+}
+
+// Stitch every doc's extracted text into the chat context so Claude can
+// answer from the user's uploaded research. Capped server-side at 80K
+// chars so the prompt fits well under Haiku's context window.
+async function chatContextWithDocs(){
+  var baseCtx = buildChatContext();
+  var ticker = getActiveTicker();
+  if(!ticker) return baseCtx;
+  try {
+    var r = await fetch('/api/docs/text?ticker=' + encodeURIComponent(ticker));
+    if(!r.ok) return baseCtx;
+    var data = await r.json();
+    if(!data.text) return baseCtx;
+    return baseCtx
+      + '\n\n--- UPLOADED DOCUMENTS FOR ' + ticker + ' ('
+      + data.doc_count + ' file' + (data.doc_count===1?'':'s') + ', '
+      + (data.total_chars||0).toLocaleString() + ' chars'
+      + (data.truncated ? ' — truncated to keep tokens manageable' : '')
+      + ') ---\n' + data.text;
+  } catch(_){
+    return baseCtx;
+  }
+}
+
+// Populate every visible docs-bar on page load.
+window.addEventListener('load', function(){
+  ['BBW','EAT','CROX','GAW'].forEach(refreshDocsList);
+});
+
+
 // -- AI CHAT ---------------------------------------------------
 let chatOpen=false,chatHistory=[];
 
@@ -3154,7 +3358,7 @@ async function sendChat(){
   msgs.innerHTML+='<div class="msg user">'+msg+'</div>';
   msgs.innerHTML+='<div class="msg thinking" id="thinking">Thinking...</div>';
   msgs.scrollTop=msgs.scrollHeight;
-  const ctx=buildChatContext();
+  const ctx=await chatContextWithDocs();
   try{
     const reply=await callClaude(
       'You are the SIGNAL dashboard AI for Pillsbury Lake Research. Coverage: BBW, EAT, CROX, GAW.\n'

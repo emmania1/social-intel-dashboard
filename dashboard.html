@@ -327,6 +327,14 @@ main{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:28px 40p
 .doc-chip-x:hover{color:var(--red)}
 .docs-empty{font-family:var(--fm);font-size:10px;color:var(--t3);font-style:italic}
 .docs-loading{font-family:var(--fm);font-size:10px;color:var(--cyan)}
+.lu-export-bar{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;padding:10px;background:var(--s2);border-radius:8px;align-items:center}
+.lu-export-lbl{font-family:var(--fm);font-size:9px;color:var(--t3);letter-spacing:.08em;margin-right:6px}
+.lu-tool-btn{background:transparent;border:1px solid var(--b2);color:var(--t2);font-family:var(--fm);font-size:9px;padding:5px 10px;border-radius:5px;cursor:pointer;transition:all .15s;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+.lu-tool-btn:hover{border-color:var(--cyan);color:var(--cyan);background:rgba(0,229,255,.04)}
+.lu-tool-btn.primary{border-color:var(--cyan);color:var(--cyan)}
+.lu-tool-btn.primary:hover{background:rgba(0,229,255,.1)}
+.lu-lowsig-banner{background:rgba(243,184,74,.08);border:1px solid var(--yellow);border-left:3px solid var(--yellow);border-radius:8px;padding:14px 18px;margin-bottom:16px;font-family:var(--fm);font-size:12px;color:var(--text);line-height:1.7}
+.lu-lowsig-banner b{color:var(--yellow)}
 .doc-chip-name.clickable{cursor:pointer;text-decoration:underline;text-decoration-color:var(--b2);text-underline-offset:2px;transition:color .15s,text-decoration-color .15s}
 .doc-chip-name.clickable:hover{color:var(--cyan);text-decoration-color:var(--cyan)}
 .doc-viewer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:300;display:none;align-items:center;justify-content:center;backdrop-filter:blur(10px)}
@@ -2084,6 +2092,59 @@ function toggleLookupAdvanced(){
 }
 // --------------------------------------------------------------------------
 
+// =========== EXPORT HELPERS (PNG / CSV / SNAPSHOT) ===========
+// PNG: grab the live Chart.js instance and save as image.
+function luDownloadPng(chartId, filename){
+  var chart = (typeof _luC !== 'undefined') ? _luC[chartId] : null;
+  if(!chart){ alert('Chart "' + chartId + '" is not on screen — scroll to make sure it rendered first.'); return; }
+  try {
+    var url = chart.toBase64Image('image/png', 1);
+    var a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+  } catch(e){ alert('PNG export failed: ' + e.message); }
+}
+
+// CSV: POST raw rows to /api/export.csv, server returns a CSV file.
+async function luDownloadCsv(rows, filename){
+  if(!rows || !rows.length){ alert('No data to export for ' + filename); return; }
+  try {
+    var res = await fetch(RENDER + '/api/export.csv', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({rows: rows, filename: filename})
+    });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    var blob = await res.blob();
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  } catch(e){ alert('CSV export failed: ' + e.message); }
+}
+
+// JSON snapshot: dump window.__lastLookup as-is so a future run can diff.
+function luDownloadSnapshot(){
+  var d = window.__lastLookup;
+  if(!d){ alert('Run a lookup first'); return; }
+  var blob = new Blob([JSON.stringify(d, null, 2)], {type:'application/json'});
+  var url = URL.createObjectURL(blob);
+  var ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  var a = document.createElement('a');
+  a.href = url; a.download = (d.ticker||'snapshot') + '_lookup_' + ts + '.json'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Resolve a CSV key to the underlying rows in the last lookup payload.
+function _luCsvKey(key){
+  var d = window.__lastLookup; if(!d) return null;
+  if(key === 'aligned') return d.social && d.social.aligned_weekly;
+  if(key === 'revenueHistory') return d.financials && d.financials.revenueHistory;
+  if(key === 'earningsHistory') return d.financials && d.financials.earningsHistory;
+  return d.social && d.social.series && d.social.series[key];
+}
+function luCsvByKey(key, ticker, label){
+  luDownloadCsv(_luCsvKey(key), ticker + '_' + label + '.csv');
+}
+
 async function runLookup(){
   var ticker=document.getElementById('lookupTicker').value.trim().toUpperCase();
   if(!ticker) return;
@@ -2172,6 +2233,21 @@ async function runLookup(){
 
   // Build the HTML structure immediately
   var h='';
+
+  // Low-signal warning: if Reddit + YouTube both returned near-nothing for
+  // this ticker, the brand probably resolved to a holding-company name that
+  // nobody searches for. Tell the user to set a Custom search term.
+  var _redditRows = ((soc.series && soc.series.reddit) || []).length;
+  var _ytRows = ((soc.series && soc.series.youtube) || []).length;
+  if(_redditRows < 10 && _ytRows < 10){
+    var _searchTerm = (soc.inputs && soc.inputs.search_term) || ticker;
+    h += '<div class="lu-lowsig-banner">'
+      + '<b>Low-signal warning.</b> Reddit and YouTube both returned almost nothing for "' + _searchTerm + '". '
+      + 'This usually means the ticker resolved to a holding-company name nobody searches for online. '
+      + 'Open the <b>Advanced</b> panel above and set <b>Custom search term</b> to the consumer brand '
+      + '(e.g. "Chili\'s" instead of "Brinker International", "Build-A-Bear" instead of "BBW"), then click ANALYZE again.'
+      + '</div>';
+  }
 
   // Alerts bar
   if(alerts.length){
@@ -2572,6 +2648,47 @@ async function runLookup(){
   if(qtBlock){
     h+='<div class="section-lbl" style="margin:20px 0 12px">QUERY TRANSPARENCY — WHAT THE SYSTEM SEARCHED</div>'+qtBlock;
   }
+
+  // Export + snapshot panel — PNG of any chart, CSV of any series, plus a
+  // full-run JSON dump for longitudinal comparison.
+  h += '<div class="panel" style="margin-top:14px">'
+    + '<div class="panel-h"><div class="ptitle">Export &amp; Snapshot</div><span class="badge bc">DATA + IMAGES</span></div>'
+    + '<div class="panel-b">'
+    + '<div style="font-family:var(--fm);font-size:11px;color:var(--t2);margin-bottom:10px;line-height:1.6">'
+    + 'Download any chart as a PNG, any series as a CSV, or save the entire run as JSON for future comparison or re-rendering.</div>'
+    + '<div class="lu-export-bar">'
+    +   '<span class="lu-export-lbl">FULL RUN</span>'
+    +   '<button class="lu-tool-btn primary" onclick="luDownloadSnapshot()">⬇ Snapshot (JSON)</button>'
+    +   '<button class="lu-tool-btn" onclick="luCsvByKey(\'aligned\',\'' + ticker + '\',\'aligned_weekly\')">📊 Aligned weekly CSV</button>'
+    + '</div>'
+    + '<div class="lu-export-bar">'
+    +   '<span class="lu-export-lbl">PNG CHARTS</span>'
+    +   '<button class="lu-tool-btn" onclick="luDownloadPng(\'lu-unified\',\'' + ticker + '_unified.png\')">Unified timeline</button>'
+    +   '<button class="lu-tool-btn" onclick="luDownloadPng(\'lu-rev\',\'' + ticker + '_revenue.png\')">Revenue</button>'
+    +   '<button class="lu-tool-btn" onclick="luDownloadPng(\'lu-earnings-chart\',\'' + ticker + '_earnings.png\')">Earnings</button>'
+    +   '<button class="lu-tool-btn" onclick="luDownloadPng(\'lu-reddit-chart\',\'' + ticker + '_reddit.png\')">Reddit</button>'
+    +   '<button class="lu-tool-btn" onclick="luDownloadPng(\'lu-yt-chart\',\'' + ticker + '_youtube.png\')">YouTube</button>'
+    +   '<button class="lu-tool-btn" onclick="luDownloadPng(\'lu-twits-chart\',\'' + ticker + '_stocktwits.png\')">StockTwits</button>'
+    +   '<button class="lu-tool-btn" onclick="luDownloadPng(\'lu-trends-chart\',\'' + ticker + '_trends.png\')">Trends</button>'
+    +   '<button class="lu-tool-btn" onclick="luDownloadPng(\'lu-wiki-chart\',\'' + ticker + '_wikipedia.png\')">Wikipedia</button>'
+    +   '<button class="lu-tool-btn" onclick="luDownloadPng(\'lu-sec-chart\',\'' + ticker + '_sec.png\')">SEC</button>'
+    +   '<button class="lu-tool-btn" onclick="luDownloadPng(\'lu-news-chart\',\'' + ticker + '_news.png\')">News</button>'
+    +   '<button class="lu-tool-btn" onclick="luDownloadPng(\'lu-sent-chart\',\'' + ticker + '_sentiment.png\')">Sentiment</button>'
+    + '</div>'
+    + '<div class="lu-export-bar">'
+    +   '<span class="lu-export-lbl">CSV DATA</span>'
+    +   '<button class="lu-tool-btn" onclick="luCsvByKey(\'stock\',\'' + ticker + '\',\'stock\')">Stock</button>'
+    +   '<button class="lu-tool-btn" onclick="luCsvByKey(\'reddit\',\'' + ticker + '\',\'reddit\')">Reddit</button>'
+    +   '<button class="lu-tool-btn" onclick="luCsvByKey(\'youtube\',\'' + ticker + '\',\'youtube\')">YouTube</button>'
+    +   '<button class="lu-tool-btn" onclick="luCsvByKey(\'trends\',\'' + ticker + '\',\'trends\')">Trends</button>'
+    +   '<button class="lu-tool-btn" onclick="luCsvByKey(\'stocktwits\',\'' + ticker + '\',\'stocktwits\')">StockTwits</button>'
+    +   '<button class="lu-tool-btn" onclick="luCsvByKey(\'wikipedia\',\'' + ticker + '\',\'wikipedia\')">Wikipedia</button>'
+    +   '<button class="lu-tool-btn" onclick="luCsvByKey(\'sec\',\'' + ticker + '\',\'sec\')">SEC</button>'
+    +   '<button class="lu-tool-btn" onclick="luCsvByKey(\'news\',\'' + ticker + '\',\'news\')">News</button>'
+    +   '<button class="lu-tool-btn" onclick="luCsvByKey(\'revenueHistory\',\'' + ticker + '\',\'revenue_history\')">Revenue history</button>'
+    +   '<button class="lu-tool-btn" onclick="luCsvByKey(\'earningsHistory\',\'' + ticker + '\',\'earnings_history\')">Earnings history</button>'
+    + '</div>'
+    + '</div></div>';
 
   // Narrative summary
   if(narrative.headline){

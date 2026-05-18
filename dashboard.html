@@ -251,7 +251,6 @@ main{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:28px 40p
 .pill{font-family:var(--fm);font-size:10px;padding:4px 12px;border-radius:12px;border:1px solid var(--b2);color:var(--t2);background:transparent;cursor:pointer;transition:all .15s}
 .pill:hover,.pill.active{border-color:var(--cyan);color:var(--cyan);background:rgba(0,229,255,.06)}
 
-
 /* Signal v6 classes */
 
 .sbtn{background:linear-gradient(135deg,var(--cyan),var(--purple));border:none;border-radius:8px;padding:13px 26px;font-family:var(--fd);font-size:12px;font-weight:700;letter-spacing:.1em;color:#000;cursor:pointer;transition:all .2s;text-transform:uppercase}
@@ -390,18 +389,6 @@ main{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:28px 40p
 <button class="ntab company" onclick="showTab('gaw')">GAW</button>
 <button class="ntab company" onclick="showTab('crox')">CROX</button>
 <button class="ntab company" onclick="showTab('eat')">EAT</button>
-<div style="width:1px;background:var(--b1);margin:8px 4px"></div>
-<button class="ntab" onclick="showTab('thesis')">📋 THESIS</button>
-<button class="ntab" onclick="showTab('valuation')">📊 VALUATION</button>
-<button class="ntab" onclick="showTab('earnings')">🎙 EARNINGS</button>
-<button class="ntab" onclick="showTab('screener')">🔎 SCREENER</button>
-<div style="width:1px;background:var(--b1);margin:8px 4px"></div>
-<button class="ntab" onclick="showTab('morning-note')" style="color:var(--yellow)">☀ MORNING NOTE</button>
-<button class="ntab" onclick="showTab('comps')" style="color:var(--green)">📐 COMPS</button>
-<button class="ntab" onclick="showTab('initiate')" style="color:var(--purple)">🚀 INITIATE</button>
-<button class="ntab" onclick="showTab('thesis-builder')" style="color:var(--cyan)">🧱 THESIS BUILDER</button>
-<button class="ntab" onclick="showTab('market-research')" style="color:var(--orange)">🌐 MARKET RESEARCH</button>
-<button class="ntab" onclick="showTab('model-update')" style="color:var(--red)">🔄 MODEL UPDATE</button>
 </div>
 <main>
 <div id="tab-home">
@@ -534,97 +521,7 @@ Drop a PDF / TXT here or click to browse — attaches to whichever ticker you ju
 </div>
 </div>
 </div>
-<!-- THESIS TAB -->
-<div id="tab-thesis" style="display:none">
-<div class="panel">
-<div class="panel-h"><div class="ptitle">Thesis Validator</div><span class="badge bp">DATA-FIRST</span></div>
-<div class="panel-b">
-<div style="font-family:var(--fm);font-size:11px;color:var(--t2);margin-bottom:16px;line-height:1.6">
-          Paste your thesis below. The system auto-detects the ticker, then runs live data searches across Reddit, YouTube, Google Trends, news, SEC filings, and competitors to find what supports it, what contradicts it, and what you missed.
-</div>
-<textarea id="thesisInput" style="width:100%;background:var(--s2);border:1px solid var(--b2);border-radius:8px;padding:12px;font-family:var(--fm);font-size:12px;color:var(--text);outline:none;resize:vertical;min-height:140px;line-height:1.6;transition:border-color .2s" placeholder="Paste your full investment thesis here... The ticker will be detected automatically from what you write."></textarea>
-<div style="display:flex;align-items:center;gap:12px;margin-top:12px">
-<button onclick="validateThesis()" id="thesisBtn" style="background:linear-gradient(135deg,var(--cyan),var(--purple));border:none;border-radius:8px;padding:11px 24px;font-family:var(--fd);font-size:12px;font-weight:700;color:#000;cursor:pointer;letter-spacing:.08em">SCAN ALL DATA →</button>
-<div id="thesisStatus" style="font-family:var(--fm);font-size:11px;color:var(--t3)"></div>
-</div>
-<div id="thesisResult" style="margin-top:20px"></div>
-</div>
-</div>
-</div>
-<!-- VALUATION TAB -->
-<div id="tab-valuation" style="display:none">
-<div class="panel">
-<div class="panel-h"><div class="ptitle">Quick Valuation</div><span class="badge bc">DCF + COMPS</span></div>
-<div class="panel-b">
-<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;align-items:flex-end">
-<div>
-<div style="font-family:var(--fm);font-size:10px;color:var(--t3);margin-bottom:6px">TICKER</div>
-<input id="valTicker" style="background:var(--s2);border:1px solid var(--b2);border-radius:6px;padding:8px 12px;font-family:var(--fm);font-size:16px;color:var(--text);outline:none;width:100px;text-transform:uppercase" placeholder="BBW"/>
-</div>
-<button onclick="runValuation()" style="background:linear-gradient(135deg,var(--cyan),var(--purple));border:none;border-radius:8px;padding:10px 22px;font-family:var(--fd);font-size:12px;font-weight:700;color:#000;cursor:pointer;letter-spacing:.08em">RUN →</button>
-<div style="display:flex;gap:8px;flex-wrap:wrap">
-<button class="chip" onclick="document.getElementById('valTicker').value='BBW';runValuation()">BBW</button>
-<button class="chip" onclick="document.getElementById('valTicker').value='EAT';runValuation()">EAT</button>
-<button class="chip" onclick="document.getElementById('valTicker').value='CROX';runValuation()">CROX</button>
-</div>
-</div>
-<div id="valuationResult"></div>
-</div>
-</div>
-</div>
-<!-- EARNINGS TAB -->
-<div id="tab-earnings" style="display:none">
-<div class="panel">
-<div class="panel-h"><div class="ptitle">Earnings Intelligence</div><span class="badge bo">TRANSCRIPT ANALYSIS</span></div>
-<div class="panel-b">
-<div style="font-family:var(--fm);font-size:11px;color:var(--t2);margin-bottom:16px;line-height:1.6">
-          Upload an earnings transcript PDF, paste text, or describe the call. Extracts demand signals, management tone, language changes quarter-over-quarter, and thesis implications.
-</div>
-<div style="margin-bottom:12px">
-<div style="font-family:var(--fm);font-size:10px;color:var(--t3);letter-spacing:.1em;margin-bottom:6px">TICKER</div>
-<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-<input id="earnTicker" style="background:var(--s2);border:1px solid var(--b2);border-radius:6px;padding:8px 12px;font-family:var(--fm);font-size:16px;color:var(--text);outline:none;width:110px;text-transform:uppercase;letter-spacing:.1em" placeholder="BBW"/>
-<button class="chip" onclick="document.getElementById('earnTicker').value='BBW'">BBW</button>
-<button class="chip" onclick="document.getElementById('earnTicker').value='EAT'">EAT</button>
-<button class="chip" onclick="document.getElementById('earnTicker').value='CROX'">CROX</button>
-<button class="chip" onclick="document.getElementById('earnTicker').value='GAW'">GAW</button>
-</div>
-</div>
-<div style="margin-bottom:12px">
-<div style="font-family:var(--fm);font-size:10px;color:var(--t3);letter-spacing:.1em;margin-bottom:6px">UPLOAD TRANSCRIPT (PDF or TXT)</div>
-<label for="earnFile" style="display:inline-flex;align-items:center;gap:8px;padding:9px 16px;background:var(--s2);border:1px solid var(--b2);border-radius:8px;cursor:pointer;font-family:var(--fm);font-size:11px;color:var(--t2);transition:all .2s" onmouseover="this.style.borderColor='var(--cyan)';this.style.color='var(--cyan)'" onmouseout="this.style.borderColor='var(--b2)';this.style.color='var(--t2)'">
-            📎 Choose file
-<input type="file" id="earnFile" accept=".pdf,.txt,.doc,.docx" style="display:none" onchange="handleEarnFile(this)"/>
-</label>
-<span id="earnFileName" style="font-family:var(--fm);font-size:11px;color:var(--t3);margin-left:10px">No file selected</span>
-</div>
-<div style="margin-bottom:12px">
-<div style="font-family:var(--fm);font-size:10px;color:var(--t3);letter-spacing:.1em;margin-bottom:6px">OR PASTE / DESCRIBE</div>
-<textarea id="earnTranscript" style="width:100%;background:var(--s2);border:1px solid var(--b2);border-radius:8px;padding:12px;font-family:var(--fm);font-size:11px;color:var(--text);outline:none;resize:vertical;min-height:120px;line-height:1.6;transition:border-color .2s" placeholder="Paste earnings call transcript here, or describe what you want analyzed...&#10;&#10;Examples:&#10;- BBW Q2 FY2025 earnings — focus on adult segment commentary&#10;- Paste full transcript text here for deep analysis&#10;- 'EAT Q3 2025 — what did management say about comps and Triple Dipper'"></textarea>
-</div>
-<button onclick="analyzeEarnings()" id="earnBtn" style="background:linear-gradient(135deg,var(--cyan),var(--purple));border:none;border-radius:8px;padding:11px 24px;font-family:var(--fd);font-size:12px;font-weight:700;color:#000;cursor:pointer;letter-spacing:.08em">ANALYZE EARNINGS →</button>
-<div id="earningsResult" style="margin-top:20px"></div>
-</div>
-</div>
-</div>
-<!-- SCREENER TAB -->
-<div id="tab-screener" style="display:none">
-<div class="panel">
-<div class="panel-h"><div class="ptitle">Coverage Screener</div><span class="badge bg">LIVE</span></div>
-<div class="panel-b">
-<div style="font-family:var(--fm);font-size:11px;color:var(--t2);margin-bottom:16px">Filter your coverage universe or discover new names by demand signal criteria.</div>
-<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px">
-<button class="chip" onclick="runScreen('social health above 60')">Social Health &gt;60</button>
-<button class="chip" onclick="runScreen('reddit trend rising')">Reddit Rising</button>
-<button class="chip" onclick="runScreen('near earnings')">Near Earnings</button>
-<button class="chip" onclick="runScreen('ip catalyst upcoming')">IP Catalyst</button>
-<button class="chip" onclick="runScreen('sentiment declining')">Sentiment Declining</button>
-<button class="chip" onclick="runScreen('YouTube views off peak 50pct')">YT Views -50% Peak</button>
-</div>
-<div id="screenerResult"></div>
-</div>
-</div>
-</div>
+
 <!-- BBW TAB -->
   <div id="tab-bbw" style="display:none">
     <div class="docs-bar" data-ticker="BBW">
@@ -677,217 +574,8 @@ Drop a PDF / TXT here or click to browse — attaches to whichever ticker you ju
     </div>
     <iframe src="/dashboards/gaw" style="width:100%;height:calc(100vh - 220px);border:0;display:block;background:#0d1117" loading="lazy"></iframe>
   </div>
-  <!-- MORNING NOTE TAB -->
-<div id="tab-morning-note" style="display:none">
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-<div>
-<div style="font-size:26px;font-weight:800">☀ Morning Note</div>
-<div style="font-family:var(--fm);font-size:11px;color:var(--t3);margin-top:4px">Pre-market research brief — what happened, what matters, what to watch</div>
-</div>
-<div style="font-family:var(--fm);font-size:11px;color:var(--t3)" id="mn-time"></div>
-</div>
-<div class="panel" style="margin-bottom:16px">
-<div class="panel-h"><div class="ptitle">Generate Morning Note</div><span class="badge bc">EQUITY RESEARCH PLUGIN</span></div>
-<div class="panel-b">
-<div style="font-family:var(--fm);font-size:11px;color:var(--t2);margin-bottom:14px;line-height:1.6">
-          Select a ticker or enter any company. Generates a pre-market brief: overnight developments, key catalysts, model implications, and what to watch today.
-</div>
-<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
-<input id="mn-ticker" style="background:var(--s2);border:1px solid var(--b2);border-radius:8px;padding:10px 14px;font-family:var(--fm);font-size:16px;color:var(--text);outline:none;width:110px;text-transform:uppercase;letter-spacing:.1em" placeholder="BBW" onkeydown="if(event.key==='Enter')runMorningNote()"/>
-<select id="mn-focus" style="background:var(--s2);border:1px solid var(--b2);border-radius:8px;padding:10px 12px;font-family:var(--fm);font-size:11px;color:var(--text);outline:none">
-<option value="standard">Standard Morning Note</option>
-<option value="earnings">Earnings Day Brief</option>
-<option value="catalyst">Catalyst Update</option>
-<option value="model">Post-Model Update</option>
-</select>
-<button onclick="runMorningNote()" id="mn-btn" style="background:linear-gradient(135deg,var(--cyan),var(--purple));border:none;border-radius:8px;padding:10px 20px;font-family:var(--fd);font-size:12px;font-weight:700;color:#000;cursor:pointer;letter-spacing:.06em">GENERATE ☀</button>
-</div>
-<div class="pill-select">
-<button class="pill" onclick="setMN('BBW')">BBW</button>
-<button class="pill" onclick="setMN('EAT')">EAT</button>
-<button class="pill" onclick="setMN('CROX')">CROX</button>
-<button class="pill" onclick="setMN('GAW')">GAW</button>
-</div>
-</div>
-</div>
-<div id="mn-steps" class="step-indicator" style="display:none">
-<div class="step" id="mn-s1">1. Overnight data</div>
-<div class="step" id="mn-s2">2. Catalyst check</div>
-<div class="step" id="mn-s3">3. Model implications</div>
-<div class="step" id="mn-s4">4. Drafting note</div>
-</div>
-<div id="mn-result"></div>
-</div>
-<div id="tab-comps" style="display:none">
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-<div>
-<div style="font-size:26px;font-weight:800">📐 Comps Analysis</div>
-<div style="font-family:var(--fm);font-size:11px;color:var(--t3);margin-top:4px">Peer set trading multiples with consistent definitions — EV/EBITDA, P/E, P/S, EV/FCF</div>
-</div>
-</div>
-<div class="panel" style="margin-bottom:16px">
-<div class="panel-h"><div class="ptitle">Build Comps Table</div><span class="badge bc">FINANCIAL ANALYSIS PLUGIN</span></div>
-<div class="panel-b">
-<div style="font-family:var(--fm);font-size:11px;color:var(--t2);margin-bottom:14px;line-height:1.6">
-          Enter a ticker. Builds a full comps spread with the peer set, trading multiples, premium/discount to peers, and outlier flags. Consistent metric definitions across all peers.
-</div>
-<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
-<input id="comps-ticker" style="background:var(--s2);border:1px solid var(--b2);border-radius:8px;padding:10px 14px;font-family:var(--fm);font-size:16px;color:var(--text);outline:none;width:110px;text-transform:uppercase;letter-spacing:.1em" placeholder="BBW" onkeydown="if(event.key==='Enter')runComps()"/>
-<input id="comps-peers" style="background:var(--s2);border:1px solid var(--b2);border-radius:8px;padding:10px 14px;font-family:var(--fm);font-size:11px;color:var(--text);outline:none;flex:1;min-width:200px" placeholder="Custom peer set (optional) e.g. HASBRO, MAT, PLBY — leave blank to auto-select"/>
-<button onclick="runComps()" id="comps-btn" style="background:linear-gradient(135deg,var(--cyan),var(--purple));border:none;border-radius:8px;padding:10px 20px;font-family:var(--fd);font-size:12px;font-weight:700;color:#000;cursor:pointer;letter-spacing:.06em">BUILD COMPS →</button>
-</div>
-<div class="pill-select">
-<button class="pill" onclick="setComps('BBW','HAS,MAT,PLBY,FNAF')">BBW — Toy/Consumer</button>
-<button class="pill" onclick="setComps('EAT','CMG,DPZ,WING,SHAK,TXRH')">EAT — Restaurants</button>
-<button class="pill" onclick="setComps('CROX','NKE,DECK,SKX,ONON,BIRD')">CROX — Footwear</button>
-<button class="pill" onclick="setComps('GAW','')">GAW — Games/Hobby</button>
-</div>
-</div>
-</div>
-<div id="comps-result"></div>
-</div>
-<div id="tab-initiate" style="display:none">
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-<div>
-<div style="font-size:26px;font-weight:800">🚀 Initiating Coverage</div>
-<div style="font-family:var(--fm);font-size:11px;color:var(--t3);margin-top:4px">Full 5-task initiation workflow — business, industry, financials, valuation, recommendation</div>
-</div>
-</div>
-<div class="panel" style="margin-bottom:16px">
-<div class="panel-h"><div class="ptitle">Initiate Coverage</div><span class="badge bp">EQUITY RESEARCH PLUGIN — /initiate</span></div>
-<div class="panel-b">
-<div style="font-family:var(--fm);font-size:11px;color:var(--t2);margin-bottom:14px;line-height:1.6">
-          Runs the full 5-part initiation workflow: business overview → industry analysis → financial model → valuation → investment thesis with Buy/Hold/Sell recommendation and price target.
-</div>
-<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
-<input id="init-ticker" style="background:var(--s2);border:1px solid var(--b2);border-radius:8px;padding:10px 14px;font-family:var(--fm);font-size:16px;color:var(--text);outline:none;width:110px;text-transform:uppercase;letter-spacing:.1em" placeholder="BBW" onkeydown="if(event.key==='Enter')runInitiate()"/>
-<select id="init-perspective" style="background:var(--s2);border:1px solid var(--b2);border-radius:8px;padding:10px 12px;font-family:var(--fm);font-size:11px;color:var(--text);outline:none">
-<option value="buyside">Buy-side (internal research)</option>
-<option value="sellside">Sell-side (initiating report)</option>
-</select>
-<button onclick="runInitiate()" id="init-btn" style="background:linear-gradient(135deg,var(--cyan),var(--purple));border:none;border-radius:8px;padding:10px 20px;font-family:var(--fd);font-size:12px;font-weight:700;color:#000;cursor:pointer;letter-spacing:.06em">INITIATE →</button>
-</div>
-<div style="font-family:var(--fm);font-size:10px;color:var(--t3);margin-bottom:12px">⚠ Full initiation takes 60–90 seconds — runs 5 parallel research tasks</div>
-<div class="pill-select">
-<button class="pill" onclick="document.getElementById('init-ticker').value='BBW'">BBW</button>
-<button class="pill" onclick="document.getElementById('init-ticker').value='EAT'">EAT</button>
-<button class="pill" onclick="document.getElementById('init-ticker').value='CROX'">CROX</button>
-<button class="pill" onclick="document.getElementById('init-ticker').value='GAW'">GAW</button>
-</div>
-</div>
-</div>
-<div id="init-steps" class="step-indicator" style="display:none">
-<div class="step" id="init-s1">1. Business</div>
-<div class="step" id="init-s2">2. Industry</div>
-<div class="step" id="init-s3">3. Financials</div>
-<div class="step" id="init-s4">4. Valuation</div>
-<div class="step" id="init-s5">5. Thesis</div>
-</div>
-<div id="init-result"></div>
-</div>
-<!-- THESIS BUILDER TAB -->
-<div id="tab-thesis-builder" style="display:none">
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-<div>
-<div style="font-size:26px;font-weight:800">🧱 Thesis Builder</div>
-<div style="font-family:var(--fm);font-size:11px;color:var(--t3);margin-top:4px">Structured investment thesis — pillars, variant perception, key debates, price target</div>
-</div>
-</div>
-<div class="panel" style="margin-bottom:16px">
-<div class="panel-h"><div class="ptitle">Build Investment Thesis</div><span class="badge bp">EQUITY RESEARCH PLUGIN — /thesis</span></div>
-<div class="panel-b">
-<div style="font-family:var(--fm);font-size:11px;color:var(--t2);margin-bottom:14px;line-height:1.6">
-          Builds a structured thesis: 3–5 pillars, variant perception vs. consensus, key debates, bear case, price target derivation, and recommended position sizing framework.
-</div>
-<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
-<input id="tb-ticker" style="background:var(--s2);border:1px solid var(--b2);border-radius:8px;padding:10px 14px;font-family:var(--fm);font-size:16px;color:var(--text);outline:none;width:110px;text-transform:uppercase;letter-spacing:.1em" placeholder="BBW"/>
-<textarea id="tb-notes" style="flex:1;min-width:200px;background:var(--s2);border:1px solid var(--b2);border-radius:8px;padding:10px 14px;font-family:var(--fm);font-size:11px;color:var(--text);outline:none;resize:none;height:42px;line-height:1.5" placeholder="Your angle or key belief (optional) — e.g. 'adult collector segment underappreciated by market'"></textarea>
-<button onclick="runThesisBuilder()" id="tb-btn" style="background:linear-gradient(135deg,var(--cyan),var(--purple));border:none;border-radius:8px;padding:10px 20px;font-family:var(--fd);font-size:12px;font-weight:700;color:#000;cursor:pointer;letter-spacing:.06em">BUILD →</button>
-</div>
-<div class="pill-select">
-<button class="pill" onclick="setTB('BBW','adult collector segment and IP collaboration flywheel underappreciated')">BBW — Adult segment</button>
-<button class="pill" onclick="setTB('EAT','viral demand peak has passed, stock has not priced in normalization')">EAT — Normalization</button>
-<button class="pill" onclick="setTB('CROX','non-legacy silhouette rotation extends growth runway')">CROX — Silhouette rotation</button>
-<button class="pill" onclick="setTB('GAW','digital gaming funnel drives physical hobby demand')">GAW — Digital funnel</button>
-</div>
-</div>
-</div>
-<div id="tb-result"></div>
-</div>
-<div id="tab-market-research" style="display:none">
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-<div>
-<div style="font-size:26px;font-weight:800">🌐 Market Research</div>
-<div style="font-family:var(--fm);font-size:11px;color:var(--t3);margin-top:4px">Sector overview · competitive landscape · peer comps · ideas shortlist</div>
-</div>
-</div>
-<div class="panel" style="margin-bottom:16px">
-<div class="panel-h"><div class="ptitle">Sector / Theme Research</div><span class="badge bc">MARKET RESEARCHER PLUGIN</span></div>
-<div class="panel-b">
-<div style="font-family:var(--fm);font-size:11px;color:var(--t2);margin-bottom:14px;line-height:1.6">
-          Enter a sector, theme, or industry. Produces: market size + growth, competitive landscape, trading comps for the peer set, and a 3–5 name ideas shortlist with one-line thesis hooks.
-</div>
-<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
-<input id="mr-sector" style="background:var(--s2);border:1px solid var(--b2);border-radius:8px;padding:10px 14px;font-family:var(--fm);font-size:13px;color:var(--text);outline:none;flex:1;min-width:200px" placeholder="e.g. Specialty retail consumer brands, Global tabletop gaming, Casual dining restaurants" onkeydown="if(event.key==='Enter')runMarketResearch()"/>
-<button onclick="runMarketResearch()" id="mr-btn" style="background:linear-gradient(135deg,var(--cyan),var(--purple));border:none;border-radius:8px;padding:10px 20px;font-family:var(--fd);font-size:12px;font-weight:700;color:#000;cursor:pointer;letter-spacing:.06em">RESEARCH →</button>
-</div>
-<div class="pill-select">
-<button class="pill" onclick="setMR('Specialty consumer collectibles and experiential retail — adult segment')">Consumer Collectibles</button>
-<button class="pill" onclick="setMR('Casual and fast-casual dining restaurants — traffic and comp trends 2025-2026')">Casual Dining</button>
-<button class="pill" onclick="setMR('Athletic and lifestyle footwear — brand rotation and silhouette cycles')">Lifestyle Footwear</button>
-<button class="pill" onclick="setMR('Tabletop gaming and hobby miniatures — digital-to-physical demand funnel')">Tabletop Gaming</button>
-<button class="pill" onclick="setMR('IP-driven consumer products — licensing, collaboration, and demand spikes')">IP Consumer Products</button>
-</div>
-</div>
-</div>
-<div id="mr-steps" class="step-indicator" style="display:none">
-<div class="step" id="mr-s1">1. Industry overview</div>
-<div class="step" id="mr-s2">2. Competitive landscape</div>
-<div class="step" id="mr-s3">3. Peer comps</div>
-<div class="step" id="mr-s4">4. Ideas shortlist</div>
-</div>
-<div id="mr-result"></div>
-</div>
-<div id="tab-model-update" style="display:none">
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-<div>
-<div style="font-size:26px;font-weight:800">🔄 Model Update</div>
-<div style="font-family:var(--fm);font-size:11px;color:var(--t3);margin-top:4px">Post-earnings model refresh — revise estimates, flag changes, update price target</div>
-</div>
-</div>
-<div class="panel" style="margin-bottom:16px">
-<div class="panel-h"><div class="ptitle">Post-Earnings Model Update</div><span class="badge bo">EARNINGS REVIEWER PLUGIN — /model-update</span></div>
-<div class="panel-b">
-<div style="font-family:var(--fm);font-size:11px;color:var(--t2);margin-bottom:14px;line-height:1.6">
-          After earnings, updates the financial model. Takes reported actuals, compares vs. estimates and your prior model, revises forward estimates, and outputs a clean model change summary with new price target.
-</div>
-<div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-bottom:12px">
-<div>
-<div style="font-family:var(--fm);font-size:10px;color:var(--t3);margin-bottom:5px">TICKER</div>
-<input id="mu-ticker" style="background:var(--s2);border:1px solid var(--b2);border-radius:8px;padding:10px 14px;font-family:var(--fm);font-size:16px;color:var(--text);outline:none;width:100px;text-transform:uppercase;letter-spacing:.1em" placeholder="BBW"/>
-</div>
-<div style="flex:1;min-width:200px">
-<div style="font-family:var(--fm);font-size:10px;color:var(--t3);margin-bottom:5px">REPORTED RESULTS (paste key numbers or describe)</div>
-<textarea id="mu-actuals" style="width:100%;background:var(--s2);border:1px solid var(--b2);border-radius:8px;padding:10px 14px;font-family:var(--fm);font-size:11px;color:var(--text);outline:none;resize:none;height:80px;line-height:1.6" placeholder="e.g. EAT Q3 FY2026: Revenue $1.32B vs $1.29B est. EPS $2.87 vs $2.63 est. SSS +4.2% vs +3.1% est. Guidance raised FY2026 EPS to $11.50-$11.80 from $11.20-$11.60. Or paste full earnings summary."></textarea>
-</div>
-</div>
-<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
-<div style="flex:1;min-width:200px">
-<div style="font-family:var(--fm);font-size:10px;color:var(--t3);margin-bottom:5px">YOUR PRIOR ESTIMATES (optional — leave blank to use consensus)</div>
-<input id="mu-prior" style="width:100%;background:var(--s2);border:1px solid var(--b2);border-radius:8px;padding:10px 14px;font-family:var(--fm);font-size:11px;color:var(--text);outline:none" placeholder="e.g. My rev est: $1.31B, EPS est: $2.71, SSS: +3.5%"/>
-</div>
-<button onclick="runModelUpdate()" id="mu-btn" style="background:linear-gradient(135deg,var(--cyan),var(--purple));border:none;border-radius:8px;padding:10px 20px;font-family:var(--fd);font-size:12px;font-weight:700;color:#000;cursor:pointer;letter-spacing:.06em;align-self:flex-end">UPDATE MODEL →</button>
-</div>
-<div class="pill-select">
-<button class="pill" onclick="document.getElementById('mu-ticker').value='BBW'">BBW</button>
-<button class="pill" onclick="document.getElementById('mu-ticker').value='EAT'">EAT</button>
-<button class="pill" onclick="document.getElementById('mu-ticker').value='CROX'">CROX</button>
-<button class="pill" onclick="document.getElementById('mu-ticker').value='GAW'">GAW</button>
-</div>
-</div>
-</div>
-<div id="mu-result"></div>
-</div>
+  
+
 </main>
 <!-- Doc viewer modal — opened by clicking a doc chip in any tab's docs-bar -->
 <div class="doc-viewer-overlay" id="docViewerOverlay" onclick="closeDocViewer(event)">
@@ -1202,7 +890,6 @@ document.addEventListener('click',e=>{
     document.querySelectorAll('.search-results').forEach(r=>r.classList.remove('show'));
   }
 });
-
 
 // -- THESIS VALIDATOR -----------------------------------------
 async function validateThesis(){
@@ -2063,7 +1750,6 @@ function renderAll(ticker,data,fins,social,coverage,aligned,stockS,redditS,ytS,t
 // Loads each company tab exactly like signal_v6 go(), using the same renderAll
 var _compLoaded = {};
 
-
 // Build coverage object from hardcoded data for renderAll company-specific sections
 function buildCoverageObj(ticker) {
   if (ticker === 'BBW') {
@@ -2202,7 +1888,6 @@ async function loadCompanyTab(ticker) {
     loadDocLibrary(ticker);
   }, 500);
 }
-
 
 // -- LOOKUP
 // -- LOOKUP v4 (Render-first, signal_v6 rendering) ---------------------------
@@ -3148,7 +2833,6 @@ async function runLookup(){
   btn.disabled=false; btn.textContent='ANALYZE ->';
 }
 
-
 // Friendly translation of common AI errors. Used by both the lookup tab
 // (brief / news) and the chat bubble.
 function aiErrorMsg(e){
@@ -3326,7 +3010,6 @@ function closeDocViewer(e){
 document.addEventListener('keydown', function(e){
   if(e.key === 'Escape') closeDocViewer({target:{id:'docViewerOverlay'}});
 });
-
 
 // -- AI CHAT ---------------------------------------------------
 let chatOpen=false,chatHistory=[];
@@ -3680,7 +3363,6 @@ async function runModelUpdate(){
   clearPluginLoading('mu-btn','UPDATE MODEL \u2192');
 }
 
-
 // -- DOCUMENT LIBRARY HTML RENDERER ----------------------------------
 function renderDocPanel(ticker){
   var tl = ticker.toLowerCase();
@@ -3724,7 +3406,6 @@ function renderDocPanel(ticker){
   var askInput = document.getElementById('doclib-q-'+tl);
   if(askInput) askInput.onkeydown = function(e){ if(e.key==='Enter') askLibrary(ticker); };
 }
-
 
 // -- INIT ------------------------------------------------------
 

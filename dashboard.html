@@ -308,6 +308,12 @@ main{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:28px 40p
 .litem-url{font-family:var(--fm);font-size:9px;color:var(--t3);margin-top:4px}
 .litem-url a{color:var(--cyan);text-decoration:none;border-bottom:1px dotted rgba(0,229,255,.3)}
 .litem-url a:hover{border-bottom-color:var(--cyan)}
+.news-overview{font-size:13px;line-height:1.7;color:var(--text);padding:14px 18px;background:var(--s2);border-left:3px solid var(--cyan);border-radius:0 8px 8px 0;margin-bottom:18px}
+.news-section-h{font-family:var(--fm);font-size:9px;color:var(--cyan);letter-spacing:.12em;font-weight:700;margin:18px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--b1);text-transform:uppercase}
+.news-section-h.events{color:var(--purple);border-bottom-color:rgba(123,97,255,.18)}
+.no-data-warn{font-family:var(--fm);font-size:11px;color:var(--t2);padding:14px 16px;background:var(--s2);border-radius:6px;border-left:2px solid var(--yellow);line-height:1.65}
+.no-data-warn b{color:var(--yellow);font-weight:700}
+.no-data-warn code{background:var(--s1);padding:1px 6px;border-radius:3px;color:var(--text)}
 .hname{font-size:36px;font-weight:800;line-height:1;letter-spacing:-.02em}
 .alert-bar{margin-bottom:20px}
 .sigval{font-family:var(--fm);font-size:16px;font-weight:500;line-height:1.2}
@@ -2148,7 +2154,9 @@ function luSummary(s){
   if(!s) return null;
   var pct=s.pct_from_peak;
   var col=pct>-20?'var(--green)':pct>-50?'var(--yellow)':'var(--red)';
-  return {pct:pct,col:col,trend:s.trend_12w,peak:s.peak_value,peakDate:s.peak_date,current:s.current_value};
+  var trend=s.trend_12w;
+  var trendCol=trend==='rising'?'var(--green)':trend==='falling'?'var(--red)':trend==='flat'?'var(--yellow)':'var(--t3)';
+  return {pct:pct,col:col,trend:trend,trendCol:trendCol,peak:s.peak_value,peakDate:s.peak_date,current:s.current_value};
 }
 
 // -------- LOOKUP helpers (cold-start handling + advanced fields) ----------
@@ -2308,15 +2316,20 @@ async function runLookup(){
   );
 
   var newsP=callClaude(
-    'Use web search to find the 5 most recent news articles about '+ticker+' ('+companyName+'). '
-    +'For each article: open the link, READ the actual content, then summarize what is in the article — not just the headline. '
-    +'Return as a JSON array only (no markdown, no commentary): '
-    +'[{"title":"exact headline","publisher":"outlet (e.g. Reuters, Bloomberg, WSJ)","date":"YYYY-MM-DD or \\"May 16 2026\\"","url":"https://...","sentiment":"bullish|bearish|neutral","summary":"2-3 sentences describing what the article actually reports — specific numbers, quotes, named people, events, what was said and by whom. NOT a restatement of the headline.","signal":"one-sentence equity-research takeaway"}]. '
-    +'5 items. JSON array only.',
-    'You are an equity research analyst. Return ONLY a valid JSON array starting with [ and ending with ]. '
-    +'Each "summary" must reflect the actual content of the article you read — specific facts, numbers, names, quotes. '
-    +'If you cannot access an article, skip it and find another. Do not fabricate content.',
-    3500
+    'Use web search to research '+ticker+' ('+companyName+'). Return a JSON object with three keys: overview, recent, events.\n\n'
+    +'1. "overview" — 3-4 sentences summarizing what is happening with '+companyName+' in the news right now. Major themes, recent developments, overall sentiment direction. Be specific and reference actual stories, not generic descriptions of the company.\n\n'
+    +'2. "recent" — the 5 most recent news articles (last ~30 days). For each: OPEN the link, READ the actual article content, then summarize what the article reports — specific numbers, quotes, named people, events. NOT a restatement of the headline.\n\n'
+    +'3. "events" — 3-5 significant historical events about '+companyName+' over the past 12 months that materially impacted the stock or business (earnings beats/misses, product launches, M&A, leadership changes, scandals, partnerships). For each: when it happened, what happened, and how the market reacted.\n\n'
+    +'Return JSON only (no markdown, no commentary):\n'
+    +'{\n'
+    +'  "overview": "3-4 sentence summary referencing real recent stories",\n'
+    +'  "recent": [{"title":"exact headline","publisher":"outlet (Reuters/Bloomberg/WSJ/etc)","date":"YYYY-MM-DD","url":"https://...","sentiment":"bullish|bearish|neutral","summary":"2-3 sentences of actual article content","signal":"1-sentence equity takeaway"}],\n'
+    +'  "events": [{"date":"YYYY-MM","headline":"short event description","what_happened":"2-3 sentence detail of what occurred","market_impact":"1-2 sentences on stock/business reaction"}]\n'
+    +'}',
+    'You are an equity research analyst. Return ONLY a valid JSON object starting with { and ending with }. '
+    +'Every "summary" must reflect the actual article content you read. Every "event" must be a real verified material event with an accurate date. '
+    +'If you cannot access an article, skip it. Do not fabricate.',
+    6000
   );
 
   // Build the HTML structure immediately
@@ -2336,6 +2349,45 @@ async function runLookup(){
   h+='<div id="lu-brief-wrap" class="aibrief" style="margin-bottom:16px">'
     +'<div class="ailbl"><div class="aidot"></div>INTELLIGENCE BRIEF -- '+(isCov?'COVERAGE':'LIVE RESEARCH')+'</div>'
     +'<div class="aitext" id="lu-brief">Generating...</div></div>';
+
+  // NEWS INTELLIGENCE — promoted to the top so the human story comes first.
+  // Container holds: Claude-written overview + 5 recent articles read end-to-end
+  // + 3-5 significant historical events. Filled in by the Promise.all callback.
+  h+=luPanel('News Intelligence','LIVE — RECENT + HISTORICAL','bg',
+    luExplain(
+      'A live read by Claude (with web search) of recent news + the past year of major events for this company. The OVERVIEW summarises what is happening right now. RECENT lists 5 articles from the last ~30 days, each with a 2-3 sentence summary of the actual article content (not just the headline). SIGNIFICANT EVENTS lists 3-5 material events from the past 12 months with the market reaction.',
+      'Skim OVERVIEW first for the big picture. Then RECENT for what is moving the stock right now. Then EVENTS for context — knowing the company missed Q2 then launched a new product helps interpret today\'s noise.',
+      'Headlines without context lie. By forcing Claude to open and read each article and stitch in 12-month event history, this turns news into a usable narrative rather than a list of clickbait. Cross-check with the Reddit / Trends / StockTwits panels below to see whether social signals confirm what the news is saying.'
+    )
+    +'<div id="lu-news"><div style="font-family:var(--fm);font-size:11px;color:var(--t3)">Reading articles + researching past 12 months… (this takes longer than the rest of the page)</div></div>'
+  );
+
+  // News volume chart — paired with the intelligence panel so all news lives together.
+  var newsData=(soc.series&&soc.series.news)||[];
+  var newsSum=luSummary(sumFor('News'));
+  var newsHtml='';
+  if(newsData.length>3){
+    var nLast=newsData[newsData.length-1]||{};
+    newsHtml='<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Weekly news article count mentioning the ticker — source: '+((soc.inputs&&soc.inputs.news_source)||(d&&d.social&&d.social.inputs&&d.social.inputs.news_source)||'GDELT/NewsAPI')+'</div>'
+      +'<div style="height:100px"><canvas id="lu-news-chart"></canvas></div>'
+      +luStatRow([
+        {l:'Trend',v:newsSum?newsSum.trend:'--',c:newsSum?newsSum.trendCol:'var(--t3)'},
+        {l:'vs Peak',v:newsSum?newsSum.pct.toFixed(0)+'%':'--',c:newsSum?newsSum.col:'var(--t3)'},
+        {l:'Peak',v:newsSum&&newsSum.peak!=null?Math.round(newsSum.peak)+' articles/wk':'--',s:newsSum?newsSum.peakDate:''},
+        {l:'Current',v:nLast.count!=null?nLast.count+' articles/wk':'--'}
+      ]);
+  } else if(newsData.length){
+    newsHtml='<div class="no-data-warn"><b>Only '+newsData.length+' week of news data returned.</b> Cannot compute a 12-week trend with so little history. News APIs (GDELT, NewsAPI) have variable historical depth — for less-covered tickers you only get the last week or two. Recent + historical events from the panel above use Claude+web-search, not this API, so they should still be useful.</div>';
+  } else {
+    newsHtml='<div class="no-data-warn"><b>No news volume data returned.</b> The GDELT / NewsAPI fetcher returned zero rows. This usually means the ticker has very limited news coverage in those sources, not that there is no news — see the panel above for Claude-fetched recent + historical news.</div>';
+  }
+  h+=luPanel('News Volume Trend','TIME SERIES','bo',
+    luExplain(
+      'Weekly count of news articles mentioning the ticker, pulled from GDELT or NewsAPI. This is the volume signal — how much the company is being written about — separate from the AI-summarised content above.',
+      'Bars = articles per week. Sustained baseline = normal coverage. Spikes = news cycles (earnings, M&A, scandals, launches). Falling coverage in a normally-active name is often a watch flag.',
+      'News volume is a confirmation signal. A stock running with no news coverage is suspicious. A stock falling with no news is often a recovery candidate. Pair with the Significant Events list above to know what the spikes actually were.'
+    )
+    +newsHtml);
 
   // Hero
   h+='<div class="hero" style="margin-bottom:16px">'
@@ -2378,8 +2430,8 @@ async function runLookup(){
   if(aligned.length>4){
     h+=luPanel('Unified Signal Timeline','ALL SIGNALS NORMALIZED 0-100','bc',
       luExplain(
-        'Stock price (cyan) alongside three social signals (Trends in purple, StockTwits in orange, Wikipedia in blue), all rescaled 0-100 so they share one axis.',
-        'Look for the social lines moving <i>before</i> the stock line. Social peaking while stock keeps climbing is a divergence — historically a topping signal. Social rising while stock is flat often precedes upside.',
+        '<b style="color:#00e5ff">Cyan</b> = stock price. <b style="color:#7b61ff">Purple</b> = Google search interest for the brand (0-100 scale, weekly). <b style="color:#ff6b35">Orange</b> = StockTwits message volume per week. <b style="color:#4a9eff">Blue</b> = Wikipedia article pageviews per week. All four lines rescaled 0-100 so they share one axis and you can compare shapes, not absolute values.',
+        'Look for the coloured lines moving <i>before</i> the cyan line. Search/StockTwits/Wikipedia peaking while stock keeps climbing is a divergence — historically a topping signal. Coloured lines rising while stock is flat often precedes upside.',
         'Social demand typically leads price by 2-8 weeks. This is the single most useful chart for spotting inflection points the market has not priced yet.'
       )
       +'<div style="height:200px"><canvas id="lu-unified"></canvas></div>'
@@ -2464,11 +2516,6 @@ async function runLookup(){
   h+=luPanel('Earnings History',fins.nextEarningsDate?'NEXT: '+fins.nextEarningsDate:'HISTORY','bp',ehHtml);
   h+='</div>';
 
-  // News placeholder
-  h+=luPanel('News Intelligence','LIVE','bg',
-    '<div id="lu-news"><div style="font-family:var(--fm);font-size:11px;color:var(--t3)">Loading news...</div></div>'
-  );
-
   // DEMAND INTELLIGENCE section
   h+='<div class="section-lbl" style="margin:20px 0 12px">DEMAND INTELLIGENCE</div>';
 
@@ -2481,7 +2528,7 @@ async function runLookup(){
     redditHtml='<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Weekly Reddit mention volume — aggregated across general finance subs + brand-specific subs</div>'
       +'<div style="height:120px"><canvas id="lu-reddit-chart"></canvas></div>'
       +luStatRow([
-        {l:'Trend',v:redditSum?redditSum.trend:'--',c:redditSum&&redditSum.trend==='rising'?'var(--green)':'var(--red)'},
+        {l:'Trend',v:redditSum?redditSum.trend:'--',c:redditSum?redditSum.trendCol:'var(--t3)'},
         {l:'vs Peak',v:redditSum?redditSum.pct.toFixed(0)+'%':'--',c:redditSum?redditSum.col:'var(--t3)'},
         {l:'Peak',v:redditSum&&redditSum.peak!=null?Math.round(redditSum.peak)+' mentions/wk':'--',s:redditSum?redditSum.peakDate:''},
         {l:'Current',v:rCurrent!=null?rCurrent+' mentions/wk':'--'}
@@ -2511,7 +2558,7 @@ async function runLookup(){
     ytHtml='<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Weekly YouTube views (bars) + video uploads (line) — creator + commentary signal</div>'
       +'<div style="height:120px"><canvas id="lu-yt-chart"></canvas></div>'
       +luStatRow([
-        {l:'Views Trend',v:ytViewsSum?ytViewsSum.trend:'--',c:ytViewsSum&&ytViewsSum.trend==='rising'?'var(--green)':'var(--red)'},
+        {l:'Views Trend',v:ytViewsSum?ytViewsSum.trend:'--',c:ytViewsSum?ytViewsSum.trendCol:'var(--t3)'},
         {l:'vs Peak',v:ytViewsSum?ytViewsSum.pct.toFixed(0)+'%':'--',c:ytViewsSum?ytViewsSum.col:'var(--t3)'},
         {l:'Peak Views',v:ytViewsSum&&ytViewsSum.peak!=null?Math.round(ytViewsSum.peak).toLocaleString()+' /wk':'--',s:ytViewsSum?ytViewsSum.peakDate:''},
         {l:'Current',v:ytLast.views!=null?Math.round(ytLast.views).toLocaleString()+' views, '+(ytLast.videos||0)+' vids':'--'}
@@ -2530,7 +2577,7 @@ async function runLookup(){
       'Views measure audience demand for content about the company. Uploads measure creator interest. <b>Both falling</b> = fading mindshare. <b>Views up but uploads flat</b> = audience growing without new supply (often bullish). <b>Uploads up but views flat</b> = creators piling on but no one watching (often a top).',
       'YouTube is the strongest leading indicator for consumer brands with active creator ecosystems (Crocs collabs, Warhammer hobbyists, IP-driven names like BBW). Spikes typically coincide with product launches or viral moments.'
     )
-    +(ytHtml||'<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">No YouTube data</div>'));
+    +(ytHtml||'<div class="no-data-warn"><b>YouTube returned no data.</b> Common causes, in order of likelihood: (1) <code>YOUTUBE_API_KEY</code> is not set on Render — check the Environment tab for the service; (2) the daily 10,000-unit quota was exhausted (one full lookup can cost up to ~2,500 units, so a handful of lookups in a day will run it out — resets at midnight Pacific); (3) the search query returned no matching videos for this brand. The original "social intel" worked because the key was set and quota was fresh.</div>'));
 
   // StockTwits (primary social signal)
   var twitsData=(soc.series&&soc.series.stocktwits)||[];
@@ -2549,7 +2596,7 @@ async function runLookup(){
       +'<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Weekly message volume (bars) + bullish ratio (line) -- 2-year history</div>'
       +'<div style="height:120px"><canvas id="lu-twits-chart"></canvas></div>'
       +luStatRow([
-        {l:'Trend',v:twitsSum?twitsSum.trend:'--',c:twitsSum&&twitsSum.trend==='rising'?'var(--green)':'var(--red)'},
+        {l:'Trend',v:twitsSum?twitsSum.trend:'--',c:twitsSum?twitsSum.trendCol:'var(--t3)'},
         {l:'vs Peak',v:twitsSum?twitsSum.pct.toFixed(0)+'%':'--',c:twitsSum?twitsSum.col:'var(--t3)'},
         {l:'Peak',v:twitsSum&&twitsSum.peak?twitsSum.peak+' msgs/wk':'--',s:twitsSum?twitsSum.peakDate:''},
         {l:'Current',v:twitsData.length?twitsData[twitsData.length-1].count+' msgs/wk':'--'}
@@ -2578,7 +2625,7 @@ async function runLookup(){
     trendsHtml='<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Weekly Google search interest (0-100 scale, 100 = peak interest in period)</div>'
       +'<div style="height:120px"><canvas id="lu-trends-chart"></canvas></div>'
       +luStatRow([
-        {l:'Trend',v:trendsSum?trendsSum.trend:'--',c:trendsSum&&trendsSum.trend==='rising'?'var(--green)':'var(--red)'},
+        {l:'Trend',v:trendsSum?trendsSum.trend:'--',c:trendsSum?trendsSum.trendCol:'var(--t3)'},
         {l:'vs Peak',v:trendsSum?trendsSum.pct.toFixed(0)+'%':'--',c:trendsSum?trendsSum.col:'var(--t3)'},
         {l:'Peak',v:trendsSum&&trendsSum.peak?trendsSum.peak+'/100':'--',s:trendsSum?trendsSum.peakDate:''},
         {l:'Current',v:trendsSum&&trendsSum.current?trendsSum.current+'/100':'--'}
@@ -2608,7 +2655,7 @@ async function runLookup(){
     wikiHtml='<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Weekly Wikipedia page views -- brand awareness proxy</div>'
       +'<div style="height:100px"><canvas id="lu-wiki-chart"></canvas></div>'
       +luStatRow([
-        {l:'Trend',v:wikiSum?wikiSum.trend:'--'},
+        {l:'Trend',v:wikiSum?wikiSum.trend:'--',c:wikiSum?wikiSum.trendCol:'var(--t3)'},
         {l:'vs Peak',v:wikiSum?wikiSum.pct.toFixed(0)+'%':'--',c:wikiSum?wikiSum.col:'var(--t3)'},
         {l:'Peak',v:wikiSum&&wikiSum.peak?Math.round(wikiSum.peak).toLocaleString()+' views/wk':'--'},
         {l:'Current',v:wikiSum&&wikiSum.current?Math.round(wikiSum.current).toLocaleString()+' views/wk':'--'}
@@ -2639,7 +2686,7 @@ async function runLookup(){
     secHtml='<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Weekly SEC filing count — 8-K, 10-Q, 10-K, Form 4 (insider), Form 13G/13D, S-1, etc.</div>'
       +'<div style="height:100px"><canvas id="lu-sec-chart"></canvas></div>'
       +luStatRow([
-        {l:'Trend',v:secSum?secSum.trend:'--',c:secSum&&secSum.trend==='rising'?'var(--green)':'var(--red)'},
+        {l:'Trend',v:secSum?secSum.trend:'--',c:secSum?secSum.trendCol:'var(--t3)'},
         {l:'vs Peak',v:secSum?secSum.pct.toFixed(0)+'%':'--',c:secSum?secSum.col:'var(--t3)'},
         {l:'Peak',v:secSum&&secSum.peak!=null?Math.round(secSum.peak)+' filings/wk':'--',s:secSum?secSum.peakDate:''},
         {l:'Current',v:sLast.count!=null?sLast.count+' filings/wk':'--'}
@@ -2652,29 +2699,6 @@ async function runLookup(){
       'Insider behavior and unexpected filing activity often precede market-moving disclosures by days. This panel tells you when to go read EDGAR, not what is in the filings.'
     )
     +(secHtml||'<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">No SEC data</div>'));
-
-  // News article coverage volume
-  var newsData=(soc.series&&soc.series.news)||[];
-  var newsSum=luSummary(sumFor('News'));
-  var newsHtml='';
-  if(newsData.length){
-    var nLast=newsData[newsData.length-1]||{};
-    newsHtml='<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Weekly news article count mentioning the ticker — source: '+((soc.inputs&&soc.inputs.news_source)||(d&&d.social&&d.social.inputs&&d.social.inputs.news_source)||'GDELT/NewsAPI')+'</div>'
-      +'<div style="height:100px"><canvas id="lu-news-chart"></canvas></div>'
-      +luStatRow([
-        {l:'Trend',v:newsSum?newsSum.trend:'--',c:newsSum&&newsSum.trend==='rising'?'var(--green)':'var(--red)'},
-        {l:'vs Peak',v:newsSum?newsSum.pct.toFixed(0)+'%':'--',c:newsSum?newsSum.col:'var(--t3)'},
-        {l:'Peak',v:newsSum&&newsSum.peak!=null?Math.round(newsSum.peak)+' articles/wk':'--',s:newsSum?newsSum.peakDate:''},
-        {l:'Current',v:nLast.count!=null?nLast.count+' articles/wk':'--'}
-      ]);
-  }
-  h+=luPanel('News Article Coverage','GDELT / NEWSAPI','bo',
-    luExplain(
-      'Weekly count of news articles mentioning the ticker, from GDELT or NewsAPI (whichever returned data — shown in the subtitle).',
-      'Volume bars. Sustained baseline = normal coverage; spikes = news cycles (earnings, M&A, scandals, product launches). <b>Falling coverage in a normally-active name</b> = company falling out of the news cycle, often a watch flag.',
-      'News attention coincides with — and sometimes precedes — stock-price events. Useful as a confirmation signal: a stock running on no news coverage is suspicious; a stock falling with no news is often a recovery candidate.'
-    )
-    +(newsHtml||'<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">No news data</div>'));
 
   // StockTwits sentiment chart (bullish ratio over time, separate from volume)
   var sentTagged=twitsData.filter(function(r){return (Number(r.bullish)||0)+(Number(r.bearish)||0)>0;});
@@ -2732,30 +2756,59 @@ async function runLookup(){
     var briefEl=document.getElementById('lu-brief');
     if(briefEl) briefEl.textContent=brief;
 
-    // Update news
+    // Update news: parse the {overview, recent, events} object, fall back to
+    // the old array shape if Claude returned the legacy format.
     var newsEl=document.getElementById('lu-news');
     if(newsEl){
+      var renderArticle=function(n){
+        var sc=n.sentiment==='bullish'?'bg':n.sentiment==='bearish'?'br':'bc';
+        var titleHtml=n.url
+          ? '<a href="'+n.url+'" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px dotted var(--t3)">'+(n.title||'')+'</a>'
+          : (n.title||'');
+        return '<div class="litem">'
+          +'<div class="litem-title">'+titleHtml+'</div>'
+          +'<div class="litem-meta">'
+          +'<span class="litem-src">'+(n.publisher||'')+'</span>'
+          +'<span>'+(n.date||'')+'</span>'
+          +'<span class="badge '+sc+'">'+(n.sentiment||'neutral')+'</span>'
+          +'</div>'
+          +(n.summary?'<div class="litem-summary">'+n.summary+'</div>':'')
+          +(n.signal?'<div class="litem-signal '+(n.sentiment==='bullish'?'pos':n.sentiment==='bearish'?'neg':'')+'">'+n.signal+'</div>':'')
+          +'</div>';
+      };
+      var renderEvent=function(e){
+        return '<div class="litem">'
+          +'<div class="litem-title">'+(e.headline||'')+'</div>'
+          +'<div class="litem-meta"><span style="color:var(--purple)">'+(e.date||'')+'</span></div>'
+          +(e.what_happened?'<div class="litem-summary">'+e.what_happened+'</div>':'')
+          +(e.market_impact?'<div class="litem-signal" style="color:var(--purple);background:rgba(123,97,255,.08)">'+e.market_impact+'</div>':'')
+          +'</div>';
+      };
       try{
-        var s=newsRaw.indexOf('['); var e2=newsRaw.lastIndexOf(']');
-        var items=JSON.parse(newsRaw.slice(s,e2+1));
-        newsEl.innerHTML=items.map(function(n){
-          var sc=n.sentiment==='bullish'?'bg':n.sentiment==='bearish'?'br':'bc';
-          var titleHtml=n.url
-            ? '<a href="'+n.url+'" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px dotted var(--t3)">'+n.title+'</a>'
-            : n.title;
-          return '<div class="litem">'
-            +'<div class="litem-title">'+titleHtml+'</div>'
-            +'<div class="litem-meta">'
-            +'<span class="litem-src">'+n.publisher+'</span>'
-            +'<span>'+n.date+'</span>'
-            +'<span class="badge '+sc+'">'+n.sentiment+'</span>'
-            +'</div>'
-            +(n.summary?'<div class="litem-summary">'+n.summary+'</div>':'')
-            +(n.signal?'<div class="litem-signal '+(n.sentiment==='bullish'?'pos':n.sentiment==='bearish'?'neg':'')+'">'+n.signal+'</div>':'')
-            +'</div>';
-        }).join('');
+        var data=null;
+        var objStart=newsRaw.indexOf('{'), objEnd=newsRaw.lastIndexOf('}');
+        var arrStart=newsRaw.indexOf('['), arrEnd=newsRaw.lastIndexOf(']');
+        // Prefer object form if it parses; fall back to array form for legacy.
+        if(objStart>-1 && objEnd>objStart){
+          try { data=JSON.parse(newsRaw.slice(objStart,objEnd+1)); } catch(_){}
+        }
+        if(!data && arrStart>-1 && arrEnd>arrStart){
+          data={recent:JSON.parse(newsRaw.slice(arrStart,arrEnd+1)),events:[],overview:''};
+        }
+        if(!data) throw new Error('no parsable JSON');
+        var html='';
+        if(data.overview) html+='<div class="news-overview">'+data.overview+'</div>';
+        if(data.recent && data.recent.length){
+          html+='<div class="news-section-h">RECENT — LAST 30 DAYS · '+data.recent.length+' ARTICLES</div>';
+          html+=data.recent.map(renderArticle).join('');
+        }
+        if(data.events && data.events.length){
+          html+='<div class="news-section-h events">SIGNIFICANT EVENTS — PAST 12 MONTHS · '+data.events.length+' EVENTS</div>';
+          html+=data.events.map(renderEvent).join('');
+        }
+        newsEl.innerHTML=html||'<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">No news returned</div>';
       }catch(e){
-        newsEl.innerHTML='<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">Could not load news</div>';
+        newsEl.innerHTML='<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">Could not load news ('+(e.message||'parse error')+')</div>';
       }
     }
   }).catch(function(e){ console.log('AI error:',e); });
@@ -2774,7 +2827,7 @@ async function runLookup(){
       var normWiki=luNorm(aAll.map(function(r){return r.wikipedia;}));
       _luMk('lu-unified',{type:'line',data:{labels:aLabels,datasets:[
         {label:'Stock',data:normStock,borderColor:'#00e5ff',backgroundColor:'rgba(0,229,255,.06)',borderWidth:2,pointRadius:0,tension:.3,fill:true,yAxisID:'y'},
-        {label:'Trends',data:normTrends,borderColor:'#7b61ff',backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,tension:.3,yAxisID:'y'},
+        {label:'Google search interest',data:normTrends,borderColor:'#7b61ff',backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,tension:.3,yAxisID:'y'},
         {label:'StockTwits',data:normTwits,borderColor:'#ff6b35',backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,tension:.3,borderDash:[4,2],yAxisID:'y'},
         {label:'Wikipedia',data:normWiki,borderColor:'#4a9eff',backgroundColor:'transparent',borderWidth:1,pointRadius:0,tension:.3,borderDash:[2,4],yAxisID:'y'}
       ]},options:{

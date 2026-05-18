@@ -328,6 +328,31 @@ main{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:28px 40p
 .doc-chip-x:hover{color:var(--red)}
 .docs-empty{font-family:var(--fm);font-size:10px;color:var(--t3);font-style:italic}
 .docs-loading{font-family:var(--fm);font-size:10px;color:var(--cyan)}
+.doc-chip-name.clickable{cursor:pointer;text-decoration:underline;text-decoration-color:var(--b2);text-underline-offset:2px;transition:color .15s,text-decoration-color .15s}
+.doc-chip-name.clickable:hover{color:var(--cyan);text-decoration-color:var(--cyan)}
+.doc-viewer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:300;display:none;align-items:center;justify-content:center;backdrop-filter:blur(10px)}
+.doc-viewer-overlay.open{display:flex}
+.doc-viewer{background:var(--s1);border:1px solid var(--b2);border-radius:14px;width:min(92vw,920px);max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.6)}
+.doc-viewer-h{padding:14px 20px;border-bottom:1px solid var(--b1);display:flex;justify-content:space-between;align-items:center;background:var(--s2);gap:14px}
+.doc-viewer-title-row{flex:1;min-width:0}
+.doc-viewer-title{font-family:var(--fm);font-size:13px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.doc-viewer-meta{font-family:var(--fm);font-size:10px;color:var(--t3);margin-top:2px}
+.doc-viewer-close{background:none;border:none;color:var(--t3);font-size:20px;cursor:pointer;padding:0 6px;flex:0 0 auto}
+.doc-viewer-close:hover{color:var(--text)}
+.doc-viewer-body{flex:1;overflow-y:auto;padding:20px 24px;font-family:var(--fm);font-size:12px;color:var(--text);line-height:1.7;white-space:pre-wrap;word-wrap:break-word}
+.msg.ai p{margin:0 0 8px 0}
+.msg.ai p:last-child{margin-bottom:0}
+.msg.ai ul.md-ul,.msg.ai ol.md-ol{margin:6px 0;padding-left:20px}
+.msg.ai li{margin:3px 0}
+.msg.ai h3.md-h,.msg.ai h4.md-h{font-size:13px;font-weight:700;margin:10px 0 4px;color:var(--text)}
+.msg.ai code.md-code{background:rgba(255,255,255,.07);padding:1px 5px;border-radius:3px;font-family:var(--fm);font-size:11px}
+.msg.ai pre.md-pre{background:rgba(0,0,0,.3);padding:8px 12px;border-radius:6px;overflow-x:auto;margin:6px 0;font-family:var(--fm);font-size:11px}
+.msg.ai pre.md-pre code{background:none;padding:0}
+.msg.ai strong{font-weight:700;color:var(--text)}
+.msg.ai em{font-style:italic}
+.ai-toolbar{display:flex;gap:6px;align-items:center}
+.ai-clear-btn{background:none;border:1px solid var(--b2);color:var(--t3);font-family:var(--fm);font-size:9px;letter-spacing:.06em;padding:3px 8px;border-radius:5px;cursor:pointer;transition:all .15s}
+.ai-clear-btn:hover{border-color:var(--red);color:var(--red)}
 .hname{font-size:36px;font-weight:800;line-height:1;letter-spacing:-.02em}
 .alert-bar{margin-bottom:20px}
 .sigval{font-family:var(--fm);font-size:16px;font-weight:500;line-height:1.2}
@@ -864,15 +889,31 @@ Drop a PDF / TXT here or click to browse — attaches to whichever ticker you ju
 <div id="mu-result"></div>
 </div>
 </main>
+<!-- Doc viewer modal — opened by clicking a doc chip in any tab's docs-bar -->
+<div class="doc-viewer-overlay" id="docViewerOverlay" onclick="closeDocViewer(event)">
+<div class="doc-viewer">
+<div class="doc-viewer-h">
+<div class="doc-viewer-title-row">
+<span class="doc-viewer-title" id="docViewerTitle">—</span>
+<div class="doc-viewer-meta" id="docViewerMeta"></div>
+</div>
+<button class="doc-viewer-close" onclick="closeDocViewer()" aria-label="Close">✕</button>
+</div>
+<div class="doc-viewer-body" id="docViewerBody">Loading…</div>
+</div>
+</div>
 <div class="ai-chat">
 <button class="ai-fab" id="aiFab" onclick="toggleChat()" title="Ask the dashboard AI" aria-label="Open dashboard AI">💬</button>
 <div class="ai-window" id="aiWindow">
 <div class="ai-win-h">
 <div class="ai-win-title"><div class="ai-dot"></div>Dashboard Intelligence</div>
+<div class="ai-toolbar">
+<button class="ai-clear-btn" onclick="clearChat()" title="Clear conversation">CLEAR</button>
 <button class="ai-close" onclick="toggleChat()">✕</button>
 </div>
+</div>
 <div class="ai-messages" id="aiMessages">
-<div class="msg ai">Hi! I'm your dashboard AI. Ask me anything about your coverage — signals, thesis checks, comparisons, or what to watch this week.</div>
+<div class="msg ai">Hi! I'm your dashboard AI. I see whichever tab you're on, your live signal data, and any documents you've uploaded for the current ticker. Ask follow-ups freely — I keep the thread in mind.</div>
 <div style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0">
 <button class="chip" onclick="askQuick('What is the strongest demand signal across my coverage this week?')">Strongest signal?</button>
 <button class="chip" onclick="askQuick('Which company has the highest normalization risk?')">Highest risk?</button>
@@ -3149,7 +3190,7 @@ async function refreshDocsList(ticker){
         var fnSafe = (d.filename||'').replace(/'/g, "\\'").replace(/"/g, '&quot;');
         var sizeKB = (d.size/1024).toFixed(d.size>10240 ? 0 : 1);
         return '<span class="doc-chip" title="' + d.filename + ' · ' + d.char_count.toLocaleString() + ' chars extracted · uploaded ' + (d.uploaded||'').slice(0,16).replace('T',' ') + '">'
-          + '<span class="doc-chip-name">' + d.filename + '</span>'
+          + '<span class="doc-chip-name clickable" onclick="openDocViewer(\'' + ticker + '\',\'' + fnSafe + '\')" title="Click to read">' + d.filename + '</span>'
           + '<span class="doc-chip-size">' + sizeKB + 'KB</span>'
           + '<span class="doc-chip-x" onclick="deleteDocConfirm(\'' + ticker + '\',\'' + fnSafe + '\')" title="Delete">×</span>'
           + '</span>';
@@ -3259,6 +3300,33 @@ window.addEventListener('load', function(){
   ['BBW','EAT','CROX','GAW'].forEach(refreshDocsList);
 });
 
+// =========== DOC VIEWER MODAL ===========
+async function openDocViewer(ticker, filename){
+  var overlay = document.getElementById('docViewerOverlay');
+  document.getElementById('docViewerTitle').textContent = filename;
+  document.getElementById('docViewerMeta').textContent = ticker + ' · loading…';
+  document.getElementById('docViewerBody').textContent = 'Loading…';
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  try {
+    var r = await fetch('/api/docs/' + encodeURIComponent(ticker) + '/' + encodeURIComponent(filename) + '/text');
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    var data = await r.json();
+    document.getElementById('docViewerMeta').textContent = ticker + ' · ' + data.char_count.toLocaleString() + ' chars extracted';
+    document.getElementById('docViewerBody').textContent = data.text || '(No extracted text — this is likely an image-only PDF that would need OCR.)';
+  } catch(e){
+    document.getElementById('docViewerBody').textContent = 'Failed to load: ' + e.message;
+  }
+}
+function closeDocViewer(e){
+  if(e && e.target && e.target.id !== 'docViewerOverlay' && !e.target.classList.contains('doc-viewer-close')) return;
+  document.getElementById('docViewerOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+document.addEventListener('keydown', function(e){
+  if(e.key === 'Escape') closeDocViewer({target:{id:'docViewerOverlay'}});
+});
+
 
 // -- AI CHAT ---------------------------------------------------
 let chatOpen=false,chatHistory=[];
@@ -3339,6 +3407,68 @@ function buildChatContext(){
 
   return lines.join('\n');
 }
+
+// chatHistory keeps the full back-and-forth so follow-ups have context.
+// Capped at 20 messages so input tokens don't balloon as the session goes on.
+const CHAT_MAX_TURNS = 20;
+
+function clearChat(){
+  chatHistory = [];
+  document.getElementById('aiMessages').innerHTML =
+    '<div class="msg ai">Cleared. New conversation — I have no memory of previous turns now.</div>';
+}
+
+// Escape HTML so a user-typed <script> doesn't execute when echoed back.
+function _escapeHtml(s){
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// Tiny markdown renderer for Claude's responses. Handles **bold**, *italic*,
+// `code`, ```code blocks```, headers (## / ###), bullet + numbered lists,
+// paragraphs. HTML in the input is escaped first.
+function renderMarkdown(text){
+  if(!text) return '';
+  var h = _escapeHtml(text);
+  h = h.replace(/```([\s\S]*?)```/g, function(_, c){
+    return '<pre class="md-pre"><code>' + c.replace(/^\n/, '') + '</code></pre>';
+  });
+  h = h.replace(/`([^`\n]+)`/g, '<code class="md-code">$1</code>');
+  h = h.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+  h = h.replace(/(^|[\s(])\*([^*\n]+)\*(?=[\s).,;:!?]|$)/g, '$1<em>$2</em>');
+  h = h.replace(/^### (.+)$/gm, '<h4 class="md-h">$1</h4>');
+  h = h.replace(/^## (.+)$/gm, '<h3 class="md-h">$1</h3>');
+  h = h.replace(/^[-*] (.+)$/gm, '<li>$1</li>');
+  h = h.replace(/^\d+\. (.+)$/gm, '<li class="md-ol-li">$1</li>');
+  h = h.replace(/(<li(?:\sclass="md-ol-li")?>.*?<\/li>(?:\n|$))+/g, function(block){
+    var isOrdered = block.indexOf('md-ol-li') >= 0;
+    return (isOrdered ? '<ol class="md-ol">' : '<ul class="md-ul">') + block + (isOrdered ? '</ol>' : '</ul>');
+  });
+  h = h.replace(/\n\n+/g, '</p><p>');
+  h = '<p>' + h + '</p>';
+  h = h.replace(/<p>\s*<\/p>/g, '');
+  h = h.replace(/<p>\s*(<(?:h[34]|ul|ol|pre)[^>]*>)/g, '$1');
+  h = h.replace(/(<\/(?:h[34]|ul|ol|pre)>)\s*<\/p>/g, '$1');
+  return h;
+}
+
+// Multi-turn variant of callClaude — takes a messages array directly instead
+// of building a single {role:'user'} from a prompt string.
+async function callClaudeMessages(messages, sys, maxTok, toolsArg, modelOverride){
+  const tools = (toolsArg === undefined) ? [{type:'web_search_20250305',name:'web_search'}] : toolsArg;
+  const body = {model: modelOverride || MODEL, max_tokens: maxTok || 1500, system: sys || '', messages: messages};
+  if(Array.isArray(tools) && tools.length) body.tools = tools;
+  const r = await fetch(CLAUDE_API, {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+  });
+  if(!r.ok){
+    let detail = 'API ' + r.status;
+    try{const j = await r.json(); if(j.error) detail += ': ' + (typeof j.error === 'string' ? j.error : j.error.message || JSON.stringify(j.error));}catch(_){}
+    throw new Error(detail);
+  }
+  const d = await r.json();
+  return d.content.filter(b => b.type === 'text').map(b => b.text).join('');
+}
+
 function toggleChat(){
   chatOpen=!chatOpen;
   document.getElementById('aiWindow').classList.toggle('open',chatOpen);
@@ -3349,36 +3479,51 @@ function toggleChat(){
 function handleChatKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();}}
 function askQuick(q){document.getElementById('aiInput').value=q;sendChat();}
 async function sendChat(){
-  const input=document.getElementById('aiInput');
-  const msg=input.value.trim();
-  if(!msg) return;
-  input.value='';
-  document.getElementById('aiSend').disabled=true;
-  const msgs=document.getElementById('aiMessages');
-  msgs.innerHTML+='<div class="msg user">'+msg+'</div>';
-  msgs.innerHTML+='<div class="msg thinking" id="thinking">Thinking...</div>';
-  msgs.scrollTop=msgs.scrollHeight;
-  const ctx=await chatContextWithDocs();
+  const input = document.getElementById('aiInput');
+  const userMsg = input.value.trim();
+  if(!userMsg) return;
+  input.value = '';
+  document.getElementById('aiSend').disabled = true;
+  const msgs = document.getElementById('aiMessages');
+  msgs.innerHTML += '<div class="msg user">' + _escapeHtml(userMsg) + '</div>';
+  msgs.innerHTML += '<div class="msg thinking" id="thinking">Thinking…</div>';
+  msgs.scrollTop = msgs.scrollHeight;
+
+  // Refresh the page-context (active tab + uploaded docs) every turn — put
+  // it in the SYSTEM prompt so it doesn't pollute the chat thread.
+  const ctx = await chatContextWithDocs();
+  const system =
+    'You are the SIGNAL dashboard AI for Pillsbury Lake Research. Coverage: BBW, EAT, CROX, GAW.\n'
+    + 'You see the same dashboard the user is looking at, including any documents they have uploaded for the active ticker.\n\n'
+    + 'How to respond:\n'
+    + '• Be substantive. When a question deserves detail, give detail — bullets, headers, specific numbers. Use markdown.\n'
+    + '• Cite the source when you draw from a doc: "per the Q4 transcript…", "per the Slack notes from 2026-04-06…".\n'
+    + '• If the documents or page context do not answer the question, say so plainly — do not guess or hallucinate.\n'
+    + '• Treat the conversation as continuous. Follow-ups like "what about the next quarter" refer back to your previous answer.\n\n'
+    + 'PAGE CONTEXT (refreshed each turn):\n' + ctx;
+
+  // Append the new user message and trim the history before shipping.
+  chatHistory.push({role:'user', content: userMsg});
+  if(chatHistory.length > CHAT_MAX_TURNS) chatHistory = chatHistory.slice(-CHAT_MAX_TURNS);
+
   try{
-    const reply=await callClaude(
-      'You are the SIGNAL dashboard AI for Pillsbury Lake Research. Coverage: BBW, EAT, CROX, GAW.\n'
-      +'You see the same dashboard the user is looking at. The CONTEXT block below describes which tab they are on and the actual data rendered there.\n\n'
-      +'CONTEXT:\n'+ctx+'\n\n'
-      +'USER QUESTION: '+msg+'\n\n'
-      +'Answer in 2-5 sentences. Reference specific numbers from the CONTEXT. If the question is about the current tab, prioritise data from that tab. If the data the user is asking about is not in CONTEXT, say so rather than guessing.',
-      'Sharp equity research AI for Pillsbury Lake Research. You see the same dashboard data the user does. Reference specific numbers from the CONTEXT block when answering. Concise — 2-5 sentences.',
-      800,
-      [],  // no web_search: chat answers from the page context, not the web
-      'claude-haiku-4-5'  // chat runs on Haiku 4.5 — faster, ~4× cheaper, separate rate-limit pool from Sonnet
+    const reply = await callClaudeMessages(
+      chatHistory,
+      system,
+      3000,     // was 800 — let it write real answers
+      [],       // no web_search for chat
+      'claude-haiku-4-5'
     );
     document.getElementById('thinking').remove();
-    msgs.innerHTML+='<div class="msg ai">'+reply+'</div>';
+    chatHistory.push({role:'assistant', content: reply});
+    msgs.innerHTML += '<div class="msg ai">' + renderMarkdown(reply) + '</div>';
   }catch(e){
     document.getElementById('thinking').remove();
-    msgs.innerHTML+='<div class="msg ai" style="color:var(--red)">'+aiErrorMsg(e)+'</div>';
+    chatHistory.pop();   // drop the failed turn so retry is clean
+    msgs.innerHTML += '<div class="msg ai" style="color:var(--red)">' + aiErrorMsg(e) + '</div>';
   }
-  msgs.scrollTop=msgs.scrollHeight;
-  document.getElementById('aiSend').disabled=false;
+  msgs.scrollTop = msgs.scrollHeight;
+  document.getElementById('aiSend').disabled = false;
 }
 
 // -----------------------------------------------------------

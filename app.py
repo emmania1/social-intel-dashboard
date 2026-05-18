@@ -28,7 +28,7 @@ from lib.analysis import (
     social_health_score,
     summarise_series,
 )
-from lib.docs import delete_doc, get_all_text, list_docs, save_doc
+from lib.docs import delete_doc, get_all_text, get_doc_text, list_docs, save_doc
 from lib.drive_reader import COVERAGE_FILES, DriveAuthError, read_coverage_data
 from lib.news import fetch_news_with_fallback
 from lib.reddit import fetch_reddit_weekly
@@ -191,6 +191,21 @@ def docs_text():
     except (TypeError, ValueError):
         max_chars = 80000
     return jsonify({"ticker": ticker, **get_all_text(ticker, max_chars=max_chars)})
+
+
+@app.route("/api/docs/<ticker>/<path:filename>/text", methods=["GET"])
+def docs_file_text(ticker, filename):
+    """Return the full extracted text of one doc — used by the in-dashboard
+    viewer modal so users can read what was parsed without re-downloading."""
+    text = get_doc_text(ticker, filename)
+    if text is None:
+        return jsonify({"error": "not found"}), 404
+    return jsonify({
+        "ticker": ticker.upper(),
+        "filename": filename,
+        "text": text,
+        "char_count": len(text),
+    })
 
 
 @app.route("/api/docs/<ticker>/<path:filename>", methods=["DELETE"])

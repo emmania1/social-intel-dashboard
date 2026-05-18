@@ -173,6 +173,22 @@ def get_all_text(ticker: str, max_chars: int = 80_000) -> dict:
     }
 
 
+def get_doc_text(ticker: str, filename: str) -> str | None:
+    """Return extracted text for one specific file, or None if not found.
+    Used by the doc viewer modal."""
+    safe = secure_filename(filename)
+    if not safe:
+        return None
+    try:
+        tdir = _ticker_dir(ticker)
+    except ValueError:
+        return None
+    txt_path = tdir / (safe + ".txt")
+    if not txt_path.exists():
+        return None
+    return txt_path.read_text(errors="replace")
+
+
 def delete_doc(ticker: str, filename: str) -> bool:
     safe_name = secure_filename(filename)
     if not safe_name:

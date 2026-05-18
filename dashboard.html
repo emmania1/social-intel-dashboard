@@ -2353,20 +2353,20 @@ async function runLookup(){
   );
 
   var newsP=callClaude(
-    'Use web search to research '+ticker+' ('+companyName+'). Return a JSON object with three keys: overview, recent, events.\n\n'
-    +'1. "overview" — 3-4 sentences summarizing what is happening with '+companyName+' in the news right now. Major themes, recent developments, overall sentiment direction. Be specific and reference actual stories, not generic descriptions of the company.\n\n'
-    +'2. "recent" — the 5 most recent news articles (last ~30 days). For each: OPEN the link, READ the actual article content, then summarize what the article reports — specific numbers, quotes, named people, events. NOT a restatement of the headline.\n\n'
-    +'3. "events" — 3-5 significant historical events about '+companyName+' over the past 12 months that materially impacted the stock or business (earnings beats/misses, product launches, M&A, leadership changes, scandals, partnerships). For each: when it happened, what happened, and how the market reacted.\n\n'
+    'Use web search to research '+ticker+' ('+companyName+').\n\n'
+    +'Workflow (stay efficient — keep input tokens low):\n'
+    +'  • Run 2-3 web searches: recent news for '+companyName+', plus past-12-month significant events.\n'
+    +'  • Use the SEARCH RESULT SNIPPETS directly. Open at most ONE article if a story is materially important and the snippet is too thin.\n\n'
     +'Return JSON only (no markdown, no commentary):\n'
     +'{\n'
-    +'  "overview": "3-4 sentence summary referencing real recent stories",\n'
-    +'  "recent": [{"title":"exact headline","publisher":"outlet (Reuters/Bloomberg/WSJ/etc)","date":"YYYY-MM-DD","url":"https://...","sentiment":"bullish|bearish|neutral","summary":"2-3 sentences of actual article content","signal":"1-sentence equity takeaway"}],\n'
-    +'  "events": [{"date":"YYYY-MM","headline":"short event description","what_happened":"2-3 sentence detail of what occurred","market_impact":"1-2 sentences on stock/business reaction"}]\n'
-    +'}',
-    'You are an equity research analyst. Return ONLY a valid JSON object starting with { and ending with }. '
-    +'Every "summary" must reflect the actual article content you read. Every "event" must be a real verified material event with an accurate date. '
-    +'If you cannot access an article, skip it. Do not fabricate.',
-    6000
+    +'  "overview": "3-4 sentences on what is happening with '+companyName+' right now, based on what the searches actually returned",\n'
+    +'  "recent": [{"title":"exact headline","publisher":"outlet","date":"YYYY-MM-DD","url":"https://...","sentiment":"bullish|bearish|neutral","summary":"2-3 sentences of real content from the search results — specific numbers, quotes, named people","signal":"1-sentence equity takeaway"}],\n'
+    +'  "events": [{"date":"YYYY-MM","headline":"event description","what_happened":"2-3 sentences","market_impact":"1-2 sentences on stock/business reaction"}]\n'
+    +'}\n\n'
+    +'4 items in "recent" (last 30 days). 3 items in "events" (past 12 months).',
+    'Equity research analyst. Return ONLY a valid JSON object starting with { and ending with }. '
+    +'Summaries must reflect actual content seen in search results. Events must be real with accurate dates. Do not fabricate. Keep responses tight.',
+    4000
   );
 
   // Build the HTML structure immediately
@@ -2784,71 +2784,87 @@ async function runLookup(){
 
   result.innerHTML=h;
 
-  // Now wait for AI tasks and update placeholders
-  Promise.all([briefP,newsP]).then(function(results){
-    var brief=results[0];
-    var newsRaw=results[1];
+  // Brief and news run as INDEPENDENT promises — Promise.all used to swallow
+  // any rate-limit failure on one and silently leave the other showing its
+  // "Loading…" placeholder forever. Now each panel renders or errors on its
+  // own, with a clear message if Anthropic returns a rate-limit error.
+  function _aiErrorMsg(e){
+    var raw=(e && e.message)||String(e||'');
+    if(/rate.?limit/i.test(raw)){
+      return '<b>Anthropic rate limit hit.</b> Your tier caps input at ~10K tokens/minute. Wait 60 seconds and click ANALYZE again, or raise your tier at <a href="https://console.anthropic.com/settings/limits" target="_blank" style="color:var(--cyan)">console.anthropic.com/settings/limits</a>.';
+    }
+    if(/503/.test(raw)){
+      return '<b>ANTHROPIC_API_KEY not configured on the server.</b> Set it in Render → Environment → Add Variable.';
+    }
+    return 'Failed: '+raw;
+  }
 
-    // Update brief
+  briefP.then(function(brief){
     var briefEl=document.getElementById('lu-brief');
     if(briefEl) briefEl.textContent=brief;
+  }).catch(function(e){
+    var briefEl=document.getElementById('lu-brief');
+    if(briefEl) briefEl.innerHTML='<span style="color:var(--red)">'+_aiErrorMsg(e)+'</span>';
+    console.warn('[brief]',e);
+  });
 
-    // Update news: parse the {overview, recent, events} object, fall back to
-    // the old array shape if Claude returned the legacy format.
+  newsP.then(function(newsRaw){
     var newsEl=document.getElementById('lu-news');
-    if(newsEl){
-      var renderArticle=function(n){
-        var sc=n.sentiment==='bullish'?'bg':n.sentiment==='bearish'?'br':'bc';
-        var titleHtml=n.url
-          ? '<a href="'+n.url+'" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px dotted var(--t3)">'+(n.title||'')+'</a>'
-          : (n.title||'');
-        return '<div class="litem">'
-          +'<div class="litem-title">'+titleHtml+'</div>'
-          +'<div class="litem-meta">'
-          +'<span class="litem-src">'+(n.publisher||'')+'</span>'
-          +'<span>'+(n.date||'')+'</span>'
-          +'<span class="badge '+sc+'">'+(n.sentiment||'neutral')+'</span>'
-          +'</div>'
-          +(n.summary?'<div class="litem-summary">'+n.summary+'</div>':'')
-          +(n.signal?'<div class="litem-signal '+(n.sentiment==='bullish'?'pos':n.sentiment==='bearish'?'neg':'')+'">'+n.signal+'</div>':'')
-          +'</div>';
-      };
-      var renderEvent=function(e){
-        return '<div class="litem">'
-          +'<div class="litem-title">'+(e.headline||'')+'</div>'
-          +'<div class="litem-meta"><span style="color:var(--purple)">'+(e.date||'')+'</span></div>'
-          +(e.what_happened?'<div class="litem-summary">'+e.what_happened+'</div>':'')
-          +(e.market_impact?'<div class="litem-signal" style="color:var(--purple);background:rgba(123,97,255,.08)">'+e.market_impact+'</div>':'')
-          +'</div>';
-      };
-      try{
-        var data=null;
-        var objStart=newsRaw.indexOf('{'), objEnd=newsRaw.lastIndexOf('}');
-        var arrStart=newsRaw.indexOf('['), arrEnd=newsRaw.lastIndexOf(']');
-        // Prefer object form if it parses; fall back to array form for legacy.
-        if(objStart>-1 && objEnd>objStart){
-          try { data=JSON.parse(newsRaw.slice(objStart,objEnd+1)); } catch(_){}
-        }
-        if(!data && arrStart>-1 && arrEnd>arrStart){
-          data={recent:JSON.parse(newsRaw.slice(arrStart,arrEnd+1)),events:[],overview:''};
-        }
-        if(!data) throw new Error('no parsable JSON');
-        var html='';
-        if(data.overview) html+='<div class="news-overview">'+data.overview+'</div>';
-        if(data.recent && data.recent.length){
-          html+='<div class="news-section-h">RECENT — LAST 30 DAYS · '+data.recent.length+' ARTICLES</div>';
-          html+=data.recent.map(renderArticle).join('');
-        }
-        if(data.events && data.events.length){
-          html+='<div class="news-section-h events">SIGNIFICANT EVENTS — PAST 12 MONTHS · '+data.events.length+' EVENTS</div>';
-          html+=data.events.map(renderEvent).join('');
-        }
-        newsEl.innerHTML=html||'<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">No news returned</div>';
-      }catch(e){
-        newsEl.innerHTML='<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">Could not load news ('+(e.message||'parse error')+')</div>';
+    if(!newsEl) return;
+    var renderArticle=function(n){
+      var sc=n.sentiment==='bullish'?'bg':n.sentiment==='bearish'?'br':'bc';
+      var titleHtml=n.url
+        ? '<a href="'+n.url+'" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px dotted var(--t3)">'+(n.title||'')+'</a>'
+        : (n.title||'');
+      return '<div class="litem">'
+        +'<div class="litem-title">'+titleHtml+'</div>'
+        +'<div class="litem-meta">'
+        +'<span class="litem-src">'+(n.publisher||'')+'</span>'
+        +'<span>'+(n.date||'')+'</span>'
+        +'<span class="badge '+sc+'">'+(n.sentiment||'neutral')+'</span>'
+        +'</div>'
+        +(n.summary?'<div class="litem-summary">'+n.summary+'</div>':'')
+        +(n.signal?'<div class="litem-signal '+(n.sentiment==='bullish'?'pos':n.sentiment==='bearish'?'neg':'')+'">'+n.signal+'</div>':'')
+        +'</div>';
+    };
+    var renderEvent=function(e){
+      return '<div class="litem">'
+        +'<div class="litem-title">'+(e.headline||'')+'</div>'
+        +'<div class="litem-meta"><span style="color:var(--purple)">'+(e.date||'')+'</span></div>'
+        +(e.what_happened?'<div class="litem-summary">'+e.what_happened+'</div>':'')
+        +(e.market_impact?'<div class="litem-signal" style="color:var(--purple);background:rgba(123,97,255,.08)">'+e.market_impact+'</div>':'')
+        +'</div>';
+    };
+    try{
+      var data=null;
+      var objStart=newsRaw.indexOf('{'), objEnd=newsRaw.lastIndexOf('}');
+      var arrStart=newsRaw.indexOf('['), arrEnd=newsRaw.lastIndexOf(']');
+      if(objStart>-1 && objEnd>objStart){
+        try { data=JSON.parse(newsRaw.slice(objStart,objEnd+1)); } catch(_){}
       }
+      if(!data && arrStart>-1 && arrEnd>arrStart){
+        data={recent:JSON.parse(newsRaw.slice(arrStart,arrEnd+1)),events:[],overview:''};
+      }
+      if(!data) throw new Error('no parsable JSON in response');
+      var html='';
+      if(data.overview) html+='<div class="news-overview">'+data.overview+'</div>';
+      if(data.recent && data.recent.length){
+        html+='<div class="news-section-h">RECENT — LAST 30 DAYS · '+data.recent.length+' ARTICLES</div>';
+        html+=data.recent.map(renderArticle).join('');
+      }
+      if(data.events && data.events.length){
+        html+='<div class="news-section-h events">SIGNIFICANT EVENTS — PAST 12 MONTHS · '+data.events.length+' EVENTS</div>';
+        html+=data.events.map(renderEvent).join('');
+      }
+      newsEl.innerHTML=html||'<div class="no-data-warn">No news returned</div>';
+    }catch(parseErr){
+      newsEl.innerHTML='<div class="no-data-warn"><b>Could not parse Claude\'s news response.</b> '+(parseErr.message||'')+'<br><br>Raw start: <code style="font-size:9px">'+(newsRaw||'').slice(0,300).replace(/</g,'&lt;')+'…</code></div>';
     }
-  }).catch(function(e){ console.log('AI error:',e); });
+  }).catch(function(e){
+    var newsEl=document.getElementById('lu-news');
+    if(newsEl) newsEl.innerHTML='<div class="no-data-warn">'+_aiErrorMsg(e)+'</div>';
+    console.warn('[news]',e);
+  });
 
   // Draw all charts
   requestAnimationFrame(function(){

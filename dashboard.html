@@ -98,6 +98,11 @@ main{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:28px 40p
 
 /* PORTFOLIO GRID */
 .section-lbl{font-family:var(--fm);font-size:10px;letter-spacing:.15em;color:var(--t3);text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between}
+.lu-section-h{display:flex;align-items:baseline;gap:16px;margin:36px 0 16px;padding-bottom:12px;border-bottom:1px solid var(--b2)}
+.lu-section-num{font-family:var(--fd);font-size:28px;font-weight:800;color:var(--yellow);line-height:1;flex:0 0 auto}
+.lu-section-title{font-family:var(--fd);font-size:14px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.18em;line-height:1.2}
+.lu-section-meta{font-family:var(--fm);font-size:10px;color:var(--t3);letter-spacing:.06em;margin-left:auto;text-transform:uppercase}
+.lu-section-h:first-of-type{margin-top:24px}
 .coverage-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px}
 .ccard{background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:18px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
 .ccard:hover{border-color:var(--b2);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.3)}
@@ -1961,6 +1966,18 @@ function luFmt(n){
 
 function luPct(n){ if(n==null) return '--'; return (n*100).toFixed(1)+'%'; }
 
+// BBW/GAW-style numbered section header. Used to group panels into thematic
+// sections in the Ticker Lookup so it scans like a structured report instead
+// of a wall of identical boxes.
+function luSection(num, title, meta){
+  var n = num < 10 ? '0' + num : ('' + num);
+  return '<div class="lu-section-h">'
+    + '<div class="lu-section-num">' + n + ' ·</div>'
+    + '<div class="lu-section-title">' + title + '</div>'
+    + (meta ? '<div class="lu-section-meta">' + meta + '</div>' : '')
+    + '</div>';
+}
+
 function luPanel(title,badge,badgeClass,body){
   return '<div class="panel" style="margin-bottom:14px">'
     +'<div class="panel-h"><div class="ptitle">'+title+'</div>'
@@ -2264,6 +2281,10 @@ async function runLookup(){
     +'<div class="ailbl"><div class="aidot"></div>INTELLIGENCE BRIEF -- '+(isCov?'COVERAGE':'LIVE RESEARCH')+'</div>'
     +'<div class="aitext" id="lu-brief">Generating...</div></div>';
 
+  // Section 01: Live news + analyst-read overview, kept at the top so the
+  // human narrative anchors everything below it.
+  h += luSection(1, 'News &amp; Narrative', 'live · claude-read');
+
   // NEWS INTELLIGENCE — promoted to the top so the human story comes first.
   // Container holds: Claude-written overview + 5 recent articles read end-to-end
   // + 3-5 significant historical events. Filled in by the Promise.all callback.
@@ -2340,6 +2361,9 @@ async function runLookup(){
   }
   h+='</div>';
 
+  // Section 02: the master chart that ties price to demand signals.
+  h += luSection(2, 'Master Signal Timeline', 'stock × demand');
+
   // Unified Timeline
   if(aligned.length>4){
     h+=luPanel('Unified Signal Timeline','ALL SIGNALS NORMALIZED 0-100','bc',
@@ -2383,6 +2407,9 @@ async function runLookup(){
       +'</tr></thead><tbody>'+peakRows+'</tbody></table>'
     );
   }
+
+  // Section 03: financial fundamentals + earnings history.
+  h += luSection(3, 'Financials', 'yfinance · 8-quarter history');
 
   // Financials + Earnings side by side
   h+='<div class="g2" style="margin-bottom:14px">';
@@ -2431,7 +2458,8 @@ async function runLookup(){
   h+='</div>';
 
   // DEMAND INTELLIGENCE section
-  h+='<div class="section-lbl" style="margin:20px 0 12px">DEMAND INTELLIGENCE</div>';
+  // Section 04: every individual demand source.
+  h += luSection(4, 'Demand Intelligence', 'reddit · youtube · trends · stocktwits · wikipedia · sec');
 
   // Reddit (consumer/fandom signal)
   var redditData=(soc.series&&soc.series.reddit)||[];
@@ -2646,8 +2674,11 @@ async function runLookup(){
       +'</div>';
   }
   if(qtBlock){
-    h+='<div class="section-lbl" style="margin:20px 0 12px">QUERY TRANSPARENCY — WHAT THE SYSTEM SEARCHED</div>'+qtBlock;
+    h += luSection(5, 'Diagnostics &amp; Summary', 'what was searched · narrative wrap-up') + qtBlock;
   }
+
+  // Section 06: data + image exports + full-run snapshot.
+  h += luSection(6, 'Export &amp; Snapshot', 'png · csv · json');
 
   // Export + snapshot panel — PNG of any chart, CSV of any series, plus a
   // full-run JSON dump for longitudinal comparison.

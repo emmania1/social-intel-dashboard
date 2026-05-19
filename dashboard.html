@@ -413,6 +413,12 @@ main{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:28px 40p
 <button class="ntab company" onclick="showTab('gaw')">GAW</button>
 <button class="ntab company" onclick="showTab('crox')">CROX</button>
 <button class="ntab company" onclick="showTab('eat')">EAT</button>
+<div style="width:1px;background:var(--b1);margin:8px 4px"></div>
+<button class="ntab company" onclick="showTab('nbis')">NBIS</button>
+<button class="ntab company" onclick="showTab('krus')">KRUS</button>
+<button class="ntab company" onclick="showTab('blze')">BLZE</button>
+<button class="ntab company" onclick="showTab('comp')">COMP</button>
+<button class="ntab company" onclick="showTab('expi')">EXPI</button>
 </div>
 <main>
 <div id="tab-home">
@@ -599,7 +605,104 @@ Drop a PDF / TXT here or click to browse — attaches to whichever ticker you ju
     </div>
     <iframe src="/dashboards/gaw" style="width:100%;height:calc(100vh - 220px);border:0;display:block;background:#0d1117" loading="lazy"></iframe>
   </div>
-  
+
+  <!-- COVERAGE TABS (extended) ─ minimal per-ticker shells. Each has its own
+       doc library + chat context. Clicking ANALYZE jumps to the Ticker
+       Lookup with the ticker pre-filled. -->
+  <div id="tab-nbis" style="display:none">
+    <div class="docs-bar" data-ticker="NBIS">
+      <span class="docs-icon">📎</span>
+      <span class="docs-label">DOCS · NBIS</span>
+      <label class="docs-zone" ondragover="docDragOver(event)" ondragleave="docDragLeave(event)" ondrop="docDrop(event)">
+        <input type="file" accept=".pdf,.txt,.md,.csv" multiple onchange="docSelect(event)"/>
+        Drop a PDF / TXT here or click to browse
+      </label>
+      <div class="docs-list"><span class="docs-loading">Loading…</span></div>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><div class="ptitle">NBIS — Nebius Group</div><span class="badge bc">AI · NEOCLOUD</span></div>
+      <div class="panel-b">
+        <div style="font-family:var(--fm);font-size:12px;line-height:1.75;color:var(--t2);margin-bottom:16px">AI infrastructure / neocloud company spun off from Yandex (NASDAQ ~$30B). Backstopped by Microsoft + Meta contracts. Key risks: NJ data-center permitting, NVIDIA dependence, capital intensity. Drop research docs above — the chat already sees the Slack archive (incl. Q1 call notes, GS / Wolfe initiations, AI21 acquisition talks).</div>
+        <button onclick="goToLookupWith('NBIS')" style="background:linear-gradient(135deg,var(--cyan),var(--purple));border:none;border-radius:8px;padding:11px 22px;font-family:var(--fd);font-size:12px;font-weight:700;color:#000;cursor:pointer;letter-spacing:.08em">RUN FULL ANALYSIS →</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-krus" style="display:none">
+    <div class="docs-bar" data-ticker="KRUS">
+      <span class="docs-icon">📎</span>
+      <span class="docs-label">DOCS · KRUS</span>
+      <label class="docs-zone" ondragover="docDragOver(event)" ondragleave="docDragLeave(event)" ondrop="docDrop(event)">
+        <input type="file" accept=".pdf,.txt,.md,.csv" multiple onchange="docSelect(event)"/>
+        Drop a PDF / TXT here or click to browse
+      </label>
+      <div class="docs-list"><span class="docs-loading">Loading…</span></div>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><div class="ptitle">KRUS — Kura Sushi USA</div><span class="badge bg">CONSUMER · UNIT GROWTH</span></div>
+      <div class="panel-b">
+        <div style="font-family:var(--fm);font-size:12px;line-height:1.75;color:var(--t2);margin-bottom:16px">Revolving sushi chain, 20%+ unit growth, IP collab moat (Pokemon / Hello Kitty / Kirby). Q2 FY26 print: SSS +8.6% vs +3.5% cons, raised guide. CFO transition + 2H comp setup. Slack archive in chat context — including DADCO checks, Bloomberg ALTD data, and the Q&A from the May 5 mgmt call.</div>
+        <button onclick="goToLookupWith('KRUS')" style="background:linear-gradient(135deg,var(--cyan),var(--purple));border:none;border-radius:8px;padding:11px 22px;font-family:var(--fd);font-size:12px;font-weight:700;color:#000;cursor:pointer;letter-spacing:.08em">RUN FULL ANALYSIS →</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-blze" style="display:none">
+    <div class="docs-bar" data-ticker="BLZE">
+      <span class="docs-icon">📎</span>
+      <span class="docs-label">DOCS · BLZE</span>
+      <label class="docs-zone" ondragover="docDragOver(event)" ondragleave="docDragLeave(event)" ondrop="docDrop(event)">
+        <input type="file" accept=".pdf,.txt,.md,.csv" multiple onchange="docSelect(event)"/>
+        Drop a PDF / TXT here or click to browse
+      </label>
+      <div class="docs-list"><span class="docs-loading">Loading…</span></div>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><div class="ptitle">BLZE — Backblaze</div><span class="badge bo">AI STORAGE</span></div>
+      <div class="panel-b">
+        <div style="font-family:var(--fm);font-size:12px;line-height:1.75;color:var(--t2);margin-bottom:16px">S3-compatible object storage betting on the "elephant data flows" pattern of AI / neocloud workloads. Q1 print +44% AH on raised B2 guide (+24%) and three new 6–8-figure neocloud deals. a16z resource-program partner. Three metric methodology changes in one quarter — Slack archive has Oleg's audit notes on this and CFO 10b5-1 plan terminations.</div>
+        <button onclick="goToLookupWith('BLZE')" style="background:linear-gradient(135deg,var(--cyan),var(--purple));border:none;border-radius:8px;padding:11px 22px;font-family:var(--fd);font-size:12px;font-weight:700;color:#000;cursor:pointer;letter-spacing:.08em">RUN FULL ANALYSIS →</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-comp" style="display:none">
+    <div class="docs-bar" data-ticker="COMP">
+      <span class="docs-icon">📎</span>
+      <span class="docs-label">DOCS · COMP</span>
+      <label class="docs-zone" ondragover="docDragOver(event)" ondragleave="docDragLeave(event)" ondrop="docDrop(event)">
+        <input type="file" accept=".pdf,.txt,.md,.csv" multiple onchange="docSelect(event)"/>
+        Drop a PDF / TXT here or click to browse
+      </label>
+      <div class="docs-list"><span class="docs-loading">Loading…</span></div>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><div class="ptitle">COMP — Compass</div><span class="badge bp">REAL ESTATE BROKERAGE</span></div>
+      <div class="panel-b">
+        <div style="font-family:var(--fm);font-size:12px;line-height:1.75;color:var(--t2);margin-bottom:16px">Largest US residential brokerage post-Anywhere acquisition (Coldwell Banker / Corcoran / Sotheby's). 330K agents, Q1'26 outpaced market by 240bps, raised synergy targets $100M → $200M. RKT partnership ramping, Zillow lawsuit dropped, Sotheby's franchise restructure. Chat has the Slack archive incl. mortgage-rate context + 13Q earnings deep-dive.</div>
+        <button onclick="goToLookupWith('COMP')" style="background:linear-gradient(135deg,var(--cyan),var(--purple));border:none;border-radius:8px;padding:11px 22px;font-family:var(--fd);font-size:12px;font-weight:700;color:#000;cursor:pointer;letter-spacing:.08em">RUN FULL ANALYSIS →</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-expi" style="display:none">
+    <div class="docs-bar" data-ticker="EXPI">
+      <span class="docs-icon">📎</span>
+      <span class="docs-label">DOCS · EXPI</span>
+      <label class="docs-zone" ondragover="docDragOver(event)" ondragleave="docDragLeave(event)" ondrop="docDrop(event)">
+        <input type="file" accept=".pdf,.txt,.md,.csv" multiple onchange="docSelect(event)"/>
+        Drop a PDF / TXT here or click to browse
+      </label>
+      <div class="docs-list"><span class="docs-loading">Loading…</span></div>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><div class="ptitle">EXPI → AGNT — eXp World Holdings</div><span class="badge br">REBRANDED MAY 8</span></div>
+      <div class="panel-b">
+        <div style="font-family:var(--fm);font-size:12px;line-height:1.75;color:var(--t2);margin-bottom:16px">Cloud-based real estate brokerage MLM. Ticker changed from <code style="background:var(--s2);padding:1px 5px;border-radius:3px">EXPI</code> to <code style="background:var(--s2);padding:1px 5px;border-radius:3px">AGNT</code> May 8, 2026 alongside the NextHome franchise acquisition. Key concerns: take-rate compression (9.0% → 7.5%), SBC > 100% of CFFO, Delaware-to-Texas reincorporation amid pending litigation. Lookup uses AGNT. Slack archive (still filed under EXPI) has the bull and bear case in full.</div>
+        <button onclick="goToLookupWith('AGNT')" style="background:linear-gradient(135deg,var(--cyan),var(--purple));border:none;border-radius:8px;padding:11px 22px;font-family:var(--fd);font-size:12px;font-weight:700;color:#000;cursor:pointer;letter-spacing:.08em">RUN FULL ANALYSIS (AGNT) →</button>
+      </div>
+    </div>
+  </div>
 
 </main>
 <!-- Doc viewer modal — opened by clicking a doc chip in any tab's docs-bar -->
@@ -716,7 +819,7 @@ function showTab(name){
   document.querySelectorAll('.ntab').forEach(t=>t.classList.remove('active'));
   if(event&&event.target)event.target.classList.add('active');
   // Init charts for company tabs
-  if(['bbw','eat','crox','gaw'].includes(name)){
+  if(['bbw','eat','crox','gaw','nbis','krus','blze','comp','expi'].includes(name)){
     requestAnimationFrame(()=>initCompanyCharts(name));
     // Refresh the docs-bar for this ticker — if the user uploaded from
     // another device since the last visit, this picks it up.
@@ -728,7 +831,7 @@ function openCompany(ticker){
   const t=(ticker||'').toLowerCase();
   // BBW/EAT/CROX/GAW have dedicated tabs with their full demand dashboards.
   // Route there directly instead of dumping the user in the generic lookup.
-  if(['bbw','eat','crox','gaw'].includes(t)){
+  if(['bbw','eat','crox','gaw','nbis','krus','blze','comp','expi'].includes(t)){
     showTab(t);
     // Light up the matching .ntab so it looks "active" — showTab only does
     // this for click events; programmatic calls miss it.
@@ -3233,7 +3336,7 @@ function docSelect(e){
 // docs-bar retargeting and the chat's doc-injection.
 function getActiveTicker(){
   var tab = getActiveTabName();
-  if(['bbw','eat','crox','gaw'].indexOf(tab) > -1) return tab.toUpperCase();
+  if(['bbw','eat','crox','gaw','nbis','krus','blze','comp','expi'].indexOf(tab) > -1) return tab.toUpperCase();
   if(tab === 'lookup' && window.__lastLookup && window.__lastLookup.ticker) return window.__lastLookup.ticker;
   return null;
 }
@@ -3279,8 +3382,20 @@ async function chatContextWithDocs(){
 
 // Populate every visible docs-bar on page load.
 window.addEventListener('load', function(){
-  ['BBW','EAT','CROX','GAW'].forEach(refreshDocsList);
+  ['BBW','EAT','CROX','GAW','NBIS','KRUS','BLZE','COMP','EXPI'].forEach(refreshDocsList);
 });
+
+// Jump to the Ticker Lookup tab pre-filled with a specific ticker and auto-run
+// the analysis. Used by the company-tab "RUN FULL ANALYSIS" buttons.
+function goToLookupWith(ticker){
+  showTab('lookup');
+  var input = document.getElementById('lookupTicker');
+  if(input){
+    input.value = ticker;
+    if(typeof handleLookupInput === 'function') handleLookupInput(ticker);
+  }
+  if(typeof runLookup === 'function') runLookup();
+}
 
 // =========== DOC VIEWER MODAL ===========
 async function openDocViewer(ticker, filename){
@@ -3374,7 +3489,7 @@ function buildChatContext(){
   }
 
   // Company tab (BBW/EAT/CROX/GAW) — pull from COVERAGE for the focused ticker.
-  if(['bbw','eat','crox','gaw'].indexOf(tab)>-1 && typeof COVERAGE!=='undefined'){
+  if(['bbw','eat','crox','gaw','nbis','krus','blze','comp','expi'].indexOf(tab)>-1 && typeof COVERAGE!=='undefined'){
     var T=tab.toUpperCase();
     var c=COVERAGE[T];
     if(c){

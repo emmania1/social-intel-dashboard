@@ -103,6 +103,17 @@ main{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:28px 40p
 .lu-section-title{font-family:var(--fd);font-size:14px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.18em;line-height:1.2}
 .lu-section-meta{font-family:var(--fm);font-size:10px;color:var(--t3);letter-spacing:.06em;margin-left:auto;text-transform:uppercase}
 .lu-section-h:first-of-type{margin-top:24px}
+.comp-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}
+.comp-card{background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:16px;border-left:3px solid var(--b2)}
+.comp-card.primary{border-left-color:var(--cyan)}
+.comp-card.peer{border-left-color:var(--orange)}
+.comp-card-ticker{font-family:var(--fd);font-size:20px;font-weight:800;letter-spacing:.06em;color:var(--text);line-height:1}
+.comp-card-name{font-family:var(--fm);font-size:10px;color:var(--t3);margin:4px 0 12px;letter-spacing:.04em}
+.comp-stats{font-family:var(--fm);font-size:11px;color:var(--t2);line-height:1.85}
+.comp-stats b{color:var(--text);font-weight:600}
+.comp-stats .lbl{display:inline-block;min-width:90px;color:var(--t3)}
+.comp-winner{font-family:var(--fm);font-size:9px;color:var(--green);letter-spacing:.06em;margin-left:6px}
+@media (max-width:780px){.comp-grid{grid-template-columns:1fr}}
 .coverage-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px}
 .ccard{background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:18px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
 .ccard:hover{border-color:var(--b2);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.3)}
@@ -508,6 +519,7 @@ main{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:28px 40p
 <input id="lookupTerm" class="lu-adv-input" placeholder="Custom search term (defaults to company)"/>
 <input id="lookupStart" type="date" class="lu-adv-input" style="min-width:140px;flex:0 1 auto" title="Start date (defaults to 2yrs ago)"/>
 <input id="lookupEnd" type="date" class="lu-adv-input" style="min-width:140px;flex:0 1 auto" title="End date (defaults to today)"/>
+<input id="lookupPeer" class="lu-adv-input" placeholder="Peer ticker for competitive overlay (e.g. CMG for EAT, LULU for NKE)" style="text-transform:uppercase;letter-spacing:.08em" title="Optional — overlays a competitor's signals on this run"/>
 </div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">
 <span style="font-family:var(--fm);font-size:10px;color:var(--t3)">Coverage:</span>
@@ -2169,13 +2181,22 @@ async function runLookup(){
   var result=document.getElementById('lookupResult');
   btn.disabled=true; btn.textContent='ANALYZING...';
 
-  var url=RENDER+'/api/full?'+luBuildParams(ticker);
-  result.innerHTML=luLoadingHtml(ticker);
-  var progressTimer=luStartProgress();
+  var peer = ((document.getElementById('lookupPeer')||{}).value||'').trim().toUpperCase();
+  if(peer === ticker) peer = '';  // can't compare a ticker to itself
+  var url = RENDER + '/api/full?' + luBuildParams(ticker);
+  var peerUrl = peer ? RENDER + '/api/full?ticker=' + encodeURIComponent(peer) : null;
+  result.innerHTML = luLoadingHtml(ticker + (peer ? ' vs ' + peer : ''));
+  var progressTimer = luStartProgress();
 
-  var d=null;
+  var d = null, dp = null;
   try{
-    d=await luFetchWithRetry(url);
+    // Fetch primary + peer in parallel. If the peer fetch fails, we still
+    // render the primary view — comparison just doesn't show up.
+    var fetches = [luFetchWithRetry(url)];
+    if(peerUrl) fetches.push(luFetchWithRetry(peerUrl).catch(function(e){console.warn('[peer] fetch failed', e); return null;}));
+    var results = await Promise.all(fetches);
+    d = results[0];
+    dp = results[1] || null;
   }catch(e){
     clearInterval(progressTimer);
     result.innerHTML='<div style="padding:20px;background:var(--s2);border:1px solid var(--red);border-radius:8px;color:var(--red);font-family:var(--fm);font-size:12px">'
@@ -2250,6 +2271,9 @@ async function runLookup(){
 
   // Build the HTML structure immediately
   var h='';
+  // Section counter — bumps with each luSection call so the optional
+  // Competitive Comparison section can slot in without manual renumbering.
+  var _sec = 0;
 
   // Low-signal warning: if Reddit + YouTube both returned near-nothing for
   // this ticker, the brand probably resolved to a holding-company name that
@@ -2283,7 +2307,7 @@ async function runLookup(){
 
   // Section 01: Live news + analyst-read overview, kept at the top so the
   // human narrative anchors everything below it.
-  h += luSection(1, 'News &amp; Narrative', 'live · claude-read');
+  h += luSection(++_sec, 'News &amp; Narrative', 'live · claude-read');
 
   // NEWS INTELLIGENCE — promoted to the top so the human story comes first.
   // Container holds: Claude-written overview + 5 recent articles read end-to-end
@@ -2362,7 +2386,7 @@ async function runLookup(){
   h+='</div>';
 
   // Section 02: the master chart that ties price to demand signals.
-  h += luSection(2, 'Master Signal Timeline', 'stock × demand');
+  h += luSection(++_sec, 'Master Signal Timeline', 'stock × demand');
 
   // Unified Timeline
   if(aligned.length>4){
@@ -2409,7 +2433,7 @@ async function runLookup(){
   }
 
   // Section 03: financial fundamentals + earnings history.
-  h += luSection(3, 'Financials', 'yfinance · 8-quarter history');
+  h += luSection(++_sec, 'Financials', 'yfinance · 8-quarter history');
 
   // Financials + Earnings side by side
   h+='<div class="g2" style="margin-bottom:14px">';
@@ -2459,7 +2483,7 @@ async function runLookup(){
 
   // DEMAND INTELLIGENCE section
   // Section 04: every individual demand source.
-  h += luSection(4, 'Demand Intelligence', 'reddit · youtube · trends · stocktwits · wikipedia · sec');
+  h += luSection(++_sec, 'Demand Intelligence', 'reddit · youtube · trends · stocktwits · wikipedia · sec');
 
   // Reddit (consumer/fandom signal)
   var redditData=(soc.series&&soc.series.reddit)||[];
@@ -2656,6 +2680,53 @@ async function runLookup(){
     );
   }
 
+  // Section: Competitive Comparison — only when a peer ticker was fetched.
+  if(dp){
+    var dpFins = dp.financials || {};
+    var dpSoc = dp.social || {};
+    var dpName = dpFins.longName || dpFins.shortName || dp.ticker;
+    var dpHealth = dpSoc.health_score;
+    var dpSector = dpFins.sector;
+    h += luSection(++_sec, 'Competitive Comparison', 'vs ' + dp.ticker);
+    h += '<div class="panel"><div class="panel-h"><div class="ptitle">' + ticker + ' vs ' + dp.ticker + '</div><span class="badge bo">SAME WINDOW · SAME FETCHERS</span></div><div class="panel-b">'
+      + '<div style="font-family:var(--fm);font-size:11px;color:var(--t2);margin-bottom:14px;line-height:1.65">Both companies run through the identical fetchers in the same date window. Compare the <i>shapes</i> below — who is trending which way, who is leading, who is falling.</div>'
+      + '<div class="comp-grid">'
+      +   '<div class="comp-card primary">'
+      +     '<div class="comp-card-ticker">' + ticker + '</div>'
+      +     '<div class="comp-card-name">' + (companyName||'') + (fins.sector?' · '+fins.sector:'') + '</div>'
+      +     '<div class="comp-stats">'
+      +       '<div><span class="lbl">Price</span><b>' + (fins.currentPrice?'$'+fins.currentPrice.toFixed(2):'--') + '</b></div>'
+      +       '<div><span class="lbl">Market Cap</span><b>' + luFmt(fins.marketCap) + '</b></div>'
+      +       '<div><span class="lbl">Rev Growth</span><b>' + (fins.revenueGrowth?(fins.revenueGrowth*100).toFixed(1)+'%':'--') + '</b></div>'
+      +       '<div><span class="lbl">Gross Margin</span><b>' + (fins.grossMargin?(fins.grossMargin*100).toFixed(1)+'%':'--') + '</b></div>'
+      +       '<div><span class="lbl">Fwd P/E</span><b>' + (fins.forwardPE?fins.forwardPE.toFixed(1)+'x':'--') + '</b></div>'
+      +       '<div><span class="lbl">Signal Health</span><b>' + (health!=null?health.toFixed(0)+'/100':'--') + '</b>' + (health!=null && dpHealth!=null && health > dpHealth ? '<span class="comp-winner">▲ leads</span>':'') + '</div>'
+      +     '</div>'
+      +   '</div>'
+      +   '<div class="comp-card peer">'
+      +     '<div class="comp-card-ticker">' + dp.ticker + '</div>'
+      +     '<div class="comp-card-name">' + (dpName||'') + (dpSector?' · '+dpSector:'') + '</div>'
+      +     '<div class="comp-stats">'
+      +       '<div><span class="lbl">Price</span><b>' + (dpFins.currentPrice?'$'+dpFins.currentPrice.toFixed(2):'--') + '</b></div>'
+      +       '<div><span class="lbl">Market Cap</span><b>' + luFmt(dpFins.marketCap) + '</b></div>'
+      +       '<div><span class="lbl">Rev Growth</span><b>' + (dpFins.revenueGrowth?(dpFins.revenueGrowth*100).toFixed(1)+'%':'--') + '</b></div>'
+      +       '<div><span class="lbl">Gross Margin</span><b>' + (dpFins.grossMargin?(dpFins.grossMargin*100).toFixed(1)+'%':'--') + '</b></div>'
+      +       '<div><span class="lbl">Fwd P/E</span><b>' + (dpFins.forwardPE?dpFins.forwardPE.toFixed(1)+'x':'--') + '</b></div>'
+      +       '<div><span class="lbl">Signal Health</span><b>' + (dpHealth!=null?dpHealth.toFixed(0)+'/100':'--') + '</b>' + (health!=null && dpHealth!=null && dpHealth > health ? '<span class="comp-winner">▲ leads</span>':'') + '</div>'
+      +     '</div>'
+      +   '</div>'
+      + '</div>'
+      + '<div style="font-family:var(--fm);font-size:9px;color:var(--cyan);letter-spacing:.1em;margin:20px 0 6px">STOCK PRICE — NORMALIZED TO % CHANGE FROM PERIOD START</div>'
+      + '<div style="height:200px"><canvas id="lu-comp-stock"></canvas></div>'
+      + '<div style="font-family:var(--fm);font-size:9px;color:var(--cyan);letter-spacing:.1em;margin:24px 0 6px">REDDIT MENTIONS — WEEKLY POST COUNT</div>'
+      + '<div style="height:200px"><canvas id="lu-comp-reddit"></canvas></div>'
+      + '<div style="font-family:var(--fm);font-size:9px;color:var(--cyan);letter-spacing:.1em;margin:24px 0 6px">YOUTUBE VIEWS — WEEKLY</div>'
+      + '<div style="height:200px"><canvas id="lu-comp-yt"></canvas></div>'
+      + '<div style="font-family:var(--fm);font-size:9px;color:var(--cyan);letter-spacing:.1em;margin:24px 0 6px">GOOGLE SEARCH INTEREST — 0-100 SCALE</div>'
+      + '<div style="height:200px"><canvas id="lu-comp-trends"></canvas></div>'
+      + '</div></div>';
+  }
+
   // Query transparency — what the system actually searched
   var inp=(d&&d.social&&d.social.inputs)||{};
   var qtBlock='';
@@ -2674,11 +2745,11 @@ async function runLookup(){
       +'</div>';
   }
   if(qtBlock){
-    h += luSection(5, 'Diagnostics &amp; Summary', 'what was searched · narrative wrap-up') + qtBlock;
+    h += luSection(++_sec, 'Diagnostics &amp; Summary', 'what was searched · narrative wrap-up') + qtBlock;
   }
 
-  // Section 06: data + image exports + full-run snapshot.
-  h += luSection(6, 'Export &amp; Snapshot', 'png · csv · json');
+  // Final section: data + image exports + full-run snapshot.
+  h += luSection(++_sec, 'Export &amp; Snapshot', 'png · csv · json');
 
   // Export + snapshot panel — PNG of any chart, CSV of any series, plus a
   // full-run JSON dump for longitudinal comparison.
@@ -2975,6 +3046,85 @@ async function runLookup(){
           y:{min:0,max:1,grid:{color:'rgba(28,42,56,.5)'},ticks:{font:{family:"'DM Mono',monospace",size:9},color:'#00ff9d',callback:function(v){return (v*100).toFixed(0)+'%';}}}
         }
       }});
+    }
+
+    // Competitive comparison overlay charts — rendered only when peer data
+    // came back. Each shows primary (cyan, solid) vs peer (orange, dashed).
+    if(dp){
+      var _dsoc = (dp.social) || {};
+      var _dseries = _dsoc.series || {};
+      var _compOpts = function(yLabel, ratio){
+        return {
+          responsive:true, maintainAspectRatio:false,
+          interaction:{mode:'index', intersect:false},
+          plugins:{legend:{labels:{font:{family:"'DM Mono',monospace",size:10},color:'#8899aa',boxWidth:12}}, tooltip:{callbacks:ratio?{label:function(c){return c.dataset.label+': '+c.parsed.y.toFixed(2)+(ratio==='pct'?'%':'');}}:undefined}},
+          scales:{
+            x:{grid:{display:false}, ticks:{maxTicksLimit:10, maxRotation:0, font:{family:"'DM Mono',monospace",size:9}, color:'#4a6070'}},
+            y:{grid:{color:'rgba(28,42,56,.5)'}, ticks:{font:{family:"'DM Mono',monospace",size:9}, color:'#8899aa', callback:ratio==='pct'?function(v){return v.toFixed(0)+'%';}:undefined}, title:{display:!!yLabel, text:yLabel, color:'#8899aa'}}
+          }
+        };
+      };
+
+      // Align both series on a shared date axis (intersection of dates).
+      var _alignByDate = function(rowsA, rowsB, keyA, keyB){
+        var mapA = {}; rowsA.forEach(function(r){ if(r && r.date!=null) mapA[r.date] = r[keyA]; });
+        var mapB = {}; rowsB.forEach(function(r){ if(r && r.date!=null) mapB[r.date] = r[keyB]; });
+        var allDates = Object.keys(mapA).concat(Object.keys(mapB).filter(function(d){return !(d in mapA);})).sort();
+        return {
+          labels: allDates.map(function(d){return d.slice(5);}),
+          datesFull: allDates,
+          a: allDates.map(function(d){return mapA[d]==null?null:Number(mapA[d]);}),
+          b: allDates.map(function(d){return mapB[d]==null?null:Number(mapB[d]);})
+        };
+      };
+
+      // Stock — normalized to % change from each series' first non-null point.
+      var _stockA = ((d.social && d.social.series && d.social.series.stock)||[]).map(function(r){return {date:r.date, close:r.close};});
+      var _stockB = (_dseries.stock||[]).map(function(r){return {date:r.date, close:r.close};});
+      if(_stockA.length && _stockB.length){
+        var aligned = _alignByDate(_stockA, _stockB, 'close', 'close');
+        var firstA = aligned.a.find(function(v){return v!=null;});
+        var firstB = aligned.b.find(function(v){return v!=null;});
+        var pctA = aligned.a.map(function(v){return v!=null && firstA ? ((v-firstA)/firstA*100) : null;});
+        var pctB = aligned.b.map(function(v){return v!=null && firstB ? ((v-firstB)/firstB*100) : null;});
+        _luMk('lu-comp-stock', {type:'line', data:{labels:aligned.labels, datasets:[
+          {label:ticker, data:pctA, borderColor:'#00e5ff', backgroundColor:'rgba(0,229,255,.05)', borderWidth:2, pointRadius:0, tension:.2, spanGaps:true, fill:true},
+          {label:dp.ticker, data:pctB, borderColor:'#ff6b35', backgroundColor:'transparent', borderWidth:2, pointRadius:0, tension:.2, spanGaps:true, borderDash:[5,3]}
+        ]}, options: _compOpts('% change', 'pct')});
+      }
+
+      // Reddit overlay
+      var _rA = (d.social && d.social.series && d.social.series.reddit) || [];
+      var _rB = _dseries.reddit || [];
+      if(_rA.length || _rB.length){
+        var aR = _alignByDate(_rA, _rB, 'count', 'count');
+        _luMk('lu-comp-reddit', {type:'line', data:{labels:aR.labels, datasets:[
+          {label:ticker, data:aR.a, borderColor:'#00e5ff', backgroundColor:'rgba(0,229,255,.06)', borderWidth:1.8, pointRadius:0, tension:.25, spanGaps:true, fill:true},
+          {label:dp.ticker, data:aR.b, borderColor:'#ff6b35', backgroundColor:'transparent', borderWidth:1.8, pointRadius:0, tension:.25, spanGaps:true, borderDash:[5,3]}
+        ]}, options: _compOpts('posts / week')});
+      }
+
+      // YouTube overlay (weekly views)
+      var _yA = (d.social && d.social.series && d.social.series.youtube) || [];
+      var _yB = _dseries.youtube || [];
+      if(_yA.length || _yB.length){
+        var aY = _alignByDate(_yA, _yB, 'views', 'views');
+        _luMk('lu-comp-yt', {type:'line', data:{labels:aY.labels, datasets:[
+          {label:ticker, data:aY.a, borderColor:'#00e5ff', backgroundColor:'rgba(0,229,255,.06)', borderWidth:1.8, pointRadius:0, tension:.25, spanGaps:true, fill:true},
+          {label:dp.ticker, data:aY.b, borderColor:'#ff6b35', backgroundColor:'transparent', borderWidth:1.8, pointRadius:0, tension:.25, spanGaps:true, borderDash:[5,3]}
+        ]}, options: _compOpts('views / week')});
+      }
+
+      // Google Trends overlay
+      var _tA = (d.social && d.social.series && d.social.series.trends) || [];
+      var _tB = _dseries.trends || [];
+      if(_tA.length || _tB.length){
+        var aT = _alignByDate(_tA, _tB, 'value', 'value');
+        _luMk('lu-comp-trends', {type:'line', data:{labels:aT.labels, datasets:[
+          {label:ticker, data:aT.a, borderColor:'#00e5ff', backgroundColor:'rgba(0,229,255,.06)', borderWidth:1.8, pointRadius:0, tension:.25, spanGaps:true, fill:true},
+          {label:dp.ticker, data:aT.b, borderColor:'#ff6b35', backgroundColor:'transparent', borderWidth:1.8, pointRadius:0, tension:.25, spanGaps:true, borderDash:[5,3]}
+        ]}, options: _compOpts('search interest (0-100)')});
+      }
     }
   });
 

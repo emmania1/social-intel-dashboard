@@ -71,7 +71,15 @@ main{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:28px 40p
 .lu-adv-input{background:var(--s1);border:1px solid var(--b2);border-radius:6px;padding:8px 12px;font-family:var(--fm);font-size:11px;color:var(--text);outline:none;flex:1;min-width:180px}
 .lu-adv-input:focus{border-color:var(--cyan)}
 .pe-block{background:rgba(0,229,255,.04);border-left:2px solid var(--cyan);padding:10px 14px;margin-bottom:14px;border-radius:0 6px 6px 0}
-.pe-row{font-family:var(--fm);font-size:10px;color:var(--t2);line-height:1.65;margin-bottom:4px}
+.pe-block{margin:8px 0 6px}
+.pe-summary{font-family:var(--fm);font-size:9px;color:var(--t3);cursor:pointer;letter-spacing:.08em;padding:4px 0;text-transform:uppercase;list-style:none;user-select:none;display:inline-flex;align-items:center;gap:6px;transition:color .15s}
+.pe-summary::-webkit-details-marker{display:none}
+.pe-summary::marker{content:''}
+.pe-summary::before{content:'▸';color:var(--t3);font-size:9px;display:inline-block;transition:transform .15s}
+.pe-block[open] .pe-summary::before{content:'▾'}
+.pe-summary:hover{color:var(--cyan)}
+.pe-block[open] .pe-summary{color:var(--t2);margin-bottom:6px}
+.pe-row{font-family:var(--fm);font-size:10px;color:var(--t2);line-height:1.65;margin-bottom:4px;padding-left:18px}
 .pe-row:last-child{margin-bottom:0}
 .pe-row b{color:var(--cyan);font-weight:700;margin-right:6px;text-transform:uppercase;letter-spacing:.06em;font-size:9px;display:inline-block;min-width:88px}
 .peak-table{width:100%;border-collapse:collapse;font-family:var(--fm);font-size:11px}
@@ -230,13 +238,15 @@ main{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:28px 40p
 }
 
 /* Plugin tab styles */
-.insight{background:rgba(0,229,255,.05);border:1px solid rgba(0,229,255,.12);border-radius:6px;padding:10px 12px;margin-top:8px}
+.insight{background:rgba(0,229,255,.06);border:1px solid rgba(0,229,255,.18);border-left:3px solid var(--cyan);border-radius:6px;padding:14px 16px;margin-top:14px}
+.insight.warn{background:rgba(243,184,74,.05);border-color:rgba(243,184,74,.18);border-left-color:var(--orange)}
+.insight.neg{background:rgba(255,68,102,.05);border-color:rgba(255,68,102,.18);border-left-color:var(--red)}
 .insight.warn{background:rgba(255,107,53,.05);border-color:rgba(255,107,53,.2)}
 .insight.neg{background:rgba(255,68,102,.05);border-color:rgba(255,68,102,.18)}
-.insight-lbl{font-family:var(--fm);font-size:9px;color:var(--cyan);letter-spacing:.12em;margin-bottom:4px}
+.insight-lbl{font-family:var(--fm);font-size:10px;color:var(--cyan);letter-spacing:.14em;margin-bottom:6px;font-weight:700}
 .insight.warn .insight-lbl{color:var(--orange)}
 .insight.neg .insight-lbl{color:var(--red)}
-.insight-text{font-size:11px;color:var(--t2);line-height:1.5}
+.insight-text{font-size:13px;color:var(--text);line-height:1.65}
 .tbl{width:100%;border-collapse:collapse;font-family:var(--fm);font-size:10px}
 .tbl th{color:var(--t3);font-weight:400;letter-spacing:.08em;padding:5px 8px;border-bottom:1px solid var(--b1);text-align:left}
 .tbl td{padding:5px 8px;border-bottom:1px solid rgba(28,42,56,.3);color:var(--t2)}
@@ -2014,10 +2024,13 @@ function luInsight(text,warn){
 }
 
 function luExplain(what,how,why){
-  return '<div class="pe-block">'
+  // Collapsed by default — the data + the SIGNAL INTERPRETATION block carry
+  // the weight. Click the toggle to read the panel-explainer when needed.
+  return '<details class="pe-block">'
+    +'<summary class="pe-summary">How to read this panel</summary>'
     +'<div class="pe-row"><b>What:</b> '+what+'</div>'
     +'<div class="pe-row"><b>How to read:</b> '+how+'</div>'
-    +'<div class="pe-row"><b>Why it matters:</b> '+why+'</div></div>';
+    +'<div class="pe-row"><b>Why it matters:</b> '+why+'</div></details>';
 }
 
 function luSummary(s){

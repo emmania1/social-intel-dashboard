@@ -69,6 +69,9 @@ def get_info(symbol: str) -> dict:
     long_name = profile.get("companyName") or quote.get("name")
     short_name = profile.get("symbol") or long_name
 
+    # NOTE: keys here must match yfinance's `Ticker.info` shape exactly — the
+    # rest of the app reads fields by their yfinance names (e.g.
+    # `profitMargins`, `longBusinessSummary`), not FMP's names.
     return {
         # Identifying fields
         "longName": long_name,
@@ -76,7 +79,7 @@ def get_info(symbol: str) -> dict:
         "sector": profile.get("sector"),
         "industry": profile.get("industry"),
         "exchange": profile.get("exchangeShortName") or profile.get("exchange") or quote.get("exchange"),
-        "description": profile.get("description"),
+        "longBusinessSummary": profile.get("description"),
         # Price
         "currentPrice": quote.get("price"),
         "previousClose": quote.get("previousClose"),
@@ -94,9 +97,10 @@ def get_info(symbol: str) -> dict:
         "enterpriseToEbitda": metrics.get("evToEBITDA"),
         "enterpriseToRevenue": metrics.get("evToSalesTTM"),
         # Profitability (FMP returns these as decimals already)
+        # yfinance uses `profitMargins` for net margin — not `netMargins`.
         "grossMargins": metrics.get("grossProfitMarginTTM"),
         "operatingMargins": metrics.get("operatingProfitMarginTTM"),
-        "netMargins": metrics.get("netProfitMarginTTM"),
+        "profitMargins": metrics.get("netProfitMarginTTM"),
         # EPS / cash
         "eps": quote.get("eps") or metrics.get("netIncomePerShareTTM"),
         "trailingEps": quote.get("eps") or metrics.get("netIncomePerShareTTM"),

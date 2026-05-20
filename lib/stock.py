@@ -31,11 +31,18 @@ def get_info(ticker: str) -> dict:
 
     Returns an empty dict if both sources fail, so callers can still degrade.
     """
-    # Try yfinance first
+    # Try yfinance first. Require BOTH an identifier AND a real numeric field
+    # before accepting — Yahoo sometimes returns just the company name with
+    # every price/marketCap field as None when it half-blocks us. In that case
+    # we want to fall through to FMP, not return a useless partial dict.
     try:
         info = _ticker(ticker).info or {}
-        if info.get("longName") or info.get("currentPrice") or info.get("marketCap"):
+        has_name = info.get("longName") or info.get("shortName")
+        has_numbers = info.get("currentPrice") or info.get("marketCap") or info.get("previousClose")
+        if has_name and has_numbers:
             return info
+        if info:
+            print(f"[stock] yfinance returned partial info for {ticker} (name={bool(has_name)}, numbers={bool(has_numbers)}) — falling through to FMP")
     except Exception as exc:  # noqa: BLE001
         print(f"[stock] yfinance failed for {ticker}: {exc}")
 

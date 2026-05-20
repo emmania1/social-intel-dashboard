@@ -241,6 +241,11 @@ main{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:28px 40p
 .insight{background:rgba(0,229,255,.06);border:1px solid rgba(0,229,255,.18);border-left:3px solid var(--cyan);border-radius:6px;padding:14px 16px;margin-top:14px}
 .insight.warn{background:rgba(243,184,74,.05);border-color:rgba(243,184,74,.18);border-left-color:var(--orange)}
 .insight.neg{background:rgba(255,68,102,.05);border-color:rgba(255,68,102,.18);border-left-color:var(--red)}
+/* Calm gray treatment for signals that are too sparse to interpret — replaces
+   the alarming orange RISK SIGNAL framing when peak values are below threshold. */
+.insufficient{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.08);border-left:2px solid var(--t3);border-radius:6px;padding:12px 14px;margin-top:14px}
+.insufficient-lbl{font-family:var(--fm);font-size:9px;color:var(--t3);letter-spacing:.14em;margin-bottom:4px;font-weight:700;text-transform:uppercase}
+.insufficient-text{font-size:12px;color:var(--t2);line-height:1.6}
 .insight.warn{background:rgba(255,107,53,.05);border-color:rgba(255,107,53,.2)}
 .insight.neg{background:rgba(255,68,102,.05);border-color:rgba(255,68,102,.18)}
 .insight-lbl{font-family:var(--fm);font-size:10px;color:var(--cyan);letter-spacing:.14em;margin-bottom:6px;font-weight:700}
@@ -2000,11 +2005,14 @@ function luSection(num, title, meta){
     + '</div>';
 }
 
-function luPanel(title,badge,badgeClass,body){
+function luPanel(title,badge,badgeClass,body,explainer){
+  // explainer (optional) renders AFTER body so the chart + numbers are the
+  // first thing the analyst sees. The "How to read this panel" caret stays
+  // collapsed by default and lives below the data.
   return '<div class="panel" style="margin-bottom:14px">'
     +'<div class="panel-h"><div class="ptitle">'+title+'</div>'
     +(badge?'<span class="badge '+(badgeClass||'bc')+'">'+badge+'</span>':'')
-    +'</div><div class="panel-b">'+body+'</div></div>';
+    +'</div><div class="panel-b">'+body+(explainer||'')+'</div></div>';
 }
 
 function luStatRow(stats){
@@ -2015,6 +2023,29 @@ function luStatRow(stats){
         +(s.s?'<div class="stat-sub">'+s.s+'</div>':'')
         +'</div>';
     }).join('')+'</div>';
+}
+
+// Minimum peak values for each social source to be considered a real signal.
+// Below these, a panel renders a calm "Signal too sparse" card instead of
+// dressing the noise up as an alarming RISK SIGNAL.
+//   - reddit:     mentions/week (sub <10 is essentially noise)
+//   - youtube:    views/week (under ~1K means no creator coverage to speak of)
+//   - stocktwits: messages/week (B2B / low-retail names cluster here)
+//   - wikipedia:  views/week (high-volume series, threshold is meaningful)
+//   - sec:        filings/week (baseline of a few is normal for any issuer)
+//   - news:       articles/week (GDELT/NewsAPI sparse for small-cap)
+//   - trends:     normalised 0-100 (Google Trends never falls below this for real interest)
+var SIGNAL_MIN={reddit:10,youtube:1000,stocktwits:30,wikipedia:500,sec:3,news:10,trends:5};
+
+function luInsufficient(sourceLabel,peak,unit,threshold){
+  // Calm gray card for below-threshold signals. No alarming colors. Says
+  // explicitly that the peak was too small to interpret rather than dressing
+  // up noise as a directional signal.
+  var peakTxt=(peak==null?'no observations':Math.round(peak)+' '+unit);
+  return '<div class="insufficient">'
+    +'<div class="insufficient-lbl">Signal too sparse to interpret</div>'
+    +'<div class="insufficient-text">'+sourceLabel+' peaked at <b>'+peakTxt+'</b> over the window — below the <b>'+threshold+' '+unit+'</b> floor we use to call something a real signal. Trend/vs-peak math on a series this small isn\'t meaningful, so we\'re not drawing a conclusion here.</div>'
+    +'</div>';
 }
 
 function luInsight(text,warn){
@@ -2326,12 +2357,12 @@ async function runLookup(){
   // Container holds: Claude-written overview + 5 recent articles read end-to-end
   // + 3-5 significant historical events. Filled in by the Promise.all callback.
   h+=luPanel('News Intelligence','LIVE — RECENT + HISTORICAL','bg',
+    '<div id="lu-news"><div style="font-family:var(--fm);font-size:11px;color:var(--t3)">Reading articles + researching past 12 months… (this takes longer than the rest of the page)</div></div>',
     luExplain(
       'A live read by Claude (with web search) of recent news + the past year of major events for this company. The OVERVIEW summarises what is happening right now. RECENT lists 5 articles from the last ~30 days, each with a 2-3 sentence summary of the actual article content (not just the headline). SIGNIFICANT EVENTS lists 3-5 material events from the past 12 months with the market reaction.',
       'Skim OVERVIEW first for the big picture. Then RECENT for what is moving the stock right now. Then EVENTS for context — knowing the company missed Q2 then launched a new product helps interpret today\'s noise.',
       'Headlines without context lie. By forcing Claude to open and read each article and stitch in 12-month event history, this turns news into a usable narrative rather than a list of clickbait. Cross-check with the Reddit / Trends / StockTwits panels below to see whether social signals confirm what the news is saying.'
     )
-    +'<div id="lu-news"><div style="font-family:var(--fm);font-size:11px;color:var(--t3)">Reading articles + researching past 12 months… (this takes longer than the rest of the page)</div></div>'
   );
 
   // News volume chart — paired with the intelligence panel so all news lives together.
@@ -2340,7 +2371,8 @@ async function runLookup(){
   var newsHtml='';
   if(newsData.length>3){
     var nLast=newsData[newsData.length-1]||{};
-    newsHtml='<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Weekly news article count mentioning the ticker — source: '+((soc.inputs&&soc.inputs.news_source)||(d&&d.social&&d.social.inputs&&d.social.inputs.news_source)||'GDELT/NewsAPI')+'</div>'
+    var newsBelowThreshold=newsSum&&newsSum.peak!=null&&newsSum.peak<SIGNAL_MIN.news;
+    var newsChart='<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Weekly news article count mentioning the ticker — source: '+((soc.inputs&&soc.inputs.news_source)||(d&&d.social&&d.social.inputs&&d.social.inputs.news_source)||'GDELT/NewsAPI')+'</div>'
       +'<div style="height:100px"><canvas id="lu-news-chart"></canvas></div>'
       +luStatRow([
         {l:'Trend',v:newsSum?newsSum.trend:'--',c:newsSum?newsSum.trendCol:'var(--t3)'},
@@ -2348,18 +2380,23 @@ async function runLookup(){
         {l:'Peak',v:newsSum&&newsSum.peak!=null?Math.round(newsSum.peak)+' articles/wk':'--',s:newsSum?newsSum.peakDate:''},
         {l:'Current',v:nLast.count!=null?nLast.count+' articles/wk':'--'}
       ]);
+    if(newsBelowThreshold){
+      newsHtml=newsChart+luInsufficient('News articles',newsSum.peak,'articles/wk',SIGNAL_MIN.news);
+    } else {
+      newsHtml=newsChart;
+    }
   } else if(newsData.length){
     newsHtml='<div class="no-data-warn"><b>Only '+newsData.length+' week of news data returned.</b> Cannot compute a 12-week trend with so little history. News APIs (GDELT, NewsAPI) have variable historical depth — for less-covered tickers you only get the last week or two. Recent + historical events from the panel above use Claude+web-search, not this API, so they should still be useful.</div>';
   } else {
     newsHtml='<div class="no-data-warn"><b>No news volume data returned.</b> The GDELT / NewsAPI fetcher returned zero rows. This usually means the ticker has very limited news coverage in those sources, not that there is no news — see the panel above for Claude-fetched recent + historical news.</div>';
   }
   h+=luPanel('News Volume Trend','TIME SERIES','bo',
+    newsHtml,
     luExplain(
       'Weekly count of news articles mentioning the ticker, pulled from GDELT or NewsAPI. This is the volume signal — how much the company is being written about — separate from the AI-summarised content above.',
       'Bars = articles per week. Sustained baseline = normal coverage. Spikes = news cycles (earnings, M&A, scandals, launches). Falling coverage in a normally-active name is often a watch flag.',
       'News volume is a confirmation signal. A stock running with no news coverage is suspicious. A stock falling with no news is often a recovery candidate. Pair with the Significant Events list above to know what the spikes actually were.'
-    )
-    +newsHtml);
+    ));
 
   // Hero
   h+='<div class="hero" style="margin-bottom:16px">'
@@ -2404,12 +2441,12 @@ async function runLookup(){
   // Unified Timeline
   if(aligned.length>4){
     h+=luPanel('Unified Signal Timeline','ALL SIGNALS NORMALIZED 0-100','bc',
+      '<div style="height:200px"><canvas id="lu-unified"></canvas></div>',
       luExplain(
         '<b style="color:#00e5ff">Cyan</b> = stock price. <b style="color:#7b61ff">Purple</b> = Google search interest for the brand (0-100 scale, weekly). <b style="color:#ff6b35">Orange</b> = StockTwits message volume per week. <b style="color:#4a9eff">Blue</b> = Wikipedia article pageviews per week. All four lines rescaled 0-100 so they share one axis and you can compare shapes, not absolute values.',
         'Look for the coloured lines moving <i>before</i> the cyan line. Search/StockTwits/Wikipedia peaking while stock keeps climbing is a divergence — historically a topping signal. Coloured lines rising while stock is flat often precedes upside.',
         'Social demand typically leads price by 2-8 weeks. This is the single most useful chart for spotting inflection points the market has not priced yet.'
       )
-      +'<div style="height:200px"><canvas id="lu-unified"></canvas></div>'
     );
   }
 
@@ -2432,16 +2469,16 @@ async function runLookup(){
         +'</tr>';
     }).join('');
     h+=luPanel('Peak Detection — All Signals','OVERVIEW','bc',
+      '<table class="peak-table"><thead><tr>'
+      +'<th>Metric</th><th>Peak date</th><th class="num">Peak value</th>'
+      +'<th>Current date</th><th class="num">Current</th>'
+      +'<th class="num">% vs peak</th><th>12w trend</th>'
+      +'</tr></thead><tbody>'+peakRows+'</tbody></table>',
       luExplain(
         'All 9 demand signals in one table — when each one peaked, the value at peak, the latest value, percent change from peak, and the 12-week trend classification.',
         '<b>% vs peak</b> is the most actionable column. Within -10% of peak = at-or-near max engagement (green). Below -50% = clearly fading (red). 12w trend tells you whether the most recent slice is rising, flat, or falling regardless of where the peak was.',
         'Aggregate signal health is what the Social Health Score above measures. This table is the breakdown — it tells you <i>which</i> signals are confirming and <i>which</i> are diverging so you can size your conviction.'
       )
-      +'<table class="peak-table"><thead><tr>'
-      +'<th>Metric</th><th>Peak date</th><th class="num">Peak value</th>'
-      +'<th>Current date</th><th class="num">Current</th>'
-      +'<th class="num">% vs peak</th><th>12w trend</th>'
-      +'</tr></thead><tbody>'+peakRows+'</tbody></table>'
     );
   }
 
@@ -2504,29 +2541,34 @@ async function runLookup(){
   var redditHtml='';
   if(redditData.length){
     var rCurrent=redditData[redditData.length-1].count;
-    redditHtml='<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Weekly Reddit mention volume — aggregated across general finance subs + brand-specific subs</div>'
+    var redditBelowThreshold=redditSum&&redditSum.peak!=null&&redditSum.peak<SIGNAL_MIN.reddit;
+    var redditChart='<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Weekly Reddit mention volume — aggregated across general finance subs + brand-specific subs</div>'
       +'<div style="height:120px"><canvas id="lu-reddit-chart"></canvas></div>'
       +luStatRow([
         {l:'Trend',v:redditSum?redditSum.trend:'--',c:redditSum?redditSum.trendCol:'var(--t3)'},
         {l:'vs Peak',v:redditSum?redditSum.pct.toFixed(0)+'%':'--',c:redditSum?redditSum.col:'var(--t3)'},
         {l:'Peak',v:redditSum&&redditSum.peak!=null?Math.round(redditSum.peak)+' mentions/wk':'--',s:redditSum?redditSum.peakDate:''},
         {l:'Current',v:rCurrent!=null?rCurrent+' mentions/wk':'--'}
-      ])
-      +luInsight(
+      ]);
+    if(redditBelowThreshold){
+      redditHtml=redditChart+luInsufficient('Reddit mentions',redditSum.peak,'mentions/wk',SIGNAL_MIN.reddit);
+    } else {
+      redditHtml=redditChart+luInsight(
         redditSum?
         'Reddit mentions are at '+redditSum.pct.toFixed(0)+'% of their '+redditSum.peakDate+' peak ('+Math.round(redditSum.peak)+'/week). Currently '+rCurrent+'/week. '
         +'Reddit volume is a leading consumer-fandom indicator — sustained growth tends to precede stock-price strength.'
         :'Reddit data available.',
         redditSum&&redditSum.pct<-50
       );
+    }
   }
   h+=luPanel('Reddit Mentions','ARCTIC SHIFT + REDDIT API','bc',
+    (redditHtml||'<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">No Reddit data — try the Advanced panel to set a custom search term (e.g. "Build-A-Bear" for BBW, "Chilis" for EAT) if the ticker alone returned nothing.</div>'),
     luExplain(
       'Weekly mention count aggregated across general finance subs (r/stocks, r/investing, r/wallstreetbets) and any brand-specific subs the system auto-discovers (e.g. r/buildabear for BBW, r/crocs for CROX).',
       'Bars = mentions per week. Sustained growth above baseline matters far more than one-week spikes. Compare current to peak: within -10% = active fandom, beyond -50% = clearly fading interest.',
       'Reddit is a leading consumer-brand indicator. Sustained mention growth precedes earnings beats and viral product cycles by 2-4 weeks. Strong on the BBW/CROX/EAT class of names where consumers congregate in dedicated subs.'
-    )
-    +(redditHtml||'<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">No Reddit data — try the Advanced panel to set a custom search term (e.g. "Build-A-Bear" for BBW, "Chilis" for EAT) if the ticker alone returned nothing.</div>'));
+    ));
 
   // YouTube (creator + commentary signal)
   var ytData=(soc.series&&soc.series.youtube)||[];
@@ -2534,29 +2576,34 @@ async function runLookup(){
   var ytHtml='';
   if(ytData.length){
     var ytLast=ytData[ytData.length-1]||{};
-    ytHtml='<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Weekly YouTube views (bars) + video uploads (line) — creator + commentary signal</div>'
+    var ytBelowThreshold=ytViewsSum&&ytViewsSum.peak!=null&&ytViewsSum.peak<SIGNAL_MIN.youtube;
+    var ytChart='<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Weekly YouTube views (bars) + video uploads (line) — creator + commentary signal</div>'
       +'<div style="height:120px"><canvas id="lu-yt-chart"></canvas></div>'
       +luStatRow([
         {l:'Views Trend',v:ytViewsSum?ytViewsSum.trend:'--',c:ytViewsSum?ytViewsSum.trendCol:'var(--t3)'},
         {l:'vs Peak',v:ytViewsSum?ytViewsSum.pct.toFixed(0)+'%':'--',c:ytViewsSum?ytViewsSum.col:'var(--t3)'},
         {l:'Peak Views',v:ytViewsSum&&ytViewsSum.peak!=null?Math.round(ytViewsSum.peak).toLocaleString()+' /wk':'--',s:ytViewsSum?ytViewsSum.peakDate:''},
         {l:'Current',v:ytLast.views!=null?Math.round(ytLast.views).toLocaleString()+' views, '+(ytLast.videos||0)+' vids':'--'}
-      ])
-      +luInsight(
+      ]);
+    if(ytBelowThreshold){
+      ytHtml=ytChart+luInsufficient('YouTube views',ytViewsSum.peak,'views/wk',SIGNAL_MIN.youtube);
+    } else {
+      ytHtml=ytChart+luInsight(
         ytViewsSum?
         'YouTube weekly views peaked at '+Math.round(ytViewsSum.peak).toLocaleString()+' in '+ytViewsSum.peakDate+'. Now '+Math.round(ytLast.views||0).toLocaleString()+'/week ('+ytViewsSum.pct.toFixed(0)+'% from peak). '
         +'Falling views with steady upload count typically signals fading audience interest; falling uploads signal fading creator interest. Either is bearish for consumer-brand momentum.'
         :'YouTube data available.',
         ytViewsSum&&ytViewsSum.pct<-50
       );
+    }
   }
   h+=luPanel('YouTube Views + Uploads','YOUTUBE DATA API','br',
+    (ytHtml||'<div class="no-data-warn"><b>YouTube returned no data.</b> Common causes, in order of likelihood: (1) <code>YOUTUBE_API_KEY</code> is not set on Render — check the Environment tab for the service; (2) the daily 10,000-unit quota was exhausted (one full lookup can cost up to ~2,500 units, so a handful of lookups in a day will run it out — resets at midnight Pacific); (3) the search query returned no matching videos for this brand. The original "social intel" worked because the key was set and quota was fresh.</div>'),
     luExplain(
       'Weekly aggregate of YouTube views (red bars) and video upload count (green line) for videos matching the company/ticker search terms.',
       'Views measure audience demand for content about the company. Uploads measure creator interest. <b>Both falling</b> = fading mindshare. <b>Views up but uploads flat</b> = audience growing without new supply (often bullish). <b>Uploads up but views flat</b> = creators piling on but no one watching (often a top).',
       'YouTube is the strongest leading indicator for consumer brands with active creator ecosystems (Crocs collabs, Warhammer hobbyists, IP-driven names like BBW). Spikes typically coincide with product launches or viral moments.'
-    )
-    +(ytHtml||'<div class="no-data-warn"><b>YouTube returned no data.</b> Common causes, in order of likelihood: (1) <code>YOUTUBE_API_KEY</code> is not set on Render — check the Environment tab for the service; (2) the daily 10,000-unit quota was exhausted (one full lookup can cost up to ~2,500 units, so a handful of lookups in a day will run it out — resets at midnight Pacific); (3) the search query returned no matching videos for this brand. The original "social intel" worked because the key was set and quota was fresh.</div>'));
+    ));
 
   // StockTwits (primary social signal)
   var twitsData=(soc.series&&soc.series.stocktwits)||[];
@@ -2566,7 +2613,8 @@ async function runLookup(){
     var avgBull=recentTwits.filter(function(w){return w.bullish_ratio!=null;}).map(function(w){return w.bullish_ratio;});
     var bullScore=avgBull.length?Math.round(avgBull.reduce(function(a,b){return a+b;},0)/avgBull.length*100):50;
     var bullCol=bullScore>60?'var(--green)':bullScore>40?'var(--yellow)':'var(--red)';
-    twitsHtml='<div style="margin-bottom:12px">'
+    var twitsBelowThreshold=twitsSum&&twitsSum.peak!=null&&twitsSum.peak<SIGNAL_MIN.stocktwits;
+    var twitsChart='<div style="margin-bottom:12px">'
       +'<div style="display:flex;justify-content:space-between;font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:5px">'
       +'<span>Bullish Sentiment (12-week avg)</span>'
       +'<span style="color:'+bullCol+'">'+bullScore+'% bullish</span></div>'
@@ -2579,67 +2627,80 @@ async function runLookup(){
         {l:'vs Peak',v:twitsSum?twitsSum.pct.toFixed(0)+'%':'--',c:twitsSum?twitsSum.col:'var(--t3)'},
         {l:'Peak',v:twitsSum&&twitsSum.peak?twitsSum.peak+' msgs/wk':'--',s:twitsSum?twitsSum.peakDate:''},
         {l:'Current',v:twitsData.length?twitsData[twitsData.length-1].count+' msgs/wk':'--'}
-      ])
-      +luInsight(
+      ]);
+    if(twitsBelowThreshold){
+      twitsHtml=twitsChart+luInsufficient('StockTwits messages',twitsSum.peak,'msgs/wk',SIGNAL_MIN.stocktwits);
+    } else {
+      twitsHtml=twitsChart+luInsight(
         twitsSum?
-        'StockTwits activity is at '+twitsSum.pct.toFixed(0)+'% of its Aug 2025 peak. '
+        'StockTwits activity is at '+twitsSum.pct.toFixed(0)+'% of its '+(twitsSum.peakDate||'')+' peak. '
         +'Current '+twitsData[twitsData.length-1].count+' messages/week vs peak of '+twitsSum.peak+'. '
-        +(twitsSum.trend==='falling'?'Declining retail trader engagement typically precedes or confirms stock weakness. The -85% decline from peak is significant and correlates directly with the stock\'s -53% drawdown from $74.86.':'Activity stabilizing -- watch for upside inflection as potential early buy signal.')
+        +(twitsSum.trend==='falling'?'Declining retail trader engagement typically precedes or confirms stock weakness.':'Activity stabilizing -- watch for upside inflection as potential early buy signal.')
         :'StockTwits is the primary social signal for this ticker.',
         twitsSum&&twitsSum.pct<-50
       );
+    }
   }
   h+=luPanel('StockTwits Social Signal','REAL DATA','bo',
+    (twitsHtml||'<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">No StockTwits data</div>'),
     luExplain(
       'Weekly StockTwits messages tagged with the ticker symbol (orange bars), plus the percent of those messages flagged bullish vs bearish by the poster (green line).',
       'Volume bars + bullish % line on the same chart. Bullish % >60 = retail leaning positive, <40 = leaning negative. Volume <i>and</i> bullishness both matter: high volume + rising bullishness often precedes squeezes; collapsing volume often precedes price weakness regardless of bullish %.',
       'StockTwits is the most direct retail-trader sentiment signal — these are users explicitly stating an opinion on the stock. Best for high-retail tickers (CROX, BBW, GME-class). For B2B names this signal is usually thin.'
-    )
-    +(twitsHtml||'<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">No StockTwits data</div>'));
+    ));
 
   // Google Trends
   var trendsData=(soc.series&&soc.series.trends)||[];
   var trendsHtml='';
   if(trendsData.length){
-    trendsHtml='<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Weekly Google search interest (0-100 scale, 100 = peak interest in period)</div>'
+    var trendsBelowThreshold=trendsSum&&trendsSum.peak!=null&&trendsSum.peak<SIGNAL_MIN.trends;
+    var trendsChart='<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Weekly Google search interest (0-100 scale, 100 = peak interest in period)</div>'
       +'<div style="height:120px"><canvas id="lu-trends-chart"></canvas></div>'
       +luStatRow([
         {l:'Trend',v:trendsSum?trendsSum.trend:'--',c:trendsSum?trendsSum.trendCol:'var(--t3)'},
         {l:'vs Peak',v:trendsSum?trendsSum.pct.toFixed(0)+'%':'--',c:trendsSum?trendsSum.col:'var(--t3)'},
         {l:'Peak',v:trendsSum&&trendsSum.peak?trendsSum.peak+'/100':'--',s:trendsSum?trendsSum.peakDate:''},
         {l:'Current',v:trendsSum&&trendsSum.current?trendsSum.current+'/100':'--'}
-      ])
-      +luInsight(
+      ]);
+    if(trendsBelowThreshold){
+      trendsHtml=trendsChart+luInsufficient('Google search interest',trendsSum.peak,'/100',SIGNAL_MIN.trends);
+    } else {
+      trendsHtml=trendsChart+luInsight(
         trendsSum?
-        'Google search interest is at '+trendsSum.pct.toFixed(0)+'% of its Feb 2026 peak (100/100). '
+        'Google search interest is at '+trendsSum.pct.toFixed(0)+'% of its '+(trendsSum.peakDate||'')+' peak. '
         +'Currently '+trendsSum.current+'/100. '
         +'Google Trends is a real-time proxy for consumer awareness and purchase intent. '
         +(trendsSum.trend==='falling'?'Declining search interest typically leads product demand weakness by 1-2 quarters.':'Search interest holding -- consumer awareness intact.')
         :'Google Trends data available.',
         trendsSum&&trendsSum.pct<-50
       );
+    }
   }
   h+=luPanel('Google Trends','PYTRENDS REAL DATA','bp',
+    (trendsHtml||'<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">No Trends data</div>'),
     luExplain(
       'Weekly Google search interest for the company/brand on a 0-100 scale (100 = peak interest during the window).',
       'Real-time consumer awareness proxy. Sustained levels = brand presence intact; spikes = news/viral moments; sustained decline = falling consumer awareness. Compare the 12w trend to where current sits vs peak.',
       'Search is the most upstream indicator of consumer demand — searches happen before purchases. Declining search interest typically leads product weakness by 1-2 quarters. The cleanest lead-indicator for consumer-cyclical names.'
-    )
-    +(trendsHtml||'<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">No Trends data</div>'));
+    ));
 
   // Wikipedia (consumer awareness proxy)
   var wikiData=(soc.series&&soc.series.wikipedia)||[];
   var wikiHtml='';
   if(wikiData.length){
-    wikiHtml='<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Weekly Wikipedia page views -- brand awareness proxy</div>'
+    var wikiBelowThreshold=wikiSum&&wikiSum.peak!=null&&wikiSum.peak<SIGNAL_MIN.wikipedia;
+    var wikiChart='<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Weekly Wikipedia page views -- brand awareness proxy</div>'
       +'<div style="height:100px"><canvas id="lu-wiki-chart"></canvas></div>'
       +luStatRow([
         {l:'Trend',v:wikiSum?wikiSum.trend:'--',c:wikiSum?wikiSum.trendCol:'var(--t3)'},
         {l:'vs Peak',v:wikiSum?wikiSum.pct.toFixed(0)+'%':'--',c:wikiSum?wikiSum.col:'var(--t3)'},
         {l:'Peak',v:wikiSum&&wikiSum.peak?Math.round(wikiSum.peak).toLocaleString()+' views/wk':'--'},
         {l:'Current',v:wikiSum&&wikiSum.current?Math.round(wikiSum.current).toLocaleString()+' views/wk':'--'}
-      ])
-      +luInsight(
+      ]);
+    if(wikiBelowThreshold){
+      wikiHtml=wikiChart+luInsufficient('Wikipedia views',wikiSum.peak,'views/wk',SIGNAL_MIN.wikipedia);
+    } else {
+      wikiHtml=wikiChart+luInsight(
         wikiSum?
         'Wikipedia page views peaked at '+Math.round(wikiSum.peak).toLocaleString()+' views/week in '+wikiSum.peakDate+'. '
         +'Now '+Math.round(wikiSum.current).toLocaleString()+' ('+wikiSum.pct.toFixed(0)+'% from peak). '
@@ -2647,14 +2708,15 @@ async function runLookup(){
         :'Wikipedia views as brand awareness proxy.',
         wikiSum&&wikiSum.pct<-60
       );
+    }
   }
   h+=luPanel('Wikipedia Views','BRAND AWARENESS PROXY','bg',
+    (wikiHtml||'<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">No Wikipedia data</div>'),
     luExplain(
       'Weekly pageviews on the company\'s Wikipedia article (the system auto-locates the right article from the company name).',
       'Passive interest signal — no clicks, no engagement, just someone looking the company up. Spikes coincide with news or viral moments; sustained baseline = healthy brand awareness; sustained decline = fading mindshare.',
       'Wikipedia views are unfiltered by social-media algorithms, so they are the cleanest awareness proxy available. Sustained decline in a consumer-facing name is a quiet but serious bearish signal.'
-    )
-    +(wikiHtml||'<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">No Wikipedia data</div>'));
+    ));
 
   // SEC EDGAR filings cadence
   var secData=(soc.series&&soc.series.sec)||[];
@@ -2662,7 +2724,8 @@ async function runLookup(){
   var secHtml='';
   if(secData.length){
     var sLast=secData[secData.length-1]||{};
-    secHtml='<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Weekly SEC filing count — 8-K, 10-Q, 10-K, Form 4 (insider), Form 13G/13D, S-1, etc.</div>'
+    var secBelowThreshold=secSum&&secSum.peak!=null&&secSum.peak<SIGNAL_MIN.sec;
+    var secChart='<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Weekly SEC filing count — 8-K, 10-Q, 10-K, Form 4 (insider), Form 13G/13D, S-1, etc.</div>'
       +'<div style="height:100px"><canvas id="lu-sec-chart"></canvas></div>'
       +luStatRow([
         {l:'Trend',v:secSum?secSum.trend:'--',c:secSum?secSum.trendCol:'var(--t3)'},
@@ -2670,26 +2733,31 @@ async function runLookup(){
         {l:'Peak',v:secSum&&secSum.peak!=null?Math.round(secSum.peak)+' filings/wk':'--',s:secSum?secSum.peakDate:''},
         {l:'Current',v:sLast.count!=null?sLast.count+' filings/wk':'--'}
       ]);
+    if(secBelowThreshold){
+      secHtml=secChart+luInsufficient('SEC filings',secSum.peak,'filings/wk',SIGNAL_MIN.sec);
+    } else {
+      secHtml=secChart;
+    }
   }
   h+=luPanel('SEC EDGAR Filings','SEC.GOV','bp',
+    (secHtml||'<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">No SEC data</div>'),
     luExplain(
       'Weekly count of SEC filings filed by the issuer or its insiders — 8-K (material events), 10-Q/10-K (quarterly/annual), Form 4 (insider buys/sells), 13G/13D (large-holder positions), S-1 (offerings).',
       'Steady background of 1-2/week is normal. <b>Spikes in 8-K</b> = breaking news (acquisition, exec change, restatement). <b>Form 4 clusters</b> = insider activity — open the filings to see whether it is buying or selling. A quiet name suddenly active is a watch flag.',
       'Insider behavior and unexpected filing activity often precede market-moving disclosures by days. This panel tells you when to go read EDGAR, not what is in the filings.'
-    )
-    +(secHtml||'<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">No SEC data</div>'));
+    ));
 
   // StockTwits sentiment chart (bullish ratio over time, separate from volume)
   var sentTagged=twitsData.filter(function(r){return (Number(r.bullish)||0)+(Number(r.bearish)||0)>0;});
   if(sentTagged.length>3){
     h+=luPanel('StockTwits Sentiment Ratio','BULLISH / BEARISH OVER TIME','bg',
+      '<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Bullish ratio: 0 = all bearish, 1 = all bullish. Recent 52 weeks.</div>'
+      +'<div style="height:120px"><canvas id="lu-sent-chart"></canvas></div>',
       luExplain(
         'Weekly fraction of StockTwits messages that the poster explicitly tagged bullish, plotted as a line (0.0 = all bearish, 1.0 = all bullish).',
         'Only messages the user tagged are counted, so this is a directional sentiment read separate from raw volume above. Sustained moves above 0.60 or below 0.40 are meaningful. A sentiment <i>turn</i> (from bearish to bullish or vice-versa) at high volume is the strongest signal here.',
         'Sentiment turns often precede price moves by 1-3 weeks on retail-heavy names. For institutional-owned names this signal is noise — check StockTwits Volume above first to see if there is enough retail activity to matter.'
       )
-      +'<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Bullish ratio: 0 = all bearish, 1 = all bullish. Recent 52 weeks.</div>'
-      +'<div style="height:120px"><canvas id="lu-sent-chart"></canvas></div>'
     );
   }
 

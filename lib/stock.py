@@ -23,34 +23,74 @@ def _ticker(symbol: str) -> yf.Ticker:
     return yf.Ticker(symbol)
 
 
+def get_info(ticker: str) -> dict:
+    """Return a yfinance-shaped info dict for `ticker`. Tries yfinance first
+    (free, full data when it works). If yfinance returns an empty dict — which
+    happens whenever Yahoo blocks the IP (common from Render's datacenter) —
+    falls back to Financial Modeling Prep (configured via FMP_API_KEY).
+
+    Returns an empty dict if both sources fail, so callers can still degrade.
+    """
+    # Try yfinance first
+    try:
+        info = _ticker(ticker).info or {}
+        if info.get("longName") or info.get("currentPrice") or info.get("marketCap"):
+            return info
+    except Exception as exc:  # noqa: BLE001
+        print(f"[stock] yfinance failed for {ticker}: {exc}")
+
+    # Fall back to FMP
+    try:
+        from lib import fmp
+        if fmp.is_available():
+            fmp_info = fmp.get_info(ticker)
+            if fmp_info.get("longName") or fmp_info.get("currentPrice"):
+                print(f"[stock] using FMP fallback for {ticker}")
+                return fmp_info
+    except Exception as exc:  # noqa: BLE001
+        print(f"[stock] FMP fallback failed for {ticker}: {exc}")
+
+    return {}
+
+
 def fetch_stock(ticker: str, start: str, end: str) -> pd.DataFrame:
     """Return daily OHLCV for ticker between start and end (YYYY-MM-DD).
 
-    Output columns: date (str), close (float).
+    Output columns: date (str), close (float). Tries yfinance first; falls
+    back to FMP if yfinance returns an empty frame (Yahoo IP block).
     """
-    t = _ticker(ticker)
-    df = t.history(start=start, end=end, auto_adjust=True, actions=False)
-    if df.empty:
-        return pd.DataFrame(columns=["date", "close"])
-    df = df.reset_index()[["Date", "Close"]].copy()
-    df.columns = ["date", "close"]
-    df["date"] = pd.to_datetime(df["date"]).dt.strftime("%Y-%m-%d")
-    df["close"] = df["close"].astype(float).round(4)
-    return df
+    # Try yfinance
+    try:
+        t = _ticker(ticker)
+        df = t.history(start=start, end=end, auto_adjust=True, actions=False)
+        if not df.empty:
+            df = df.reset_index()[["Date", "Close"]].copy()
+            df.columns = ["date", "close"]
+            df["date"] = pd.to_datetime(df["date"]).dt.strftime("%Y-%m-%d")
+            df["close"] = df["close"].astype(float).round(4)
+            return df
+    except Exception as exc:  # noqa: BLE001
+        print(f"[stock] yfinance history failed for {ticker}: {exc}")
+
+    # Fall back to FMP
+    try:
+        from lib import fmp
+        if fmp.is_available():
+            print(f"[stock] using FMP fallback for {ticker} history")
+            return fmp.get_history(ticker, start, end)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[stock] FMP history fallback failed for {ticker}: {exc}")
+
+    return pd.DataFrame(columns=["date", "close"])
 
 
 def resolve_ticker(ticker: str) -> dict:
-    """Look up a human-readable name and default search term from yfinance.
+    """Look up a human-readable name and default search term.
 
-    Returns {"name": str, "short": str, "ok": bool}. Falls back to the ticker
-    itself if yfinance has no metadata.
+    Returns {"name": str, "short": str, "ok": bool}. Uses the unified
+    get_info() so it benefits from the FMP fallback automatically.
     """
-    try:
-        t = _ticker(ticker)
-        info = t.info or {}
-    except Exception as exc:  # noqa: BLE001
-        print(f"[resolve] {ticker}: {exc}")
-        info = {}
+    info = get_info(ticker)
     long_name = info.get("longName") or info.get("shortName") or ""
     short_name = info.get("shortName") or long_name or ticker.upper()
     # Strip common corporate suffixes so the Google/Reddit/YouTube search

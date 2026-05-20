@@ -130,23 +130,22 @@ def financials():
     if not ticker:
         return jsonify({"error": "ticker required"}), 400
 
-    # Reuse the curl_cffi-impersonating session so Yahoo doesn't block
-    # Render's datacenter IPs.
-    from lib.stock import _ticker as _yf_ticker
+    # Unified info getter: yfinance first, FMP fallback when Yahoo blocks
+    # Render's IP. Returns {} if both sources fail.
+    from lib.stock import get_info
     try:
-        t = _yf_ticker(ticker)
-        info = t.info or {}
+        info = get_info(ticker)
     except Exception as exc:  # noqa: BLE001
         print(f"[financials] {ticker}: {exc}")
         return jsonify({"ticker": ticker, "info": {}, "error": str(exc)}), 502
 
-    # yfinance's info dict can contain NaN/Inf for fields that don't apply
-    # (e.g. forwardPE on a loss-making name). Strip them so the response
-    # serialises under app.json.allow_nan=False.
+    # yfinance/FMP info dicts can contain NaN/Inf for fields that don't
+    # apply (e.g. forwardPE on a loss-making name). Strip them so the
+    # response serialises under app.json.allow_nan=False.
     import math
     clean = {
         k: (None if isinstance(v, float) and (math.isnan(v) or math.isinf(v)) else v)
-        for k, v in info.items()
+        for k, v in (info or {}).items()
     }
     return jsonify({"ticker": ticker, "info": clean})
 
@@ -621,22 +620,21 @@ def _fetch_yfinance_financials(ticker: str) -> dict:
     (last 8 quarters) and revenueHistory (annual). Individual field failures
     fall back to None so a single broken source doesn't sink the whole call.
     """
-    # Reuse the curl_cffi-impersonating session from lib.stock so Yahoo
-    # doesn't block us when called from Render's datacenter IPs.
-    from lib.stock import _ticker as _yf_ticker
+    # Unified info getter: yfinance → FMP fallback when Yahoo blocks Render's
+    # IP. Returns a yfinance-shaped dict either way.
+    from lib.stock import _ticker as _yf_ticker, get_info
+    from lib import fmp
 
-    try:
-        t = _yf_ticker(ticker)
-        info = t.info or {}
-    except Exception as exc:  # noqa: BLE001
-        print(f"[financials] info failed for {ticker}: {exc}")
+    info = get_info(ticker)
+    if not info:
+        print(f"[financials] both yfinance and FMP returned empty for {ticker}")
         return {}
 
-    # earnings_dates returns 20+ quarters of historical EPS data, vs the 4
-    # served by earnings_history. Surprise(%) here is already in percent
-    # form (3.28 = 3.28%), unlike earnings_history.surprisePercent (decimal).
+    # Earnings history — yfinance.earnings_dates returns 20+ quarters with
+    # estimate / actual / surprise%. Falls back to FMP's earnings-surprises.
     earnings_history: list[dict] = []
     try:
+        t = _yf_ticker(ticker)
         ed = t.earnings_dates
         if ed is not None and not ed.empty:
             now = pd.Timestamp.now(tz=ed.index.tz) if ed.index.tz is not None else pd.Timestamp.now()
@@ -658,9 +656,18 @@ def _fetch_yfinance_financials(ticker: str) -> dict:
                 })
     except Exception as exc:  # noqa: BLE001
         print(f"[financials] earnings_dates failed for {ticker}: {exc}")
+    if not earnings_history and fmp.is_available():
+        try:
+            earnings_history = fmp.get_earnings_surprises(ticker, limit=8)
+            if earnings_history:
+                print(f"[financials] using FMP earnings-surprises for {ticker}")
+        except Exception as exc:  # noqa: BLE001
+            print(f"[financials] FMP earnings fallback failed for {ticker}: {exc}")
 
+    # Revenue history — annual time series for the sparkline.
     revenue_history: list[dict] = []
     try:
+        t = _yf_ticker(ticker)
         fin = t.income_stmt
         if fin is not None and not fin.empty and "Total Revenue" in fin.index:
             row = fin.loc["Total Revenue"]
@@ -675,9 +682,17 @@ def _fetch_yfinance_financials(ticker: str) -> dict:
             revenue_history.sort(key=lambda x: x["year"])
     except Exception as exc:  # noqa: BLE001
         print(f"[financials] revenue_history failed for {ticker}: {exc}")
+    if not revenue_history and fmp.is_available():
+        try:
+            revenue_history = fmp.get_revenue_history(ticker, limit=10)
+            if revenue_history:
+                print(f"[financials] using FMP revenue-history for {ticker}")
+        except Exception as exc:  # noqa: BLE001
+            print(f"[financials] FMP revenue fallback failed for {ticker}: {exc}")
 
     next_earnings_date = None
     try:
+        t = _yf_ticker(ticker)
         cal = t.calendar
         if isinstance(cal, dict):
             ed = cal.get("Earnings Date")
@@ -689,6 +704,13 @@ def _fetch_yfinance_financials(ticker: str) -> dict:
             next_earnings_date = str(val.iloc[0])[:10] if hasattr(val, "iloc") else str(val)[:10]
     except Exception as exc:  # noqa: BLE001
         print(f"[financials] calendar failed for {ticker}: {exc}")
+    if not next_earnings_date and fmp.is_available():
+        try:
+            next_earnings_date = fmp.get_next_earnings_date(ticker)
+            if next_earnings_date:
+                print(f"[financials] using FMP next-earnings for {ticker}")
+        except Exception as exc:  # noqa: BLE001
+            print(f"[financials] FMP next-earnings fallback failed for {ticker}: {exc}")
 
     return {
         "currentPrice": info.get("currentPrice"),

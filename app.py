@@ -117,6 +117,45 @@ def resolve():
     return jsonify({"ticker": ticker, **info})
 
 
+@app.route("/api/debug/status")
+def debug_status():
+    """Read-only diagnostic — reports which credentials are set and whether
+    yfinance and FMP each independently respond to a known ticker. Use this
+    to debug "everything is empty" without needing to SSH into Render.
+    Returns no secret values, only booleans + short test outputs."""
+    import os
+    from lib import fmp, stock
+    out = {
+        "fmp_key_set": fmp.is_available(),
+        "youtube_key_set": bool(os.environ.get("YOUTUBE_API_KEY")),
+        "anthropic_key_set": bool(os.environ.get("ANTHROPIC_API_KEY")),
+    }
+    # Independent yfinance test
+    try:
+        info = stock._ticker("AAPL").info or {}
+        out["yfinance_aapl"] = {
+            "longName": info.get("longName"),
+            "currentPrice": info.get("currentPrice"),
+            "ok": bool(info.get("longName") and info.get("currentPrice")),
+        }
+    except Exception as e:  # noqa: BLE001
+        out["yfinance_aapl"] = {"error": str(e)[:200]}
+    # Independent FMP test
+    if fmp.is_available():
+        try:
+            test = fmp.get_info("AAPL")
+            out["fmp_aapl"] = {
+                "longName": test.get("longName"),
+                "currentPrice": test.get("currentPrice"),
+                "ok": bool(test.get("longName")),
+            }
+        except Exception as e:  # noqa: BLE001
+            out["fmp_aapl"] = {"error": str(e)[:200]}
+    else:
+        out["fmp_aapl"] = "FMP_API_KEY not set"
+    return jsonify(out)
+
+
 @app.route("/api/financials")
 def financials():
     """Fast per-ticker yfinance snapshot for the dashboard's price tiles.

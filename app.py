@@ -151,23 +151,24 @@ def debug_status():
                 "currentPrice": test.get("currentPrice"),
                 "ok": bool(test.get("longName")),
             }
-            # Capture raw responses for the underlying FMP endpoints so we can
-            # diagnose whether they error, return [], or return data in an
-            # unexpected shape.
-            quote_raw = fmp._get("quote", {"symbol": "AAPL"})
-            profile_raw = fmp._get("profile", {"symbol": "AAPL"})
-            out["fmp_raw_quote"] = {
-                "type": type(quote_raw).__name__,
-                "len": len(quote_raw) if isinstance(quote_raw, (list, dict)) else None,
-                "first": (quote_raw[0] if isinstance(quote_raw, list) and quote_raw else quote_raw)
-                          if quote_raw else None,
-            }
-            out["fmp_raw_profile"] = {
-                "type": type(profile_raw).__name__,
-                "len": len(profile_raw) if isinstance(profile_raw, (list, dict)) else None,
-                "first": (profile_raw[0] if isinstance(profile_raw, list) and profile_raw else profile_raw)
-                          if profile_raw else None,
-            }
+            # Bypass _get() to capture raw HTTP details for FMP — the
+            # current symptom is `_get` returning None, which means HTTP
+            # non-200. Capture the actual status + body so we can see why.
+            import requests as _r
+            for path in ("quote", "profile", "key-metrics-ttm"):
+                try:
+                    r = _r.get(
+                        f"{fmp.BASE}/{path}",
+                        params={"symbol": "AAPL", "apikey": fmp.API_KEY},
+                        timeout=15,
+                    )
+                    out["fmp_http_" + path] = {
+                        "status": r.status_code,
+                        "url_path": r.url.split("apikey=")[0] + "apikey=***",
+                        "body_preview": r.text[:300] if r.text else None,
+                    }
+                except Exception as exc:  # noqa: BLE001
+                    out["fmp_http_" + path] = {"error": str(exc)[:200]}
         except Exception as e:  # noqa: BLE001
             out["fmp_aapl"] = {"error": str(e)[:200]}
     else:

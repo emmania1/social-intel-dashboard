@@ -246,6 +246,15 @@ main{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:28px 40p
 .insufficient{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.08);border-left:2px solid var(--t3);border-radius:6px;padding:12px 14px;margin-top:14px}
 .insufficient-lbl{font-family:var(--fm);font-size:9px;color:var(--t3);letter-spacing:.14em;margin-bottom:4px;font-weight:700;text-transform:uppercase}
 .insufficient-text{font-size:12px;color:var(--t2);line-height:1.6}
+/* Section-level plain-English summary card — the first thing the analyst sees
+   after each section header. Synthesizes the section's data into a written
+   interpretation of what it means for THIS specific company. */
+.section-summary{background:linear-gradient(135deg,rgba(0,229,255,.07),rgba(123,97,255,.05));border:1px solid rgba(0,229,255,.22);border-radius:8px;padding:18px 22px;margin:10px 0 18px;font-size:14px;line-height:1.7;color:var(--text)}
+.section-summary b{color:var(--cyan);font-weight:700}
+.section-summary .ss-lbl{display:block;font-family:var(--fm);font-size:10px;color:var(--cyan);letter-spacing:.14em;margin-bottom:8px;font-weight:700;text-transform:uppercase}
+.section-summary.muted{background:rgba(255,255,255,.02);border-color:rgba(255,255,255,.08)}
+.section-summary.muted b{color:var(--t2)}
+.section-summary.muted .ss-lbl{color:var(--t3)}
 .insight.warn{background:rgba(255,107,53,.05);border-color:rgba(255,107,53,.2)}
 .insight.neg{background:rgba(255,68,102,.05);border-color:rgba(255,68,102,.18)}
 .insight-lbl{font-family:var(--fm);font-size:10px;color:var(--cyan);letter-spacing:.14em;margin-bottom:6px;font-weight:700}
@@ -2005,6 +2014,133 @@ function luSection(num, title, meta){
     + '</div>';
 }
 
+// Renders a section-level "what this means" card. Use when you have a synthesis
+// to write; pass `muted=true` for the no-data / awaiting-data fallback variant.
+function luSectionSummary(label, html, muted){
+  if(!html) return '';
+  return '<div class="section-summary'+(muted?' muted':'')+'">'
+    + '<span class="ss-lbl">'+label+'</span>'
+    + html
+    + '</div>';
+}
+
+// Deterministic plain-English interpretation of the financials block.
+// Composed from size/sector framing → growth × profitability synthesis →
+// valuation context → gross-margin quality read. Returns null when there isn't
+// enough data to say anything meaningful (so the caller can show the muted
+// "data unavailable" variant instead).
+function buildFinancialsSummary(fins, ticker){
+  if(!fins) return null;
+  var hasAnything = fins.currentPrice!=null || fins.marketCap!=null || fins.revenue!=null;
+  if(!hasAnything) return null;
+  var name = fins.longName || fins.shortName || ticker;
+  var mktCap = fins.marketCap;
+  var rev = fins.revenue;
+  var revGr = fins.revenueGrowth;
+  var grossM = fins.grossMargin;
+  var netM = fins.netMargin;
+  var fwdPE = fins.forwardPE;
+  var sector = fins.sector;
+  // Size band based on market cap (US conventions).
+  var sizeLabel;
+  if(mktCap==null) sizeLabel='';
+  else if(mktCap>=10e9) sizeLabel='large-cap';
+  else if(mktCap>=2e9) sizeLabel='mid-cap';
+  else if(mktCap>=300e6) sizeLabel='small-cap';
+  else sizeLabel='micro-cap';
+  var parts = [];
+  // Opening sentence: who, how big, how much revenue
+  var open = '<b>'+name+'</b> is a ';
+  if(sizeLabel) open += '<b>'+sizeLabel+'</b> ';
+  if(sector) open += sector.toLowerCase()+' ';
+  open += 'company';
+  if(mktCap) open += ' worth <b>'+luFmt(mktCap)+'</b>';
+  if(rev) open += ' on <b>'+luFmt(rev)+'</b> in trailing-twelve-month revenue';
+  open += '.';
+  parts.push(open);
+  // Growth × profitability synthesis — the most useful single sentence
+  if(revGr!=null && netM!=null){
+    var rg = (revGr*100).toFixed(1);
+    var nm = (netM*100).toFixed(1);
+    if(revGr>0.05 && netM>0.08){
+      parts.push('Revenue grew <b>+'+rg+'%</b> YoY with healthy profits ('+nm+'% net margin) — the strongest combination, a quality compounder profile.');
+    } else if(revGr>0.05 && netM>0){
+      parts.push('Revenue grew <b>+'+rg+'%</b> YoY but margins are thin ('+nm+'% net) — operating leverage matters here.');
+    } else if(revGr>0 && netM<0){
+      parts.push('Revenue grew <b>+'+rg+'%</b> YoY but the company is <b>losing money</b> ('+nm+'% net margin) — watch whether unit economics improve as the business scales.');
+    } else if(revGr<=0 && netM>0.05){
+      parts.push('Revenue '+(revGr<-0.03?'declined':'was roughly flat')+' ('+rg+'% YoY) but the business is solidly profitable ('+nm+'% net margin) — capital-return story rather than growth.');
+    } else if(revGr<=0 && netM>0){
+      parts.push('Revenue '+(revGr<-0.03?'declined':'was flat')+' ('+rg+'% YoY) with thin profits ('+nm+'% net margin) — limited room for error.');
+    } else {
+      parts.push('Revenue '+(revGr<-0.03?'declined':'was flat')+' ('+rg+'% YoY) <i>and</i> the company is <b>losing money</b> ('+nm+'% net margin) — distressed setup, either a turnaround or a value trap.');
+    }
+  } else if(netM!=null){
+    var nm2 = (netM*100).toFixed(1);
+    parts.push(netM>0 ? 'Net margin is '+nm2+'% — the business is profitable on a TTM basis.' : 'Net margin is '+nm2+'% — the business is currently losing money.');
+  }
+  // Valuation read
+  if(fwdPE!=null && fwdPE>0 && fwdPE<200){
+    var v;
+    if(fwdPE<10) v='<b>'+fwdPE.toFixed(1)+'x forward P/E</b> — cheap on traditional metrics, but often a sign of expected earnings decline or value-trap risk.';
+    else if(fwdPE<18) v='<b>'+fwdPE.toFixed(1)+'x forward P/E</b> — modest valuation, roughly in line with the broader market.';
+    else if(fwdPE<30) v='<b>'+fwdPE.toFixed(1)+'x forward P/E</b> — premium to market, paying up for growth or quality.';
+    else v='<b>'+fwdPE.toFixed(1)+'x forward P/E</b> — high-expectations valuation, prices in major earnings recovery or expansion.';
+    parts.push(v);
+  }
+  return parts.join(' ');
+}
+
+// Deterministic plain-English interpretation of the demand intelligence block.
+// Counts how many social signals are above the SIGNAL_MIN threshold, how many
+// are rising/falling/flat, and how many are near peak vs deeply faded.
+function buildDemandSummary(summaries){
+  if(!summaries || !summaries.length) return null;
+  // Map summary names to SIGNAL_MIN keys
+  var THRESH = {
+    'Reddit': SIGNAL_MIN.reddit,
+    'YouTube views': SIGNAL_MIN.youtube,
+    'StockTwits': SIGNAL_MIN.stocktwits,
+    'StockTwits sentiment': null,  // ratio, not volume
+    'Wikipedia': SIGNAL_MIN.wikipedia,
+    'SEC': SIGNAL_MIN.sec,
+    'News': SIGNAL_MIN.news,
+    'Google Trends': SIGNAL_MIN.trends,
+    'Trends': SIGNAL_MIN.trends
+  };
+  var sufficient = summaries.filter(function(s){
+    var t = THRESH[s.name];
+    return t==null || (s.peak_value!=null && s.peak_value>=t);
+  });
+  var insufficient = summaries.length - sufficient.length;
+  var parts = [];
+  if(!sufficient.length){
+    parts.push('All demand signals are at <b>noise levels</b> for this ticker — Reddit, YouTube, news volume etc. all peaked below the threshold we use to call something a real signal.');
+    parts.push('This is normal for B2B names, sleepy industrials, and lightly-followed micro-caps where consumers don\'t congregate online. For these tickers the <b>financials section above</b> carries more interpretive weight than this one.');
+    return parts.join(' ');
+  }
+  var rising = sufficient.filter(function(s){return s.trend_12w==='rising';}).length;
+  var falling = sufficient.filter(function(s){return s.trend_12w==='falling';}).length;
+  var flat = sufficient.length - rising - falling;
+  var nearPeak = sufficient.filter(function(s){return s.pct_from_peak!=null && s.pct_from_peak>-0.15;}).length;
+  var fading = sufficient.filter(function(s){return s.pct_from_peak!=null && s.pct_from_peak<-0.5;}).length;
+  parts.push('<b>'+sufficient.length+' of '+summaries.length+'</b> demand signals have enough data to interpret'
+    + (insufficient ? ' ('+insufficient+' below threshold — too sparse to read)' : '') + '.');
+  if(rising>falling){
+    parts.push('<b>'+rising+' rising</b> vs <b>'+falling+' falling</b> over the last 12 weeks — momentum tilted positive.');
+  } else if(falling>rising){
+    parts.push('<b>'+falling+' falling</b> vs <b>'+rising+' rising</b> over the last 12 weeks — fading consumer attention.');
+  } else {
+    parts.push('<b>'+rising+' rising</b>, <b>'+falling+' falling</b>, <b>'+flat+' flat</b> — mixed direction with no clear consensus.');
+  }
+  if(nearPeak>=2){
+    parts.push('<b>'+nearPeak+' signals are within 15% of all-time peak</b> — engagement near maximum.');
+  } else if(fading>=Math.ceil(sufficient.length/2)){
+    parts.push('Most signals are <b>more than 50% off their peak</b> — meaningful loss of attention vs the brand\'s high-water mark.');
+  }
+  return parts.join(' ');
+}
+
 function luPanel(title,badge,badgeClass,body,explainer){
   // explainer (optional) renders AFTER body so the chart + numbers are the
   // first thing the analyst sees. The "How to read this panel" caret stays
@@ -2373,7 +2509,7 @@ async function runLookup(){
     var nLast=newsData[newsData.length-1]||{};
     var newsBelowThreshold=newsSum&&newsSum.peak!=null&&newsSum.peak<SIGNAL_MIN.news;
     var newsChart='<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Weekly news article count mentioning the ticker — source: '+((soc.inputs&&soc.inputs.news_source)||(d&&d.social&&d.social.inputs&&d.social.inputs.news_source)||'GDELT/NewsAPI')+'</div>'
-      +'<div style="height:100px"><canvas id="lu-news-chart"></canvas></div>'
+      +'<div style="height:150px"><canvas id="lu-news-chart"></canvas></div>'
       +luStatRow([
         {l:'Trend',v:newsSum?newsSum.trend:'--',c:newsSum?newsSum.trendCol:'var(--t3)'},
         {l:'vs Peak',v:newsSum?newsSum.pct.toFixed(0)+'%':'--',c:newsSum?newsSum.col:'var(--t3)'},
@@ -2485,14 +2621,28 @@ async function runLookup(){
   // Section 03: financial fundamentals + earnings history.
   h += luSection(++_sec, 'Financials', 'yfinance · 8-quarter history');
 
+  // Section summary — plain-English read of what the financials mean for THIS
+  // company. Falls back to a muted "data unavailable" card if Yahoo + FMP both
+  // returned empty (which happens when Yahoo throttles Render and FMP is over
+  // its daily quota — both intermittent failure modes).
+  var finsSummary = buildFinancialsSummary(fins, ticker);
+  if(finsSummary){
+    h += luSectionSummary('What this means for '+(fins.shortName||ticker), finsSummary);
+  } else {
+    h += luSectionSummary('Financial data unavailable', 'Yahoo Finance is currently throttling this server and the FMP fallback is over its daily free-tier quota. Try again in a few minutes, or check <code>/api/debug/status</code> for current source availability.', true);
+  }
+
   // Financials + Earnings side by side
   h+='<div class="g2" style="margin-bottom:14px">';
 
-  // Financials with revenue chart
+  // Financials with revenue chart + a margins comparison bar chart
   var revHist=fins.revenueHistory||[];
+  var hasMargins = fins.grossMargin!=null || fins.operatingMargin!=null || fins.netMargin!=null;
   h+=luPanel('Financials','YFINANCE LIVE','bc',
-    (revHist.length?'<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Annual revenue trajectory</div>'
-      +'<div style="height:80px;margin-bottom:12px"><canvas id="lu-rev"></canvas></div>':'')
+    (revHist.length?'<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Annual revenue trajectory ($M)</div>'
+      +'<div style="height:160px;margin-bottom:14px"><canvas id="lu-rev"></canvas></div>':'')
+    +(hasMargins?'<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Profitability — gross vs operating vs net margin</div>'
+      +'<div style="height:130px;margin-bottom:14px"><canvas id="lu-margins"></canvas></div>':'')
     +'<div class="fgrid">'
     +[['Market Cap',luFmt(fins.marketCap)],['Revenue TTM',luFmt(fins.revenue)],
       ['Rev Growth',fins.revenueGrowth?(fins.revenueGrowth*100).toFixed(1)+'%':'--'],
@@ -2535,6 +2685,14 @@ async function runLookup(){
   // Section 04: every individual demand source.
   h += luSection(++_sec, 'Demand Intelligence', 'reddit · youtube · trends · stocktwits · wikipedia · sec');
 
+  // Section summary — synthesize across all the social signals into one
+  // plain-English read. Counts rising-vs-falling, near-peak-vs-fading,
+  // and flags when nothing's above threshold (B2B / sleepy names).
+  var demandSummary = buildDemandSummary(summaries);
+  if(demandSummary){
+    h += luSectionSummary('What this means for '+(fins.shortName||ticker), demandSummary);
+  }
+
   // Reddit (consumer/fandom signal)
   var redditData=(soc.series&&soc.series.reddit)||[];
   var redditSum=luSummary(sumFor('Reddit'));
@@ -2543,7 +2701,7 @@ async function runLookup(){
     var rCurrent=redditData[redditData.length-1].count;
     var redditBelowThreshold=redditSum&&redditSum.peak!=null&&redditSum.peak<SIGNAL_MIN.reddit;
     var redditChart='<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Weekly Reddit mention volume — aggregated across general finance subs + brand-specific subs</div>'
-      +'<div style="height:120px"><canvas id="lu-reddit-chart"></canvas></div>'
+      +'<div style="height:170px"><canvas id="lu-reddit-chart"></canvas></div>'
       +luStatRow([
         {l:'Trend',v:redditSum?redditSum.trend:'--',c:redditSum?redditSum.trendCol:'var(--t3)'},
         {l:'vs Peak',v:redditSum?redditSum.pct.toFixed(0)+'%':'--',c:redditSum?redditSum.col:'var(--t3)'},
@@ -2578,7 +2736,7 @@ async function runLookup(){
     var ytLast=ytData[ytData.length-1]||{};
     var ytBelowThreshold=ytViewsSum&&ytViewsSum.peak!=null&&ytViewsSum.peak<SIGNAL_MIN.youtube;
     var ytChart='<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Weekly YouTube views (bars) + video uploads (line) — creator + commentary signal</div>'
-      +'<div style="height:120px"><canvas id="lu-yt-chart"></canvas></div>'
+      +'<div style="height:170px"><canvas id="lu-yt-chart"></canvas></div>'
       +luStatRow([
         {l:'Views Trend',v:ytViewsSum?ytViewsSum.trend:'--',c:ytViewsSum?ytViewsSum.trendCol:'var(--t3)'},
         {l:'vs Peak',v:ytViewsSum?ytViewsSum.pct.toFixed(0)+'%':'--',c:ytViewsSum?ytViewsSum.col:'var(--t3)'},
@@ -2621,7 +2779,7 @@ async function runLookup(){
       +'<div style="background:var(--b1);border-radius:4px;height:6px">'
       +'<div style="width:'+bullScore+'%;height:100%;background:'+bullCol+';border-radius:4px"></div></div></div>'
       +'<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Weekly message volume (bars) + bullish ratio (line) -- 2-year history</div>'
-      +'<div style="height:120px"><canvas id="lu-twits-chart"></canvas></div>'
+      +'<div style="height:170px"><canvas id="lu-twits-chart"></canvas></div>'
       +luStatRow([
         {l:'Trend',v:twitsSum?twitsSum.trend:'--',c:twitsSum?twitsSum.trendCol:'var(--t3)'},
         {l:'vs Peak',v:twitsSum?twitsSum.pct.toFixed(0)+'%':'--',c:twitsSum?twitsSum.col:'var(--t3)'},
@@ -2655,7 +2813,7 @@ async function runLookup(){
   if(trendsData.length){
     var trendsBelowThreshold=trendsSum&&trendsSum.peak!=null&&trendsSum.peak<SIGNAL_MIN.trends;
     var trendsChart='<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Weekly Google search interest (0-100 scale, 100 = peak interest in period)</div>'
-      +'<div style="height:120px"><canvas id="lu-trends-chart"></canvas></div>'
+      +'<div style="height:170px"><canvas id="lu-trends-chart"></canvas></div>'
       +luStatRow([
         {l:'Trend',v:trendsSum?trendsSum.trend:'--',c:trendsSum?trendsSum.trendCol:'var(--t3)'},
         {l:'vs Peak',v:trendsSum?trendsSum.pct.toFixed(0)+'%':'--',c:trendsSum?trendsSum.col:'var(--t3)'},
@@ -2690,7 +2848,7 @@ async function runLookup(){
   if(wikiData.length){
     var wikiBelowThreshold=wikiSum&&wikiSum.peak!=null&&wikiSum.peak<SIGNAL_MIN.wikipedia;
     var wikiChart='<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Weekly Wikipedia page views -- brand awareness proxy</div>'
-      +'<div style="height:100px"><canvas id="lu-wiki-chart"></canvas></div>'
+      +'<div style="height:150px"><canvas id="lu-wiki-chart"></canvas></div>'
       +luStatRow([
         {l:'Trend',v:wikiSum?wikiSum.trend:'--',c:wikiSum?wikiSum.trendCol:'var(--t3)'},
         {l:'vs Peak',v:wikiSum?wikiSum.pct.toFixed(0)+'%':'--',c:wikiSum?wikiSum.col:'var(--t3)'},
@@ -2726,7 +2884,7 @@ async function runLookup(){
     var sLast=secData[secData.length-1]||{};
     var secBelowThreshold=secSum&&secSum.peak!=null&&secSum.peak<SIGNAL_MIN.sec;
     var secChart='<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Weekly SEC filing count — 8-K, 10-Q, 10-K, Form 4 (insider), Form 13G/13D, S-1, etc.</div>'
-      +'<div style="height:100px"><canvas id="lu-sec-chart"></canvas></div>'
+      +'<div style="height:150px"><canvas id="lu-sec-chart"></canvas></div>'
       +luStatRow([
         {l:'Trend',v:secSum?secSum.trend:'--',c:secSum?secSum.trendCol:'var(--t3)'},
         {l:'vs Peak',v:secSum?secSum.pct.toFixed(0)+'%':'--',c:secSum?secSum.col:'var(--t3)'},
@@ -2752,7 +2910,7 @@ async function runLookup(){
   if(sentTagged.length>3){
     h+=luPanel('StockTwits Sentiment Ratio','BULLISH / BEARISH OVER TIME','bg',
       '<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Bullish ratio: 0 = all bearish, 1 = all bullish. Recent 52 weeks.</div>'
-      +'<div style="height:120px"><canvas id="lu-sent-chart"></canvas></div>',
+      +'<div style="height:170px"><canvas id="lu-sent-chart"></canvas></div>',
       luExplain(
         'Weekly fraction of StockTwits messages that the poster explicitly tagged bullish, plotted as a line (0.0 = all bearish, 1.0 = all bullish).',
         'Only messages the user tagged are counted, so this is a directional sentiment read separate from raw volume above. Sustained moves above 0.60 or below 0.40 are meaningful. A sentiment <i>turn</i> (from bearish to bullish or vice-versa) at high volume is the strongest signal here.',
@@ -3005,6 +3163,34 @@ async function runLookup(){
         revHist.map(function(r,i){return i===revHist.length-1?'rgba(0,229,255,.6)':'rgba(0,229,255,.3)';}),
         'Revenue $M'
       );
+    }
+
+    // Margins comparison bar chart — green = profitable, red = losing money.
+    // The visual is more useful than the three separate %s in the grid below
+    // because you can see at a glance: how much margin gets eaten between
+    // gross → operating → net.
+    var mLabels=[], mValues=[], mColors=[];
+    function _pushM(lbl, val){
+      if(val==null) return;
+      mLabels.push(lbl);
+      mValues.push(val*100);
+      mColors.push(val>0 ? 'rgba(0,255,157,.55)' : 'rgba(255,68,102,.55)');
+    }
+    _pushM('Gross',  fins.grossMargin);
+    _pushM('Operating', fins.operatingMargin);
+    _pushM('Net',   fins.netMargin);
+    if(mLabels.length){
+      _luMk('lu-margins',{type:'bar',data:{
+        labels:mLabels,
+        datasets:[{data:mValues,backgroundColor:mColors,borderWidth:0,borderRadius:3}]
+      },options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return c.parsed.y.toFixed(1)+'%';}}}},
+        scales:{
+          x:{grid:{display:false},ticks:{font:{family:"'DM Mono',monospace",size:10},color:'#7c93a8'}},
+          y:{grid:{color:'rgba(28,42,56,.5)'},ticks:{font:{family:"'DM Mono',monospace",size:9},color:'#4a6070',callback:function(v){return v+'%';}}}
+        }
+      }});
     }
 
     // Earnings surprise bar chart

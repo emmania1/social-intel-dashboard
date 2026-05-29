@@ -2094,37 +2094,46 @@ function buildFinancialsSummary(fins, ticker){
 // Deterministic plain-English interpretation of the demand intelligence block.
 // Counts how many social signals are above the SIGNAL_MIN threshold, how many
 // are rising/falling/flat, and how many are near peak vs deeply faded.
+//
+// Reads against the actual /api/full summary shape:
+//   { metric: 'Reddit mentions/wk', peak_value: N, current_value: N,
+//     pct_from_peak: -PERCENT, trend_12w: 'rising'|'falling'|'flat'|'insufficient-data' }
+// Note: pct_from_peak is in PERCENT units (-50, not -0.5). The metric names
+// have the unit suffix ("/wk") which is why the threshold map keys those.
 function buildDemandSummary(summaries){
   if(!summaries || !summaries.length) return null;
-  // Map summary names to SIGNAL_MIN keys
+  // Threshold per metric name. Stock price isn't a demand signal — skip.
+  // YouTube videos/wk is a creator-supply count, not the audience signal.
   var THRESH = {
-    'Reddit': SIGNAL_MIN.reddit,
-    'YouTube views': SIGNAL_MIN.youtube,
-    'StockTwits': SIGNAL_MIN.stocktwits,
-    'StockTwits sentiment': null,  // ratio, not volume
-    'Wikipedia': SIGNAL_MIN.wikipedia,
-    'SEC': SIGNAL_MIN.sec,
-    'News': SIGNAL_MIN.news,
-    'Google Trends': SIGNAL_MIN.trends,
-    'Trends': SIGNAL_MIN.trends
+    'Reddit mentions/wk':    SIGNAL_MIN.reddit,
+    'YouTube views/wk':      SIGNAL_MIN.youtube,
+    'StockTwits msgs/wk':    SIGNAL_MIN.stocktwits,
+    'Wikipedia views/wk':    SIGNAL_MIN.wikipedia,
+    'SEC filings/wk':        SIGNAL_MIN.sec,
+    'News articles/wk':      SIGNAL_MIN.news,
+    'Google Trends':         SIGNAL_MIN.trends
   };
-  var sufficient = summaries.filter(function(s){
-    var t = THRESH[s.name];
-    return t==null || (s.peak_value!=null && s.peak_value>=t);
+  // Demand-signal entries only. Drops Stock price, drops YouTube videos count.
+  var demand = summaries.filter(function(s){ return s && s.metric && THRESH[s.metric]!==undefined; });
+  if(!demand.length) return null;
+  var sufficient = demand.filter(function(s){
+    var t = THRESH[s.metric];
+    return s.peak_value!=null && s.peak_value >= t;
   });
-  var insufficient = summaries.length - sufficient.length;
+  var insufficient = demand.length - sufficient.length;
   var parts = [];
   if(!sufficient.length){
     parts.push('All demand signals are at <b>noise levels</b> for this ticker — Reddit, YouTube, news volume etc. all peaked below the threshold we use to call something a real signal.');
     parts.push('This is normal for B2B names, sleepy industrials, and lightly-followed micro-caps where consumers don\'t congregate online. For these tickers the <b>financials section above</b> carries more interpretive weight than this one.');
     return parts.join(' ');
   }
-  var rising = sufficient.filter(function(s){return s.trend_12w==='rising';}).length;
+  var rising  = sufficient.filter(function(s){return s.trend_12w==='rising';}).length;
   var falling = sufficient.filter(function(s){return s.trend_12w==='falling';}).length;
-  var flat = sufficient.length - rising - falling;
-  var nearPeak = sufficient.filter(function(s){return s.pct_from_peak!=null && s.pct_from_peak>-0.15;}).length;
-  var fading = sufficient.filter(function(s){return s.pct_from_peak!=null && s.pct_from_peak<-0.5;}).length;
-  parts.push('<b>'+sufficient.length+' of '+summaries.length+'</b> demand signals have enough data to interpret'
+  var flat    = sufficient.length - rising - falling;
+  // pct_from_peak is in PERCENT (-15, not -0.15)
+  var nearPeak = sufficient.filter(function(s){return s.pct_from_peak!=null && s.pct_from_peak>-15;}).length;
+  var fading   = sufficient.filter(function(s){return s.pct_from_peak!=null && s.pct_from_peak<-50;}).length;
+  parts.push('<b>'+sufficient.length+' of '+demand.length+'</b> demand signals have enough data to interpret'
     + (insufficient ? ' ('+insufficient+' below threshold — too sparse to read)' : '') + '.');
   if(rising>falling){
     parts.push('<b>'+rising+' rising</b> vs <b>'+falling+' falling</b> over the last 12 weeks — momentum tilted positive.');
@@ -2136,9 +2145,16 @@ function buildDemandSummary(summaries){
   if(nearPeak>=2){
     parts.push('<b>'+nearPeak+' signals are within 15% of all-time peak</b> — engagement near maximum.');
   } else if(fading>=Math.ceil(sufficient.length/2)){
-    parts.push('Most signals are <b>more than 50% off their peak</b> — meaningful loss of attention vs the brand\'s high-water mark.');
+    parts.push('Most demand signals are <b>more than 50% off their peak</b> — meaningful loss of attention vs the brand\'s high-water mark.');
   }
   return parts.join(' ');
+}
+
+// Defensive wrapper — if a summary builder throws, swallow it so the rest of
+// the page still renders. We log to console so the bug isn't invisible.
+function _safeSummary(builder, args, label){
+  try { return builder.apply(null, args); }
+  catch(e){ console.warn('[section-summary] '+label+' failed:', e); return null; }
 }
 
 function luPanel(title,badge,badgeClass,body,explainer){
@@ -2625,7 +2641,7 @@ async function runLookup(){
   // company. Falls back to a muted "data unavailable" card if Yahoo + FMP both
   // returned empty (which happens when Yahoo throttles Render and FMP is over
   // its daily quota — both intermittent failure modes).
-  var finsSummary = buildFinancialsSummary(fins, ticker);
+  var finsSummary = _safeSummary(buildFinancialsSummary, [fins, ticker], 'financials');
   if(finsSummary){
     h += luSectionSummary('What this means for '+(fins.shortName||ticker), finsSummary);
   } else {
@@ -2688,7 +2704,7 @@ async function runLookup(){
   // Section summary — synthesize across all the social signals into one
   // plain-English read. Counts rising-vs-falling, near-peak-vs-fading,
   // and flags when nothing's above threshold (B2B / sleepy names).
-  var demandSummary = buildDemandSummary(summaries);
+  var demandSummary = _safeSummary(buildDemandSummary, [summaries], 'demand');
   if(demandSummary){
     h += luSectionSummary('What this means for '+(fins.shortName||ticker), demandSummary);
   }

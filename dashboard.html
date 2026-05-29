@@ -405,6 +405,15 @@ main{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:28px 40p
 .lu-tool-btn.primary:hover{background:rgba(0,229,255,.1)}
 .lu-lowsig-banner{background:rgba(243,184,74,.08);border:1px solid var(--yellow);border-left:3px solid var(--yellow);border-radius:8px;padding:14px 18px;margin-bottom:16px;font-family:var(--fm);font-size:12px;color:var(--text);line-height:1.7}
 .lu-lowsig-banner b{color:var(--yellow)}
+/* Cold-start "service waking up" banner — shows when /api/health takes
+   longer than 2s on page load (Render's free tier sleeps after 15min).
+   Animated progress bar feels responsive while the container warms up. */
+.lu-wakeup-banner{position:fixed;top:0;left:0;right:0;background:rgba(243,184,74,.12);border-bottom:1px solid rgba(243,184,74,.35);color:var(--yellow);padding:12px 28px;font-family:var(--fm);font-size:12px;z-index:9000;display:flex;align-items:center;gap:14px;backdrop-filter:blur(8px)}
+.lu-wakeup-banner b{font-weight:700;letter-spacing:.04em}
+.lu-wakeup-bar-bg{flex:1;height:3px;background:rgba(243,184,74,.18);border-radius:2px;overflow:hidden;max-width:300px}
+.lu-wakeup-bar{height:100%;width:0%;background:var(--yellow);transition:width 1s linear}
+.lu-wakeup-banner.done{background:rgba(0,255,157,.08);border-bottom-color:rgba(0,255,157,.35);color:var(--green)}
+.lu-wakeup-banner.done .lu-wakeup-bar{background:var(--green)}
 .doc-chip-name.clickable{cursor:pointer;text-decoration:underline;text-decoration-color:var(--b2);text-underline-offset:2px;transition:color .15s,text-decoration-color .15s}
 .doc-chip-name.clickable:hover{color:var(--cyan);text-decoration-color:var(--cyan)}
 .doc-viewer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:300;display:none;align-items:center;justify-content:center;backdrop-filter:blur(10px)}
@@ -703,9 +712,43 @@ const RENDER='https://social-intel-dashboard.onrender.com';
 // before the user runs a lookup. Free-tier services sleep after ~15min
 // idle and cold-start adds 25-35s — we'd rather burn that latency now,
 // in the background, than on the first lookup click.
+//
+// If the health check takes more than 2s, surface a visible "waking up"
+// banner with an animated progress bar so the user knows the slow first
+// lookup is just the container warming, not a bug.
 (async function luPrewarm(){
-  try { await fetch(RENDER+'/api/health',{signal:AbortSignal.timeout(45000)}); }
-  catch(e){ /* ignore — lookup will still work, just slower */ }
+  var banner = null;
+  var barEl = null;
+  var slowTicker = null;
+  var slowTimer = setTimeout(function(){
+    banner = document.createElement('div');
+    banner.className = 'lu-wakeup-banner';
+    banner.innerHTML =
+      '<b>Service waking up…</b>'
+      + '<span style="opacity:.85">First visit after 15min idle takes ~30s on Render free tier — the next click will be fast.</span>'
+      + '<div class="lu-wakeup-bar-bg"><div class="lu-wakeup-bar"></div></div>';
+    document.body.appendChild(banner);
+    barEl = banner.querySelector('.lu-wakeup-bar');
+    // Animate to 92% over ~35s so it feels responsive without lying about completion
+    var pct = 0;
+    slowTicker = setInterval(function(){
+      pct = Math.min(pct + 2.5, 92);
+      if(barEl) barEl.style.width = pct + '%';
+      if(pct >= 92) clearInterval(slowTicker);
+    }, 900);
+  }, 2000);
+  try {
+    await fetch(RENDER+'/api/health',{signal:AbortSignal.timeout(45000)});
+  } catch(e){ /* ignore — lookup will still work, just slower */ }
+  clearTimeout(slowTimer);
+  if(slowTicker) clearInterval(slowTicker);
+  if(banner){
+    if(barEl) barEl.style.width = '100%';
+    banner.classList.add('done');
+    var firstSpan = banner.querySelector('span');
+    if(firstSpan) firstSpan.textContent = 'Service is awake — lookups will run at normal speed.';
+    setTimeout(function(){ if(banner && banner.parentNode) banner.parentNode.removeChild(banner); }, 1800);
+  }
 })();
 
 // Coverage data for cards
@@ -2459,6 +2502,42 @@ function luDownloadSnapshot(){
   URL.revokeObjectURL(url);
 }
 
+// Re-render the Ticker Lookup from a previously-downloaded snapshot JSON.
+// The use case: longitudinal compare. You ran CROX a month ago, downloaded
+// the snapshot, and now want to look at it again without re-fetching (which
+// would give different numbers because the data has moved). This wires the
+// uploaded payload into the same render path the live fetch uses.
+function luUploadSnapshot(){
+  var input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'application/json,.json';
+  input.style.display = 'none';
+  input.onchange = async function(){
+    var file = input.files && input.files[0];
+    if(!file) return;
+    try {
+      var text = await file.text();
+      var parsed = JSON.parse(text);
+      if(!parsed || !parsed.ticker || !parsed.social){
+        alert('That doesn\'t look like a valid snapshot. Expected a JSON file with `ticker` and `social` keys (the format produced by the ⬇ Snapshot button).');
+        return;
+      }
+      window.__pendingSnapshot = parsed;
+      // Populate the ticker field so the user sees what they loaded
+      var tInput = document.getElementById('lookupTicker');
+      if(tInput) tInput.value = parsed.ticker;
+      // Trigger the lookup flow — runLookup detects __pendingSnapshot and
+      // skips the network fetch, using the uploaded payload as `d` instead.
+      runLookup();
+    } catch(e){
+      alert('Could not parse snapshot file: ' + (e.message || e));
+    }
+  };
+  document.body.appendChild(input);
+  input.click();
+  setTimeout(function(){ if(input.parentNode) input.parentNode.removeChild(input); }, 5000);
+}
+
 // Resolve a CSV key to the underlying rows in the last lookup payload.
 function _luCsvKey(key){
   var d = window.__lastLookup; if(!d) return null;
@@ -2486,7 +2565,26 @@ async function runLookup(){
   var progressTimer = luStartProgress();
 
   var d = null, dp = null;
+
+  // If the user just uploaded a snapshot JSON, use that as the primary
+  // payload instead of fetching. Re-rendering from a saved snapshot is the
+  // whole point of the download/upload feature — longitudinal compare.
+  if(window.__pendingSnapshot){
+    d = window.__pendingSnapshot;
+    window.__pendingSnapshot = null;  // one-shot — next runLookup() fetches fresh
+    clearInterval(progressTimer);
+    var snapBar=document.getElementById('luProgressBar'); if(snapBar) snapBar.style.width='100%';
+    // Synth a small badge so the user knows this is from-disk, not live
+    try {
+      var snapStatus = document.getElementById('luProgressStatus');
+      if(snapStatus) snapStatus.textContent = 'Loaded from snapshot file (not live data)';
+    } catch(_){}
+  }
+
   try{
+    if(d) {
+      // We already have d from a snapshot upload — skip the fetch entirely
+    } else {
     // Fetch primary + peer in parallel. If the peer fetch fails, we still
     // render the primary view — comparison just doesn't show up.
     var fetches = [luFetchWithRetry(url)];
@@ -2494,6 +2592,7 @@ async function runLookup(){
     var results = await Promise.all(fetches);
     d = results[0];
     dp = results[1] || null;
+    }  // end of snapshot-bypass else
   }catch(e){
     clearInterval(progressTimer);
     result.innerHTML='<div style="padding:20px;background:var(--s2);border:1px solid var(--red);border-radius:8px;color:var(--red);font-family:var(--fm);font-size:12px">'
@@ -3153,7 +3252,8 @@ async function runLookup(){
     + 'Download any chart as a PNG, any series as a CSV, or save the entire run as JSON for future comparison or re-rendering.</div>'
     + '<div class="lu-export-bar">'
     +   '<span class="lu-export-lbl">FULL RUN</span>'
-    +   '<button class="lu-tool-btn primary" onclick="luDownloadSnapshot()">⬇ Snapshot (JSON)</button>'
+    +   '<button class="lu-tool-btn primary" onclick="luDownloadSnapshot()">⬇ Save snapshot (JSON)</button>'
+    +   '<button class="lu-tool-btn" onclick="luUploadSnapshot()">⬆ Load saved snapshot</button>'
     +   '<button class="lu-tool-btn" onclick="luCsvByKey(\'aligned\',\'' + ticker + '\',\'aligned_weekly\')">📊 Aligned weekly CSV</button>'
     + '</div>'
     + '<div class="lu-export-bar">'

@@ -255,6 +255,36 @@ main{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:28px 40p
 .section-summary.muted{background:rgba(255,255,255,.02);border-color:rgba(255,255,255,.08)}
 .section-summary.muted b{color:var(--t2)}
 .section-summary.muted .ss-lbl{color:var(--t3)}
+/* Narrative card — backend-computed cross-source synthesis. Big, prominent,
+   and the LEFT BORDER COLOR encodes the overall direction (green=rising,
+   red=declining, yellow=mixed, gray=flat/unclear) so the analyst gets the
+   gestalt before reading a word. */
+.narrative-card{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.08);border-left:4px solid var(--cyan);border-radius:8px;padding:20px 24px;margin:12px 0 14px}
+.narrative-card.dir-rising{border-left-color:var(--green)}
+.narrative-card.dir-declining{border-left-color:var(--red)}
+.narrative-card.dir-mixed{border-left-color:var(--yellow)}
+.narrative-card.dir-flat,.narrative-card.dir-unclear{border-left-color:var(--t3)}
+.narrative-card .nc-lbl{display:block;font-family:var(--fm);font-size:10px;letter-spacing:.14em;margin-bottom:8px;font-weight:700;text-transform:uppercase;color:var(--t3)}
+.narrative-card.dir-rising .nc-lbl{color:var(--green)}
+.narrative-card.dir-declining .nc-lbl{color:var(--red)}
+.narrative-card.dir-mixed .nc-lbl{color:var(--yellow)}
+.narrative-card .nc-headline{font-size:17px;line-height:1.45;font-weight:600;color:var(--text);margin-bottom:8px}
+.narrative-card .nc-paragraph{font-size:13.5px;line-height:1.65;color:var(--t2)}
+/* Inputs transparency strip — collapsible "what got searched" details so
+   the analyst can debug empty/wrong results without guessing. */
+.inputs-strip{background:rgba(255,255,255,.015);border:1px solid rgba(255,255,255,.06);border-radius:6px;padding:0;margin:0 0 14px;font-size:12px}
+.inputs-strip > summary{padding:8px 14px;cursor:pointer;color:var(--t3);font-family:var(--fm);font-size:10px;letter-spacing:.1em;text-transform:uppercase;list-style:none;user-select:none}
+.inputs-strip > summary::-webkit-details-marker{display:none}
+.inputs-strip > summary::marker{content:''}
+.inputs-strip > summary::before{content:'▸ ';color:var(--t3);font-size:9px}
+.inputs-strip[open] > summary::before{content:'▾ '}
+.inputs-strip > summary:hover{color:var(--cyan)}
+.inputs-strip .is-body{padding:6px 14px 12px;border-top:1px solid rgba(255,255,255,.05);color:var(--t2);line-height:1.7;font-size:12px}
+.inputs-strip .is-row{display:flex;gap:10px;margin:6px 0;flex-wrap:wrap;align-items:flex-start}
+.inputs-strip .is-lbl{color:var(--t3);font-family:var(--fm);font-size:10px;text-transform:uppercase;letter-spacing:.06em;flex:0 0 130px;padding-top:2px}
+.inputs-strip .is-val{flex:1;min-width:240px}
+.inputs-strip code{background:rgba(0,229,255,.06);padding:1px 6px;border-radius:3px;font-size:11px;color:var(--cyan);margin:1px 2px;display:inline-block}
+.inputs-strip code.auto-found{background:rgba(0,255,157,.08);color:var(--green)}
 .insight.warn{background:rgba(255,107,53,.05);border-color:rgba(255,107,53,.2)}
 .insight.neg{background:rgba(255,68,102,.05);border-color:rgba(255,68,102,.18)}
 .insight-lbl{font-family:var(--fm);font-size:10px;color:var(--cyan);letter-spacing:.14em;margin-bottom:6px;font-weight:700}
@@ -2157,6 +2187,64 @@ function _safeSummary(builder, args, label){
   catch(e){ console.warn('[section-summary] '+label+' failed:', e); return null; }
 }
 
+// Render the backend-computed cross-source narrative card. This is THE
+// synthesis card — built by lib/analysis.build_narrative() with quality
+// gating (sources below a noise floor get listed as "weak" instead of
+// padding the narrative). Direction colors the left border so the gestalt
+// reads at a glance: green=rising, red=declining, yellow=mixed, gray=flat.
+function _escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function renderNarrativeCard(narrative){
+  if(!narrative || !narrative.headline) return '';
+  var dir = (narrative.direction || 'unclear').toLowerCase();
+  return '<div class="narrative-card dir-'+_escHtml(dir)+'">'
+    + '<span class="nc-lbl">Cross-source narrative · '+_escHtml(dir)+'</span>'
+    + '<div class="nc-headline">'+_escHtml(narrative.headline)+'</div>'
+    + (narrative.paragraph ? '<div class="nc-paragraph">'+_escHtml(narrative.paragraph)+'</div>' : '')
+    + '</div>';
+}
+
+// Render a collapsible inputs-transparency strip. Shows exactly what got
+// searched (subreddits, queries, Wikipedia article matched, news source).
+// Auto-discovered company subreddits get highlighted green so you can see
+// at a glance whether the brand-specific community was found.
+function renderInputsStrip(inputs){
+  if(!inputs) return '';
+  var rows = [];
+  if(inputs.search_term && inputs.search_term !== inputs.ticker){
+    rows.push({l:'Search term', v:'<code>'+_escHtml(inputs.search_term)+'</code>'});
+  }
+  var subs = inputs.subreddits_searched || [];
+  var discovered = (inputs.discovered_subreddits || []).map(function(d){return (d && d.name ? d.name : '').toLowerCase();});
+  if(subs.length){
+    var subHtml = subs.map(function(s){
+      var isAuto = discovered.indexOf(String(s).toLowerCase()) >= 0;
+      return '<code'+(isAuto?' class="auto-found" title="auto-discovered brand sub"':'')+'>r/'+_escHtml(s)+'</code>';
+    }).join('');
+    rows.push({l:'Reddit subs', v:subHtml});
+  }
+  if((inputs.reddit_queries || []).length){
+    rows.push({l:'Reddit queries', v:inputs.reddit_queries.map(function(q){return '<code>'+_escHtml(q)+'</code>';}).join('')});
+  }
+  if((inputs.youtube_queries || []).length){
+    rows.push({l:'YouTube queries', v:inputs.youtube_queries.map(function(q){return '<code>'+_escHtml(q)+'</code>';}).join('')});
+  }
+  if(inputs.wikipedia_title){
+    rows.push({l:'Wikipedia article', v:'<code>'+_escHtml(inputs.wikipedia_title)+'</code>'});
+  }
+  if(inputs.news_source){
+    rows.push({l:'News source', v:_escHtml(inputs.news_source)});
+  }
+  if(inputs.start && inputs.end){
+    rows.push({l:'Date window', v:_escHtml(inputs.start)+' → '+_escHtml(inputs.end)});
+  }
+  if(!rows.length) return '';
+  return '<details class="inputs-strip">'
+    + '<summary>What was searched — inputs transparency</summary>'
+    + '<div class="is-body">'
+    + rows.map(function(r){return '<div class="is-row"><div class="is-lbl">'+r.l+'</div><div class="is-val">'+r.v+'</div></div>';}).join('')
+    + '</div></details>';
+}
+
 function luPanel(title,badge,badgeClass,body,explainer){
   // explainer (optional) renders AFTER body so the chart + numbers are the
   // first thing the analyst sees. The "How to read this panel" caret stays
@@ -2701,13 +2789,24 @@ async function runLookup(){
   // Section 04: every individual demand source.
   h += luSection(++_sec, 'Demand Intelligence', 'reddit · youtube · trends · stocktwits · wikipedia · sec');
 
-  // Section summary — synthesize across all the social signals into one
-  // plain-English read. Counts rising-vs-falling, near-peak-vs-fading,
-  // and flags when nothing's above threshold (B2B / sleepy names).
+  // 1) Cross-source NARRATIVE from the backend. This is the highest-priority
+  //    synthesis on the page — lib/analysis.build_narrative() identifies the
+  //    strongest source, references stock peak, and lists weak/low-signal
+  //    sources separately. Direction colors the left border.
+  h += renderNarrativeCard(soc.narrative);
+
+  // 2) Section-level "what this means" — quantitative companion to the
+  //    narrative above. Counts rising-vs-falling, near-peak-vs-fading,
+  //    flags when everything is below the signal-quality threshold.
   var demandSummary = _safeSummary(buildDemandSummary, [summaries], 'demand');
   if(demandSummary){
-    h += luSectionSummary('What this means for '+(fins.shortName||ticker), demandSummary);
+    h += luSectionSummary('By the numbers', demandSummary);
   }
+
+  // 3) Inputs transparency — collapsible "what was searched" strip so the
+  //    analyst can debug empty results ("oh, it searched FNKO not Funko")
+  //    without guessing.
+  h += renderInputsStrip(soc.inputs);
 
   // Reddit (consumer/fandom signal)
   var redditData=(soc.series&&soc.series.reddit)||[];

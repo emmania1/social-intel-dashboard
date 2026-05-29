@@ -2277,6 +2277,19 @@ function luStatRow(stats){
 //   - trends:     normalised 0-100 (Google Trends never falls below this for real interest)
 var SIGNAL_MIN={reddit:10,youtube:1000,stocktwits:30,wikipedia:500,sec:3,news:10,trends:5};
 
+// HERO_CONFIG — mapping from soc.hero.key (set by lib/analysis.pick_hero_signal)
+// to the aligned_weekly column, display label, and a distinct chart color.
+// Keys match the backend's pick_hero_signal candidate names exactly.
+var HERO_CONFIG_LU = {
+  trends:        { label:'Google Trends interest', col:'trends',         color:'#7b61ff' },
+  reddit:        { label:'Reddit mentions/wk',     col:'reddit',         color:'#ff6b35' },
+  youtube_views: { label:'YouTube views/wk',       col:'youtube_views',  color:'#00ff9d' },
+  stocktwits:    { label:'StockTwits msgs/wk',     col:'stocktwits',     color:'#ff6b35' },
+  wikipedia:     { label:'Wikipedia views/wk',     col:'wikipedia',      color:'#4a9eff' },
+  sec:           { label:'SEC filings/wk',         col:'sec',            color:'#00ff9d' },
+  news:          { label:'News articles/wk',       col:'news',           color:'#f37a4a' }
+};
+
 function luInsufficient(sourceLabel,peak,unit,threshold){
   // Calm gray card for below-threshold signals. No alarming colors. Says
   // explicitly that the peak was too small to interpret rather than dressing
@@ -2678,14 +2691,40 @@ async function runLookup(){
   // Section 02: the master chart that ties price to demand signals.
   h += luSection(++_sec, 'Master Signal Timeline', 'stock × demand');
 
-  // Unified Timeline
+  // Adaptive Master Timeline — Stock × the highest-quality non-stock signal
+  // for THIS specific ticker. The backend ranks every demand source by
+  // signal_quality() (density × dynamic range) and picks the winner; that's
+  // soc.hero. For FNKO that's StockTwits, for EAT it might be Reddit, etc.
+  // More interpretable than the all-signals-normalized chart because both
+  // axes show real units instead of 0-100 normalized values.
+  if(soc.hero && soc.hero.key && HERO_CONFIG_LU[soc.hero.key] && aligned.length>4){
+    var __heroCfg = HERO_CONFIG_LU[soc.hero.key];
+    h += luPanel(
+      'Master Timeline — Stock × '+__heroCfg.label,
+      'ADAPTIVE PICK',
+      'bc',
+      '<div style="font-family:var(--fm);font-size:10px;color:var(--t3);margin-bottom:8px">'
+        +'Hero signal was auto-selected — <b style="color:'+__heroCfg.color+'">'+__heroCfg.label+'</b> had the highest signal-quality score (density × dynamic range) across all 7 demand sources for this ticker.'
+        +'</div>'
+        +'<div style="height:240px"><canvas id="lu-master-hero"></canvas></div>',
+      luExplain(
+        'Stock price (cyan, left axis) plotted against <b>'+__heroCfg.label+'</b> ('+__heroCfg.color+', right axis). The hero is picked per-ticker by signal_quality — for some names that\'s StockTwits, others Reddit, Trends, or Wikipedia. The chart adapts so you\'re always pairing stock with the cleanest non-stock series for that specific name.',
+        'Watch for the colored line moving <i>before</i> the cyan line — a demand spike that precedes a stock move by 2-8 weeks is the strongest setup. Demand collapse with stock still climbing = divergence (historically a topping signal). Both lines moving together = the move is "earned."',
+        'Different tickers have different "tell" signals. This chart adapts so you\'re never forced to interpret stock-vs-Reddit on a name where Reddit doesn\'t matter — the right signal is picked automatically based on which has the most informative shape.'
+      )
+    );
+  }
+
+  // Unified Timeline — all-signals normalized comparison (complementary to
+  // the adaptive Master above). Useful when you want to compare shapes
+  // across multiple demand sources, not just the strongest one.
   if(aligned.length>4){
     h+=luPanel('Unified Signal Timeline','ALL SIGNALS NORMALIZED 0-100','bc',
       '<div style="height:200px"><canvas id="lu-unified"></canvas></div>',
       luExplain(
         '<b style="color:#00e5ff">Cyan</b> = stock price. <b style="color:#7b61ff">Purple</b> = Google search interest for the brand (0-100 scale, weekly). <b style="color:#ff6b35">Orange</b> = StockTwits message volume per week. <b style="color:#4a9eff">Blue</b> = Wikipedia article pageviews per week. All four lines rescaled 0-100 so they share one axis and you can compare shapes, not absolute values.',
         'Look for the coloured lines moving <i>before</i> the cyan line. Search/StockTwits/Wikipedia peaking while stock keeps climbing is a divergence — historically a topping signal. Coloured lines rising while stock is flat often precedes upside.',
-        'Social demand typically leads price by 2-8 weeks. This is the single most useful chart for spotting inflection points the market has not priced yet.'
+        'Use this when you want to compare the shape of multiple demand sources. For the single best signal vs stock with real units, use the adaptive Master Timeline above.'
       )
     );
   }
@@ -3244,6 +3283,28 @@ async function runLookup(){
   // Draw all charts
   requestAnimationFrame(function(){
     if(typeof Chart==='undefined') return;
+
+    // Adaptive Master Timeline — Stock × hero signal with real units on both
+    // axes. Hero comes from soc.hero.key, picked by signal_quality scoring.
+    if(soc.hero && soc.hero.key && HERO_CONFIG_LU[soc.hero.key] && aligned.length>4){
+      var mhCfg = HERO_CONFIG_LU[soc.hero.key];
+      var mhLabels = aligned.map(function(r){return r.date ? r.date.slice(0,7) : '';});
+      var mhStock = aligned.map(function(r){return r.stock;});
+      var mhHero = aligned.map(function(r){return r[mhCfg.col];});
+      _luMk('lu-master-hero',{type:'line',data:{labels:mhLabels,datasets:[
+        {label:'Stock ($)', data:mhStock, borderColor:'#00e5ff', backgroundColor:'rgba(0,229,255,.07)', borderWidth:2, pointRadius:0, tension:.3, fill:true, yAxisID:'y', spanGaps:true},
+        {label:mhCfg.label, data:mhHero, borderColor:mhCfg.color, backgroundColor:'transparent', borderWidth:1.7, pointRadius:0, tension:.3, yAxisID:'y2', spanGaps:true}
+      ]},options:{
+        responsive:true, maintainAspectRatio:false,
+        interaction:{mode:'index', intersect:false},
+        plugins:{legend:{labels:{font:{family:"'DM Mono',monospace",size:10},color:'#8899aa',boxWidth:12}}},
+        scales:{
+          x:{grid:{display:false},ticks:{maxTicksLimit:14,maxRotation:0,font:{family:"'DM Mono',monospace",size:9},color:'#4a6070'}},
+          y:{position:'left',grid:{color:'rgba(28,42,56,.5)'},ticks:{font:{family:"'DM Mono',monospace",size:9},color:'#00e5ff',callback:function(v){return '$'+v.toFixed(0);}},title:{display:true,text:'Stock ($)',color:'#00e5ff',font:{family:"'DM Mono',monospace",size:10}}},
+          y2:{position:'right',grid:{drawOnChartArea:false},ticks:{font:{family:"'DM Mono',monospace",size:9},color:mhCfg.color},title:{display:true,text:mhCfg.label,color:mhCfg.color,font:{family:"'DM Mono',monospace",size:10}}}
+        }
+      }});
+    }
 
     // Unified timeline using aligned_weekly
     if(aligned.length>4){

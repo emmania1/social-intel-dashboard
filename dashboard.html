@@ -2018,11 +2018,27 @@ function setLookup(t){ document.getElementById('lookupTicker').value=t; }
 // Chart registry
 var _luC={};
 function _luDestroy(id){ if(_luC[id]){ try{_luC[id].destroy();}catch(e){} delete _luC[id]; } }
+// CRITICAL: every chart render runs in try/catch. Without this, if any single
+// chart throws (e.g. malformed data, Chart.js plugin conflict), it halts the
+// entire requestAnimationFrame callback and EVERY chart after it in the call
+// chain is silently skipped. That's the "blank Master Timeline + blank
+// Unified Timeline + blank revenue chart" cascade we saw — one bad input
+// killed the whole page render.
 function _luMk(id,cfg){
   _luDestroy(id);
   var el=document.getElementById(id);
   if(!el||typeof Chart==='undefined') return;
-  _luC[id]=new Chart(el,cfg);
+  try{
+    _luC[id]=new Chart(el,cfg);
+  }catch(e){
+    console.warn('[chart] '+id+' failed to render:', e);
+    // Show a small inline note in the chart container so the user knows
+    // this specific chart broke (but the rest of the page keeps working).
+    var parent=el.parentElement;
+    if(parent){
+      parent.innerHTML='<div style="font-family:var(--fm);font-size:11px;color:var(--t3);padding:20px;text-align:center">Chart unavailable — '+(e.message||'render failed').slice(0,100)+'</div>';
+    }
+  }
 }
 
 var _luOpts={
@@ -3380,12 +3396,17 @@ async function runLookup(){
     console.warn('[news]',e);
   });
 
-  // Draw all charts
+  // Draw all charts. Each chart's setup is wrapped in _try() so one bad
+  // input doesn't halt the entire render chain — without this, a single
+  // throw inside the rAF callback skipped EVERY chart after it (which was
+  // the "all charts blank below Master Timeline" cascade we hit on NBIS).
+  function _try(label, fn){ try{ fn(); }catch(e){ console.warn('[chart-section] '+label+' failed:', e); } }
   requestAnimationFrame(function(){
     if(typeof Chart==='undefined') return;
 
     // Adaptive Master Timeline — Stock × hero signal with real units on both
     // axes. Hero comes from soc.hero.key, picked by signal_quality scoring.
+    _try('master-hero', function(){
     if(soc.hero && soc.hero.key && HERO_CONFIG_LU[soc.hero.key] && aligned.length>4){
       var mhCfg = HERO_CONFIG_LU[soc.hero.key];
       var mhLabels = aligned.map(function(r){return r.date ? r.date.slice(0,7) : '';});
@@ -3405,8 +3426,10 @@ async function runLookup(){
         }
       }});
     }
+    });  // end _try('master-hero')
 
     // Unified timeline using aligned_weekly
+    _try('unified', function(){
     if(aligned.length>4){
       var aLabels=aligned.filter(function(_,i){return i%2===0;}).map(function(r){return r.date.slice(5);});
       var aAll=aligned.filter(function(_,i){return i%2===0;});
@@ -3430,8 +3453,10 @@ async function runLookup(){
         }
       }});
     }
+    });  // end _try('unified')
 
     // Revenue history bar chart
+    _try('revenue', function(){
     if(revHist.length){
       luBar('lu-rev',
         revHist.map(function(r){return 'FY'+r.year;}),
@@ -3440,8 +3465,10 @@ async function runLookup(){
         'Revenue $M'
       );
     }
+    });  // end _try('revenue')
 
     // Margins comparison bar chart — green = profitable, red = losing money.
+    _try('margins', function(){
     // The visual is more useful than the three separate %s in the grid below
     // because you can see at a glance: how much margin gets eaten between
     // gross → operating → net.
@@ -3469,7 +3496,10 @@ async function runLookup(){
       }});
     }
 
+    });  // end _try('margins')
+
     // Earnings surprise bar chart
+    _try('earnings', function(){
     if(eh&&eh.length){
       _luMk('lu-earnings-chart',{type:'bar',data:{
         labels:eh.map(function(e){return e.date.substring(0,7);}),
@@ -3488,14 +3518,20 @@ async function runLookup(){
       }});
     }
 
+    });  // end _try('earnings')
+
     // Reddit weekly mention bars
+    _try('reddit', function(){
     if(redditData.length){
       var rLabels=redditData.slice(-52).map(function(r){return r.date.slice(5);});
       var rVals=redditData.slice(-52).map(function(r){return r.count||0;});
       luBar('lu-reddit-chart',rLabels,rVals,'rgba(0,229,255,.45)');
     }
 
+    });  // end _try('reddit')
+
     // YouTube views (bars) + videos (line) — dual axis like StockTwits
+    _try('youtube', function(){
     if(ytData.length){
       var ytL=ytData.slice(-52).map(function(r){return r.date.slice(5);});
       var ytV=ytData.slice(-52).map(function(r){return r.views||0;});
@@ -3515,7 +3551,10 @@ async function runLookup(){
       }});
     }
 
+    });  // end _try('youtube')
+
     // StockTwits bar + sentiment line
+    _try('stocktwits', function(){
     if(twitsData.length){
       var twLabels=twitsData.slice(-52).map(function(r){return r.date.slice(5);});
       var twCounts=twitsData.slice(-52).map(function(r){return r.count||0;});
@@ -3535,7 +3574,10 @@ async function runLookup(){
       }});
     }
 
+    });  // end _try('stocktwits')
+
     // Google Trends line
+    _try('trends', function(){
     if(trendsData.length){
       var tLabels=trendsData.slice(-52).map(function(r){return r.date.slice(5);});
       var tVals=trendsData.slice(-52).map(function(r){return r.value||0;});
@@ -3552,28 +3594,40 @@ async function runLookup(){
       }});
     }
 
+    });  // end _try('trends')
+
     // Wikipedia bar
+    _try('wikipedia', function(){
     if(wikiData.length){
       var wLabels=wikiData.slice(-52).map(function(r){return r.date.slice(5);});
       var wVals=wikiData.slice(-52).map(function(r){return r.views||0;});
       luBar('lu-wiki-chart',wLabels,wVals,'rgba(74,158,255,.35)');
     }
 
+    });  // end _try('wikipedia')
+
     // SEC filings bar
+    _try('sec', function(){
     if(secData.length){
       var secLabels=secData.slice(-52).map(function(r){return r.date.slice(5);});
       var secVals=secData.slice(-52).map(function(r){return r.count||0;});
       luBar('lu-sec-chart',secLabels,secVals,'rgba(123,97,255,.45)');
     }
 
+    });  // end _try('sec')
+
     // News article coverage bar
+    _try('news', function(){
     if(newsData.length){
       var nLabels=newsData.slice(-52).map(function(r){return r.date.slice(5);});
       var nVals=newsData.slice(-52).map(function(r){return r.count||0;});
       luBar('lu-news-chart',nLabels,nVals,'rgba(255,107,53,.45)');
     }
 
+    });  // end _try('news')
+
     // StockTwits sentiment ratio line
+    _try('sentiment', function(){
     if(sentTagged.length>3){
       var sentLast=sentTagged.slice(-52);
       var sLabels=sentLast.map(function(r){return r.date.slice(5);});
@@ -3590,9 +3644,11 @@ async function runLookup(){
         }
       }});
     }
+    });  // end _try('sentiment')
 
     // Competitive comparison overlay charts — rendered only when peer data
     // came back. Each shows primary (cyan, solid) vs peer (orange, dashed).
+    _try('comp', function(){
     if(dp){
       var _dsoc = (dp.social) || {};
       var _dseries = _dsoc.series || {};
@@ -3669,6 +3725,7 @@ async function runLookup(){
         ]}, options: _compOpts('search interest (0-100)')});
       }
     }
+    });  // end _try('comp')
   });
 
   btn.disabled=false; btn.textContent='ANALYZE ->';

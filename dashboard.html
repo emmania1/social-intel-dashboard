@@ -2917,21 +2917,37 @@ async function runLookup(){
     +'</div>'
   );
 
-  // Earnings history
+  // Earnings history. Each row's estimate/actual/surprise_pct/beat can be
+  // null when a company didn't release guidance for that quarter (we hit
+  // this on FNKO — a single null guidance quarter was crashing the whole
+  // page render because .toFixed() throws on null). Use _luNumOrDash to
+  // coerce safely.
+  function _luNumOrDash(n, digits, prefix){
+    if(n==null || (typeof n==='number' && !isFinite(n))) return '--';
+    return (prefix||'') + n.toFixed(digits==null?2:digits);
+  }
   var eh=fins.earningsHistory||[];
   var ehHtml='';
   if(eh.length){
-    var beats=eh.filter(function(e){return e.beat;}).length;
+    var beats=eh.filter(function(e){return e && e.beat===true;}).length;
+    var lastE=eh[eh.length-1]||{};
+    var lastSurpriseTxt = (lastE.surprise_pct==null) ? '--'
+      : ((lastE.surprise_pct>0?'+':'') + lastE.surprise_pct.toFixed(1) + '%');
     ehHtml='<div style="font-family:var(--fm);font-size:10px;color:var(--t3);margin-bottom:10px">'
-      +(beats)+'/'+eh.length+' beats  |  Last surprise: '
-      +(eh[eh.length-1].surprise_pct>0?'+':'')+eh[eh.length-1].surprise_pct.toFixed(1)+'%'
+      +(beats)+'/'+eh.length+' beats  |  Last surprise: '+lastSurpriseTxt
       +(fins.nextEarningsDate?' |  Next: '+fins.nextEarningsDate:'')+'</div>'
       +'<div style="height:90px;margin-bottom:10px"><canvas id="lu-earnings-chart"></canvas></div>'
       +'<table class="tbl" style="width:100%"><thead><tr><th>Quarter</th><th>Est.</th><th>Actual</th><th>Surprise</th></tr></thead><tbody>'
       +eh.slice(-6).map(function(e){
-        return '<tr><td>'+e.date.substring(0,7)+'</td><td>$'+e.estimate.toFixed(2)+'</td>'
-          +'<td class="'+(e.beat?'beat':'miss')+'">$'+e.actual.toFixed(2)+'</td>'
-          +'<td class="'+(e.beat?'beat':'miss')+'">'+(e.surprise_pct>0?'+':'')+e.surprise_pct.toFixed(1)+'%</td></tr>';
+        if(!e) return '';
+        var beatCls = e.beat===true ? 'beat' : (e.beat===false ? 'miss' : '');
+        var dateTxt = (e.date && typeof e.date==='string') ? e.date.substring(0,7) : '--';
+        var surpriseTxt = (e.surprise_pct==null) ? '--'
+          : ((e.surprise_pct>0?'+':'') + e.surprise_pct.toFixed(1) + '%');
+        return '<tr><td>'+dateTxt+'</td>'
+          +'<td>'+_luNumOrDash(e.estimate, 2, '$')+'</td>'
+          +'<td class="'+beatCls+'">'+_luNumOrDash(e.actual, 2, '$')+'</td>'
+          +'<td class="'+beatCls+'">'+surpriseTxt+'</td></tr>';
       }).join('')+'</tbody></table>';
   } else {
     ehHtml='<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">No earnings history available</div>';
@@ -3498,14 +3514,15 @@ async function runLookup(){
 
     });  // end _try('margins')
 
-    // Earnings surprise bar chart
+    // Earnings surprise bar chart — guard against null date/beat fields
+    // (companies that skipped guidance for a quarter have nulls in these).
     _try('earnings', function(){
     if(eh&&eh.length){
       _luMk('lu-earnings-chart',{type:'bar',data:{
-        labels:eh.map(function(e){return e.date.substring(0,7);}),
+        labels:eh.map(function(e){return (e && typeof e.date==='string')?e.date.substring(0,7):'--';}),
         datasets:[{
-          data:eh.map(function(e){return e.surprise_pct;}),
-          backgroundColor:eh.map(function(e){return e.beat?'rgba(0,255,157,.5)':'rgba(255,68,102,.5)';}),
+          data:eh.map(function(e){return e && e.surprise_pct!=null ? e.surprise_pct : null;}),
+          backgroundColor:eh.map(function(e){return (e && e.beat===true)?'rgba(0,255,157,.5)':'rgba(255,68,102,.5)';}),
           borderWidth:0,borderRadius:2
         }]
       },options:{

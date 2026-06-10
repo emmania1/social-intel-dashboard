@@ -3350,6 +3350,7 @@ async function runLookup(){
   (function fillPeers(){
     var peersEl = document.getElementById('lu-peers');
     if(!peersEl) return;
+    var primaryStockSeries = (soc.series && soc.series.stock) || [];
     fetch(RENDER + '/api/peers?ticker=' + encodeURIComponent(ticker))
       .then(function(r){ return r.ok ? r.json() : Promise.reject(new Error('HTTP '+r.status)); })
       .then(function(p){
@@ -3361,13 +3362,28 @@ async function runLookup(){
         // call is independent so a single 502 doesn't take out the whole row.
         var allTickers = [ticker].concat(p.peers);
         if(p.sector_etf) allTickers.push(p.sector_etf);
-        var fetches = allTickers.map(function(t){
+        var finFetches = allTickers.map(function(t){
           return fetch(RENDER + '/api/financials?ticker=' + encodeURIComponent(t))
             .then(function(r){ return r.ok ? r.json() : {ticker:t, info:{}}; })
             .catch(function(){ return {ticker:t, info:{}}; });
         });
-        return Promise.all(fetches).then(function(results){
-          peersEl.innerHTML = _peerRender(ticker, p, results);
+        // Sector ETF stock history for the relative-performance chart. Pulled
+        // separately because /api/financials only returns the info dict.
+        var sectorHistP = p.sector_etf
+          ? fetch(RENDER + '/api/stock-history?ticker=' + encodeURIComponent(p.sector_etf))
+              .then(function(r){ return r.ok ? r.json() : {data:[]}; })
+              .catch(function(){ return {data:[]}; })
+          : Promise.resolve({data:[]});
+        return Promise.all([Promise.all(finFetches), sectorHistP]).then(function(both){
+          var finResults = both[0];
+          var sectorHist = (both[1] && both[1].data) || [];
+          peersEl.innerHTML = _peerRender(ticker, p, finResults, primaryStockSeries, sectorHist);
+          // Draw the relative-performance chart AFTER innerHTML lands so the
+          // canvas exists. Both series normalised to 100 at start so the
+          // axis is comparable even when prices differ by 100x.
+          if(primaryStockSeries.length>30 && sectorHist.length>30 && typeof Chart!=='undefined'){
+            _peerDrawRelChart('lu-peer-relchart', ticker, primaryStockSeries, p.sector_etf, sectorHist);
+          }
         });
       })
       .catch(function(e){
@@ -3375,11 +3391,54 @@ async function runLookup(){
       });
   })();
 
+  function _peerNorm100(series, dateKey, valueKey){
+    // Normalise a {date, value} series so the first non-null value is 100.
+    // Returns array of {x, y} for Chart.js.
+    var firstVal = null;
+    for(var i=0;i<series.length;i++){
+      var v = Number(series[i][valueKey]);
+      if(isFinite(v) && v>0){ firstVal = v; break; }
+    }
+    if(firstVal==null) return [];
+    return series.map(function(r){
+      var v = Number(r[valueKey]);
+      return {x: r[dateKey], y: isFinite(v) && v>0 ? (v/firstVal)*100 : null};
+    });
+  }
+
+  function _peerDrawRelChart(canvasId, primaryTicker, primarySeries, sectorTicker, sectorSeries){
+    var el = document.getElementById(canvasId);
+    if(!el) return;
+    var primNorm = _peerNorm100(primarySeries, 'date', 'close');
+    var sectNorm = _peerNorm100(sectorSeries, 'date', 'close');
+    if(_luC[canvasId]) _luC[canvasId].destroy();
+    _luC[canvasId] = new Chart(el, {
+      type:'line',
+      data:{datasets:[
+        {label:primaryTicker+' (rebased)', data:primNorm, borderColor:'#00e5ff', backgroundColor:'rgba(0,229,255,.06)', borderWidth:2, pointRadius:0, tension:.25, fill:true, spanGaps:true},
+        {label:sectorTicker+' sector ETF (rebased)', data:sectNorm, borderColor:'#7b61ff', backgroundColor:'transparent', borderWidth:1.7, pointRadius:0, tension:.25, spanGaps:true}
+      ]},
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        parsing:false,
+        interaction:{mode:'index', intersect:false},
+        plugins:{
+          legend:{labels:{font:{family:"'DM Mono',monospace",size:10},color:'#8899aa',boxWidth:12}},
+          tooltip:{callbacks:{label:function(c){return c.dataset.label+': '+c.parsed.y.toFixed(1);}}}
+        },
+        scales:{
+          x:{type:'time', time:{unit:'month'}, grid:{display:false}, ticks:{maxRotation:0,font:{family:"'DM Mono',monospace",size:9},color:'#4a6070'}},
+          y:{grid:{color:'rgba(28,42,56,.5)'}, ticks:{font:{family:"'DM Mono',monospace",size:9},color:'#8899aa', callback:function(v){return v.toFixed(0);}}, title:{display:true, text:'Indexed to 100 at start', color:'#8899aa', font:{family:"'DM Mono',monospace",size:10}}}
+        }
+      }
+    });
+  }
+
   function _peerEmpty(msg){
     return '<div class="panel"><div class="panel-h"><div class="ptitle">Peer Comparison</div><span class="badge bo">UNAVAILABLE</span></div><div class="panel-b"><div style="font-family:var(--fm);font-size:11px;color:var(--t3);padding:8px 0">'+msg+'</div></div></div>';
   }
 
-  function _peerRender(primaryTicker, peerInfo, results){
+  function _peerRender(primaryTicker, peerInfo, results, primaryStockSeries, sectorStockSeries){
     // results[0] = primary ticker, results[1..n] = peers, results[last] = sector ETF (if present)
     var sectorEtfPresent = !!peerInfo.sector_etf;
     var primary = results[0] || {info:{}};
@@ -3397,7 +3456,7 @@ async function runLookup(){
     }
     function _card(t, info, role){
       var name = info.longName || info.shortName || t;
-      var sector = info.sector || '';
+      var s = info.sector || '';
       var price = info.currentPrice;
       var mcap = info.marketCap;
       var revG = info.revenueGrowth;
@@ -3408,12 +3467,12 @@ async function runLookup(){
                     : role==='sector' ? 'SECTOR BENCHMARK'
                     : 'PEER';
       var roleColor = role==='primary' ? 'var(--cyan)'
-                    : role==='sector' ? 'var(--purple,#7b61ff)'
+                    : role==='sector' ? '#7b61ff'
                     : 'var(--t2)';
       return '<div class="comp-card '+(role==='primary'?'primary':'')+'" style="border-left:2px solid '+roleColor+'">'
         + '<div style="font-family:var(--fm);font-size:9px;letter-spacing:.12em;color:'+roleColor+';margin-bottom:6px">'+roleLabel+'</div>'
         + '<div class="comp-card-ticker">'+t+'</div>'
-        + '<div class="comp-card-name">'+name+(sector?' · '+sector:'')+'</div>'
+        + '<div class="comp-card-name">'+name+(s?' · '+s:'')+'</div>'
         + '<div class="comp-stats">'
         +   '<div><span class="lbl">Price</span><b>'+(price?'$'+price.toFixed(2):'--')+'</b></div>'
         +   '<div><span class="lbl">Market Cap</span><b>'+luFmt(mcap)+'</b></div>'
@@ -3424,13 +3483,45 @@ async function runLookup(){
         + '</div>'
         + '</div>';
     }
+    // Sector P/E benchmark callout — compares primary's fwd P/E to sector ETF's
+    // (which is effectively a market-cap-weighted P/E of the whole sector).
+    // Hidden when either side is missing or non-positive.
+    var peCallout = '';
+    var primFpe = (primary.info||{}).forwardPE;
+    var sectFpe = sector ? (sector.info||{}).forwardPE : null;
+    if(primFpe && primFpe>0 && primFpe<200 && sectFpe && sectFpe>0 && sectFpe<200){
+      var delta = ((primFpe - sectFpe) / sectFpe) * 100;
+      var deltaStr = (delta>=0?'+':'') + delta.toFixed(0) + '%';
+      var verdict, verdictColor;
+      if(delta > 25)      { verdict = 'priced rich vs sector';   verdictColor = 'var(--red)'; }
+      else if(delta > 10) { verdict = 'modest premium to sector'; verdictColor = 'var(--orange)'; }
+      else if(delta > -10){ verdict = 'in line with sector';      verdictColor = 'var(--t2)'; }
+      else if(delta > -25){ verdict = 'modest discount to sector';verdictColor = 'var(--yellow)'; }
+      else                { verdict = 'priced cheap vs sector';   verdictColor = 'var(--green)'; }
+      peCallout = '<div style="background:rgba(123,97,255,.06);border:1px solid rgba(123,97,255,.18);border-left:3px solid #7b61ff;border-radius:6px;padding:12px 16px;margin-bottom:14px;font-size:13px;line-height:1.6">'
+        + '<span style="font-family:var(--fm);font-size:10px;color:#7b61ff;letter-spacing:.12em;font-weight:700;display:block;margin-bottom:6px">VALUATION VS SECTOR</span>'
+        + '<b>'+primaryTicker+'</b> trades at <b>'+primFpe.toFixed(1)+'x</b> forward P/E vs the <b>'+(peerInfo.sector_name||peerInfo.sector_etf)+'</b> sector at <b>'+sectFpe.toFixed(1)+'x</b> — <span style="color:'+verdictColor+';font-weight:700">'+deltaStr+'</span>, <span style="color:'+verdictColor+'">'+verdict+'</span>.'
+        + '</div>';
+    }
+    // Relative performance chart — only render the canvas if we have enough
+    // data on both sides. Drawing happens in fillPeers() after innerHTML.
+    var relChart = '';
+    if(primaryStockSeries && primaryStockSeries.length>30 && sectorStockSeries && sectorStockSeries.length>30){
+      relChart = '<div style="margin-top:14px;background:var(--s2);border:1px solid var(--b2);border-radius:8px;padding:14px">'
+        + '<div style="font-family:var(--fm);font-size:9px;color:var(--t3);letter-spacing:.12em;margin-bottom:8px;font-weight:700">RELATIVE PERFORMANCE — REBASED TO 100 AT START</div>'
+        + '<div style="height:240px"><canvas id="lu-peer-relchart"></canvas></div>'
+        + '<div style="font-family:var(--fm);font-size:11px;color:var(--t3);margin-top:10px;line-height:1.65">Cyan line above the purple = your ticker is beating its sector. Below = lagging. Divergences widen when company-specific factors dominate vs market-wide moves.</div>'
+        + '</div>';
+    }
     var html = '<div class="panel"><div class="panel-h"><div class="ptitle">Peer Comparison — '+primaryTicker+' vs '+(peerInfo.sector_name||'sector')+'</div><span class="badge bg">AUTO-DISCOVERED</span></div><div class="panel-b">'
       + '<div style="font-family:var(--fm);font-size:11px;color:var(--t2);margin-bottom:12px;line-height:1.65">3 closest public peers picked by Claude Haiku, plus the relevant SPDR sector ETF as a market benchmark. All financials pulled from the same live source — compare margins, growth, and valuation side by side.</div>'
+      + peCallout
       + '<div class="comp-grid">'
       +   _card(primaryTicker, primary.info||{}, 'primary')
       +   peers.map(function(p, i){ return _card(peerInfo.peers[i], (p&&p.info)||{}, 'peer'); }).join('')
       +   (sector ? _card(peerInfo.sector_etf, sector.info||{}, 'sector') : '')
       + '</div>'
+      + relChart
       + '</div></div>';
     return html;
   }

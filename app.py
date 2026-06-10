@@ -209,6 +209,32 @@ def financials():
     return jsonify({"ticker": ticker, "info": clean})
 
 
+@app.route("/api/stock-history")
+def api_stock_history():
+    """Lightweight daily-close series for one ticker. Used by the Peer
+    Comparison chart to overlay the sector ETF on the primary ticker.
+
+    Returns {ticker, data: [{date, close}, ...]}. Uses fetch_stock() which
+    has the same yfinance→FMP fallback the rest of the app uses, so this
+    works for sector ETFs (XLY/XLP/etc.) and any normal listed ticker.
+    """
+    ticker = (request.args.get("ticker") or "").strip().upper()
+    if not ticker:
+        return jsonify({"error": "ticker required"}), 400
+    # Default window: 2 years back. Caller can override.
+    today = date.today()
+    end = request.args.get("end") or today.isoformat()
+    start = request.args.get("start") or (today - timedelta(days=2 * 365)).isoformat()
+    try:
+        df = fetch_stock(ticker, start, end)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[stock-history] {ticker}: {exc}")
+        return jsonify({"ticker": ticker, "data": [], "error": str(exc)}), 502
+    if df.empty:
+        return jsonify({"ticker": ticker, "data": []})
+    return jsonify({"ticker": ticker, "data": df.to_dict(orient="records")})
+
+
 @app.route("/api/docs/upload", methods=["POST"])
 def docs_upload():
     """Accept a multipart file upload for a ticker, parse it to text, store

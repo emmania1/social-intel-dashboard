@@ -2222,19 +2222,25 @@ function buildDemandSummary(summaries){
   // pct_from_peak is in PERCENT (-15, not -0.15)
   var nearPeak = sufficient.filter(function(s){return s.pct_from_peak!=null && s.pct_from_peak>-15;}).length;
   var fading   = sufficient.filter(function(s){return s.pct_from_peak!=null && s.pct_from_peak<-50;}).length;
-  parts.push('<b>'+sufficient.length+' of '+demand.length+'</b> demand signals have enough data to interpret'
-    + (insufficient ? ' ('+insufficient+' below threshold — too sparse to read)' : '') + '.');
+  // Lead with the actionable read, not raw counts. The Cross-Source Narrative
+  // card already states an "X of N usable signals" count using the backend's
+  // slightly different definition (includes Stock price + YouTube videos).
+  // Two conflicting tallies on the same screen confused the user; this card
+  // now focuses on direction/momentum instead.
   if(rising>falling){
-    parts.push('<b>'+rising+' rising</b> vs <b>'+falling+' falling</b> over the last 12 weeks — momentum tilted positive.');
+    parts.push('<b>Momentum tilted positive</b> — more demand signals rising than falling over the last 12 weeks (<b>'+rising+' rising vs '+falling+' falling</b>).');
   } else if(falling>rising){
-    parts.push('<b>'+falling+' falling</b> vs <b>'+rising+' rising</b> over the last 12 weeks — fading consumer attention.');
+    parts.push('<b>Fading consumer attention</b> — more demand signals falling than rising over the last 12 weeks (<b>'+falling+' falling vs '+rising+' rising</b>).');
   } else {
-    parts.push('<b>'+rising+' rising</b>, <b>'+falling+' falling</b>, <b>'+flat+' flat</b> — mixed direction with no clear consensus.');
+    parts.push('<b>Mixed direction</b> — '+rising+' rising, '+falling+' falling, '+flat+' flat. No clear consensus.');
   }
   if(nearPeak>=2){
     parts.push('<b>'+nearPeak+' signals are within 15% of all-time peak</b> — engagement near maximum.');
   } else if(fading>=Math.ceil(sufficient.length/2)){
     parts.push('Most demand signals are <b>more than 50% off their peak</b> — meaningful loss of attention vs the brand\'s high-water mark.');
+  }
+  if(insufficient>0){
+    parts.push('<span style="font-family:var(--fm);font-size:11px;color:var(--t3)">('+insufficient+' source'+(insufficient===1?'':'s')+' too sparse to interpret — peak below threshold.)</span>');
   }
   return parts.join(' ');
 }
@@ -2949,10 +2955,13 @@ async function runLookup(){
           +'<td class="'+beatCls+'">'+_luNumOrDash(e.actual, 2, '$')+'</td>'
           +'<td class="'+beatCls+'">'+surpriseTxt+'</td></tr>';
       }).join('')+'</tbody></table>';
-  } else {
-    ehHtml='<div style="font-family:var(--fm);font-size:11px;color:var(--t3)">No earnings history available</div>';
   }
-  h+=luPanel('Earnings History',fins.nextEarningsDate?'NEXT: '+fins.nextEarningsDate:'HISTORY','bp',ehHtml);
+  // Only render the Earnings History panel when there's actual data — a
+  // panel that says "No earnings history available" wastes screen real
+  // estate without telling the analyst anything they didn't already know.
+  if(eh.length){
+    h+=luPanel('Earnings History',fins.nextEarningsDate?'NEXT: '+fins.nextEarningsDate:'HISTORY','bp',ehHtml);
+  }
   h+='</div>';
 
   // DEMAND INTELLIGENCE section
@@ -3001,7 +3010,7 @@ async function runLookup(){
         'Reddit mentions are at '+redditSum.pct.toFixed(0)+'% of their '+redditSum.peakDate+' peak ('+Math.round(redditSum.peak)+'/week). Currently '+rCurrent+'/week. '
         +'Reddit volume is a leading consumer-fandom indicator — sustained growth tends to precede stock-price strength.'
         :'Reddit data available.',
-        redditSum&&redditSum.pct<-50
+        redditSum&&redditSum.pct<-50&&redditSum.trend==='falling'
       );
     }
   }
@@ -3036,7 +3045,7 @@ async function runLookup(){
         'YouTube weekly views peaked at '+Math.round(ytViewsSum.peak).toLocaleString()+' in '+ytViewsSum.peakDate+'. Now '+Math.round(ytLast.views||0).toLocaleString()+'/week ('+ytViewsSum.pct.toFixed(0)+'% from peak). '
         +'Falling views with steady upload count typically signals fading audience interest; falling uploads signal fading creator interest. Either is bearish for consumer-brand momentum.'
         :'YouTube data available.',
-        ytViewsSum&&ytViewsSum.pct<-50
+        ytViewsSum&&ytViewsSum.pct<-50&&ytViewsSum.trend==='falling'
       );
     }
   }
@@ -3080,7 +3089,7 @@ async function runLookup(){
         +'Current '+twitsData[twitsData.length-1].count+' messages/week vs peak of '+twitsSum.peak+'. '
         +(twitsSum.trend==='falling'?'Declining retail trader engagement typically precedes or confirms stock weakness.':'Activity stabilizing -- watch for upside inflection as potential early buy signal.')
         :'StockTwits is the primary social signal for this ticker.',
-        twitsSum&&twitsSum.pct<-50
+        twitsSum&&twitsSum.pct<-50&&twitsSum.trend==='falling'
       );
     }
   }
@@ -3115,7 +3124,7 @@ async function runLookup(){
         +'Google Trends is a real-time proxy for consumer awareness and purchase intent. '
         +(trendsSum.trend==='falling'?'Declining search interest typically leads product demand weakness by 1-2 quarters.':'Search interest holding -- consumer awareness intact.')
         :'Google Trends data available.',
-        trendsSum&&trendsSum.pct<-50
+        trendsSum&&trendsSum.pct<-50&&trendsSum.trend==='falling'
       );
     }
   }
@@ -3149,7 +3158,7 @@ async function runLookup(){
         +'Now '+Math.round(wikiSum.current).toLocaleString()+' ('+wikiSum.pct.toFixed(0)+'% from peak). '
         +'Wikipedia views are a passive brand awareness signal -- spikes typically coincide with viral moments or news events. Sustained decline suggests fading consumer mindshare.'
         :'Wikipedia views as brand awareness proxy.',
-        wikiSum&&wikiSum.pct<-60
+        wikiSum&&wikiSum.pct<-60&&wikiSum.trend==='falling'
       );
     }
   }
@@ -3292,7 +3301,7 @@ async function runLookup(){
     +   '<span class="lu-export-lbl">PNG CHARTS</span>'
     +   '<button class="lu-tool-btn" onclick="luDownloadPng(\'lu-unified\',\'' + ticker + '_unified.png\')">Unified timeline</button>'
     +   '<button class="lu-tool-btn" onclick="luDownloadPng(\'lu-rev\',\'' + ticker + '_revenue.png\')">Revenue</button>'
-    +   '<button class="lu-tool-btn" onclick="luDownloadPng(\'lu-earnings-chart\',\'' + ticker + '_earnings.png\')">Earnings</button>'
+    +   (eh.length?'<button class="lu-tool-btn" onclick="luDownloadPng(\'lu-earnings-chart\',\'' + ticker + '_earnings.png\')">Earnings</button>':'')
     +   '<button class="lu-tool-btn" onclick="luDownloadPng(\'lu-reddit-chart\',\'' + ticker + '_reddit.png\')">Reddit</button>'
     +   '<button class="lu-tool-btn" onclick="luDownloadPng(\'lu-yt-chart\',\'' + ticker + '_youtube.png\')">YouTube</button>'
     +   '<button class="lu-tool-btn" onclick="luDownloadPng(\'lu-twits-chart\',\'' + ticker + '_stocktwits.png\')">StockTwits</button>'
@@ -3313,19 +3322,14 @@ async function runLookup(){
     +   '<button class="lu-tool-btn" onclick="luCsvByKey(\'sec\',\'' + ticker + '\',\'sec\')">SEC</button>'
     +   '<button class="lu-tool-btn" onclick="luCsvByKey(\'news\',\'' + ticker + '\',\'news\')">News</button>'
     +   '<button class="lu-tool-btn" onclick="luCsvByKey(\'revenueHistory\',\'' + ticker + '\',\'revenue_history\')">Revenue history</button>'
-    +   '<button class="lu-tool-btn" onclick="luCsvByKey(\'earningsHistory\',\'' + ticker + '\',\'earnings_history\')">Earnings history</button>'
+    +   (eh.length?'<button class="lu-tool-btn" onclick="luCsvByKey(\'earningsHistory\',\'' + ticker + '\',\'earnings_history\')">Earnings history</button>':'')
     + '</div>'
     + '</div></div>';
 
-  // Narrative summary
-  if(narrative.headline){
-    h+=luPanel('Signal Summary',null,'bc',
-      '<div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:10px">'+narrative.headline+'</div>'
-      +'<div style="font-size:12px;line-height:1.75;color:var(--t2);margin-bottom:12px">'+narrative.paragraph+'</div>'
-      +(narrative.strong&&narrative.strong.length?'<div style="font-family:var(--fm);font-size:10px;color:var(--cyan);margin-bottom:6px">STRONG SIGNALS: '+narrative.strong.join(', ')+'</div>':'')
-      +(narrative.weak&&narrative.weak.length?'<div style="font-family:var(--fm);font-size:10px;color:var(--t3)">WEAK/INSUFFICIENT: '+narrative.weak.join(', ')+'</div>':'')
-    );
-  }
+  // The "Cross-Source Narrative" card at the top of section 04 already shows
+  // this content (headline + paragraph + strong/weak source lists). Removed
+  // the duplicate panel that used to live here so users don't see the same
+  // synthesis twice.
 
   result.innerHTML=h;
 

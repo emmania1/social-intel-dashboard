@@ -3213,6 +3213,17 @@ async function runLookup(){
     );
   }
 
+  // Section: Peer Comparison — auto-discovered for every ticker.
+  // Backend hits Claude Haiku to suggest 3 closest peers + 1 sector ETF,
+  // result is cached server-side for 7 days. Frontend then fetches basic
+  // financials for each in parallel and renders side-by-side. Async — the
+  // section initially shows a "Discovering peers…" placeholder and fills
+  // in as the data arrives. Failure modes (Anthropic credit out, ticker
+  // mid-cap with no clear peer) collapse to a small note instead of an
+  // empty section.
+  h += luSection(++_sec, 'Peer Comparison', 'auto-discovered · same window');
+  h += '<div id="lu-peers"><div class="panel"><div class="panel-h"><div class="ptitle">Discovering peers + sector benchmark…</div><span class="badge bc">CLAUDE HAIKU</span></div><div class="panel-b"><div style="font-family:var(--fm);font-size:11px;color:var(--t3);padding:8px 0">One-time per ticker, then cached for 7 days. ~3-5s.</div></div></div></div>';
+
   // Section: Competitive Comparison — only when a peer ticker was fetched.
   if(dp){
     var dpFins = dp.financials || {};
@@ -3332,6 +3343,97 @@ async function runLookup(){
   // synthesis twice.
 
   result.innerHTML=h;
+
+  // Peer Comparison — async fill. Fire-and-forget: failures in this block must
+  // never break the main render, so every fetch is independently caught and
+  // collapses to a small note in the placeholder.
+  (function fillPeers(){
+    var peersEl = document.getElementById('lu-peers');
+    if(!peersEl) return;
+    fetch(RENDER + '/api/peers?ticker=' + encodeURIComponent(ticker))
+      .then(function(r){ return r.ok ? r.json() : Promise.reject(new Error('HTTP '+r.status)); })
+      .then(function(p){
+        if(!p || !p.peers || !p.peers.length){
+          peersEl.innerHTML = _peerEmpty('No clear peer set returned for this ticker.');
+          return;
+        }
+        // Fetch financials for all peers + the sector ETF in parallel. Each
+        // call is independent so a single 502 doesn't take out the whole row.
+        var allTickers = [ticker].concat(p.peers);
+        if(p.sector_etf) allTickers.push(p.sector_etf);
+        var fetches = allTickers.map(function(t){
+          return fetch(RENDER + '/api/financials?ticker=' + encodeURIComponent(t))
+            .then(function(r){ return r.ok ? r.json() : {ticker:t, info:{}}; })
+            .catch(function(){ return {ticker:t, info:{}}; });
+        });
+        return Promise.all(fetches).then(function(results){
+          peersEl.innerHTML = _peerRender(ticker, p, results);
+        });
+      })
+      .catch(function(e){
+        peersEl.innerHTML = _peerEmpty('Peer auto-discovery failed: ' + (e.message||e) + ' (Anthropic key likely needs credit.)');
+      });
+  })();
+
+  function _peerEmpty(msg){
+    return '<div class="panel"><div class="panel-h"><div class="ptitle">Peer Comparison</div><span class="badge bo">UNAVAILABLE</span></div><div class="panel-b"><div style="font-family:var(--fm);font-size:11px;color:var(--t3);padding:8px 0">'+msg+'</div></div></div>';
+  }
+
+  function _peerRender(primaryTicker, peerInfo, results){
+    // results[0] = primary ticker, results[1..n] = peers, results[last] = sector ETF (if present)
+    var sectorEtfPresent = !!peerInfo.sector_etf;
+    var primary = results[0] || {info:{}};
+    var peers = results.slice(1, sectorEtfPresent ? results.length - 1 : results.length);
+    var sector = sectorEtfPresent ? results[results.length - 1] : null;
+
+    function _fmtPct(v, digits){
+      if(v==null || !isFinite(v)) return '--';
+      var sign = v >= 0 ? '+' : '';
+      return sign + (v*100).toFixed(digits==null?1:digits) + '%';
+    }
+    function _fmtX(v){
+      if(v==null || !isFinite(v) || v<=0 || v>200) return '--';
+      return v.toFixed(1) + 'x';
+    }
+    function _card(t, info, role){
+      var name = info.longName || info.shortName || t;
+      var sector = info.sector || '';
+      var price = info.currentPrice;
+      var mcap = info.marketCap;
+      var revG = info.revenueGrowth;
+      var gm = info.grossMargins;
+      var nm = info.profitMargins;
+      var fpe = info.forwardPE;
+      var roleLabel = role==='primary' ? 'YOUR TICKER'
+                    : role==='sector' ? 'SECTOR BENCHMARK'
+                    : 'PEER';
+      var roleColor = role==='primary' ? 'var(--cyan)'
+                    : role==='sector' ? 'var(--purple,#7b61ff)'
+                    : 'var(--t2)';
+      return '<div class="comp-card '+(role==='primary'?'primary':'')+'" style="border-left:2px solid '+roleColor+'">'
+        + '<div style="font-family:var(--fm);font-size:9px;letter-spacing:.12em;color:'+roleColor+';margin-bottom:6px">'+roleLabel+'</div>'
+        + '<div class="comp-card-ticker">'+t+'</div>'
+        + '<div class="comp-card-name">'+name+(sector?' · '+sector:'')+'</div>'
+        + '<div class="comp-stats">'
+        +   '<div><span class="lbl">Price</span><b>'+(price?'$'+price.toFixed(2):'--')+'</b></div>'
+        +   '<div><span class="lbl">Market Cap</span><b>'+luFmt(mcap)+'</b></div>'
+        +   '<div><span class="lbl">Rev Growth</span><b>'+_fmtPct(revG)+'</b></div>'
+        +   '<div><span class="lbl">Gross Margin</span><b>'+_fmtPct(gm)+'</b></div>'
+        +   '<div><span class="lbl">Net Margin</span><b>'+_fmtPct(nm)+'</b></div>'
+        +   '<div><span class="lbl">Fwd P/E</span><b>'+_fmtX(fpe)+'</b></div>'
+        + '</div>'
+        + '</div>';
+    }
+    var html = '<div class="panel"><div class="panel-h"><div class="ptitle">Peer Comparison — '+primaryTicker+' vs '+(peerInfo.sector_name||'sector')+'</div><span class="badge bg">AUTO-DISCOVERED</span></div><div class="panel-b">'
+      + '<div style="font-family:var(--fm);font-size:11px;color:var(--t2);margin-bottom:12px;line-height:1.65">3 closest public peers picked by Claude Haiku, plus the relevant SPDR sector ETF as a market benchmark. All financials pulled from the same live source — compare margins, growth, and valuation side by side.</div>'
+      + '<div class="comp-grid">'
+      +   _card(primaryTicker, primary.info||{}, 'primary')
+      +   peers.map(function(p, i){ return _card(peerInfo.peers[i], (p&&p.info)||{}, 'peer'); }).join('')
+      +   (sector ? _card(peerInfo.sector_etf, sector.info||{}, 'sector') : '')
+      + '</div>'
+      + '</div></div>';
+    return html;
+  }
 
   // Brief and news run as INDEPENDENT promises — Promise.all used to swallow
   // any rate-limit failure on one and silently leave the other showing its

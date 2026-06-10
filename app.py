@@ -317,6 +317,104 @@ def claude_proxy():
     return Response(r.content, status=r.status_code, mimetype="application/json")
 
 
+# Peer auto-discovery — caches per ticker so the same Claude call doesn't fire
+# every lookup. 7-day TTL is fine; competitor sets don't change overnight. The
+# cache lives in-process so it dies on Render redeploy, which is OK — first
+# request after a redeploy just incurs one Haiku call per ticker.
+_PEER_CACHE: dict[str, dict] = {}
+_PEER_TTL_SECONDS = 7 * 24 * 3600
+
+
+@app.route("/api/peers")
+def api_peers():
+    """Auto-discover 3 closest public peers + 1 sector ETF for `ticker`.
+
+    Returns {peers: ["TICKER1", "TICKER2", "TICKER3"], sector_etf: "XLY",
+    sector_name: "Consumer Discretionary"}. Uses Claude Haiku (cheap, ~$0.001
+    per ticker, results cached for 7 days). Designed to be called once per
+    lookup; the frontend then independently fetches /api/financials for each
+    returned ticker in parallel.
+    """
+    ticker = (request.args.get("ticker") or "").strip().upper()
+    if not ticker:
+        return jsonify({"error": "ticker required"}), 400
+
+    # Cache hit
+    cached = _PEER_CACHE.get(ticker)
+    if cached and cached["expires"] > time.time():
+        return jsonify({**cached["data"], "cached": True})
+
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        return jsonify({"error": "ANTHROPIC_API_KEY not set on the server"}), 503
+
+    prompt = (
+        f"For the US-listed ticker {ticker}, return EXACTLY this JSON structure "
+        f"with no surrounding text or markdown fence:\n"
+        f"{{\n"
+        f'  "peers": ["TKR1", "TKR2", "TKR3"],\n'
+        f'  "sector_etf": "XLY",\n'
+        f'  "sector_name": "Consumer Discretionary"\n'
+        f"}}\n\n"
+        f"Rules:\n"
+        f"- peers: exactly 3 closest US-listed public competitors by business model "
+        f"and end market. Prefer pure-plays over conglomerates. NEVER include the input ticker itself.\n"
+        f'- sector_etf: the single most relevant SPDR sector ETF '
+        f'(XLY consumer discretionary, XLP consumer staples, XLV health care, XLF financials, '
+        f'XLE energy, XLI industrials, XLB materials, XLU utilities, XLK technology, '
+        f'XLC communication services, XLRE real estate).\n'
+        f"- sector_name: the human-readable sector name.\n"
+        f"Output JSON only."
+    )
+
+    import requests as http
+    try:
+        r = http.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            },
+            json={
+                "model": "claude-haiku-4-5",
+                "max_tokens": 200,
+                "messages": [{"role": "user", "content": prompt}],
+            },
+            timeout=30,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"error": f"Anthropic call failed: {exc}"}), 502
+
+    if not r.ok:
+        return jsonify({"error": f"Anthropic HTTP {r.status_code}: {r.text[:200]}"}), 502
+
+    try:
+        body = r.json()
+        text = (body.get("content") or [{}])[0].get("text", "").strip()
+        # Strip optional markdown fence the model sometimes adds despite instructions
+        if text.startswith("```"):
+            text = text.strip("`").lstrip("json").strip()
+        data = json.loads(text)
+        peers = data.get("peers") or []
+        sector_etf = data.get("sector_etf") or ""
+        sector_name = data.get("sector_name") or ""
+        # Sanity check shape so a malformed model response can't poison the cache
+        if not (isinstance(peers, list) and len(peers) == 3 and all(isinstance(p, str) for p in peers)):
+            return jsonify({"error": f"Bad peers shape from model: {text[:200]}"}), 502
+        peers = [p.strip().upper() for p in peers if p.strip().upper() != ticker][:3]
+        out = {
+            "ticker": ticker,
+            "peers": peers,
+            "sector_etf": sector_etf.strip().upper(),
+            "sector_name": sector_name.strip(),
+        }
+        _PEER_CACHE[ticker] = {"data": out, "expires": time.time() + _PEER_TTL_SECONDS}
+        return jsonify({**out, "cached": False})
+    except (json.JSONDecodeError, IndexError, AttributeError, KeyError) as exc:
+        return jsonify({"error": f"Could not parse model response: {exc}"}), 502
+
+
 def _run_generate(
     ticker: str,
     company: str = "",

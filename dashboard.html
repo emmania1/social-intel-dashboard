@@ -2882,110 +2882,18 @@ async function runLookup(){
     );
   }
 
-  // Section 03: financial fundamentals + earnings history.
-  h += luSection(++_sec, 'Financials', 'yfinance · 8-quarter history');
-
-  // Section summary — plain-English read of what the financials mean for THIS
-  // company. Falls back to a muted "data unavailable" card if Yahoo + FMP both
-  // returned empty (which happens when Yahoo throttles Render and FMP is over
-  // its daily quota — both intermittent failure modes).
-  var finsSummary = _safeSummary(buildFinancialsSummary, [fins, ticker], 'financials');
-  if(finsSummary){
-    h += luSectionSummary('What this means for '+(fins.shortName||ticker), finsSummary);
-  } else {
-    h += luSectionSummary('Financial data unavailable', 'Yahoo Finance is currently throttling this server and the FMP fallback is over its daily free-tier quota. Try again in a few minutes, or check <code>/api/debug/status</code> for current source availability.', true);
-  }
-
-  // Financials + Earnings side by side
-  h+='<div class="g2" style="margin-bottom:14px">';
-
-  // Financials with revenue chart + a margins comparison bar chart.
-  // When FMP /quote is throttled AND yfinance.info is blocked, every metric
-  // tile would show "--" with no useful info. In that case we skip the tile
-  // grid entirely and keep just the revenue chart (which comes from FMP's
-  // /income-statement endpoint, a separate rate-limit pool that usually
-  // still works). Cleaner than a wall of empty placeholders.
-  var revHist=fins.revenueHistory||[];
-  var hasMargins = fins.grossMargin!=null || fins.operatingMargin!=null || fins.netMargin!=null;
-  var hasAnyMetric = fins.marketCap!=null || fins.revenue!=null || fins.revenueGrowth!=null
-    || fins.forwardPE!=null || fins.enterpriseToEbitda!=null || fins.eps!=null
-    || fins.freeCashflow!=null || hasMargins;
-  var finsBody = '';
-  if(revHist.length){
-    finsBody += '<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Annual revenue trajectory ($M)</div>'
-      + '<div style="height:160px;margin-bottom:14px"><canvas id="lu-rev"></canvas></div>';
-  }
-  if(hasMargins){
-    finsBody += '<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Profitability — gross vs operating vs net margin</div>'
-      + '<div style="height:130px;margin-bottom:14px"><canvas id="lu-margins"></canvas></div>';
-  }
-  if(hasAnyMetric){
-    finsBody += '<div class="fgrid">'
-      + [['Market Cap',luFmt(fins.marketCap)],['Revenue TTM',luFmt(fins.revenue)],
-         ['Rev Growth',fins.revenueGrowth?(fins.revenueGrowth*100).toFixed(1)+'%':'--'],
-         ['Gross Margin',fins.grossMargin?luPct(fins.grossMargin):'--'],
-         ['Op Margin',fins.operatingMargin?luPct(fins.operatingMargin):'--'],
-         ['Net Margin',fins.netMargin?luPct(fins.netMargin):'--'],
-         ['Fwd P/E',fins.forwardPE?fins.forwardPE.toFixed(1)+'x':'--'],
-         ['EV/EBITDA',fins.enterpriseToEbitda?fins.enterpriseToEbitda.toFixed(1)+'x':'--'],
-         ['EV/Rev',fins.enterpriseToRevenue?fins.enterpriseToRevenue.toFixed(2)+'x':'--'],
-         ['P/Book',fins.priceToBook?fins.priceToBook.toFixed(2)+'x':'--'],
-         ['EPS',fins.eps?'$'+fins.eps:'--'],
-         ['FCF',luFmt(fins.freeCashflow)]
-        ].map(function(p){return '<div class="fcard"><div class="fcard-lbl">'+p[0]+'</div><div class="fcard-val">'+p[1]+'</div></div>';}).join('')
-      + '</div>';
-  } else if(!revHist.length){
-    // Truly empty — nothing to show. Skip rendering the panel altogether.
-    finsBody = '';
-  } else {
-    // Have revenue chart but no metric tiles — add a small note instead of
-    // an empty 12-cell grid of "--" placeholders.
-    finsBody += '<div style="font-family:var(--fm);font-size:11px;color:var(--t3);padding:6px 0;line-height:1.6">Detailed metric tiles unavailable — data sources throttled. Revenue trajectory above still meaningful.</div>';
-  }
-  if(finsBody){
-    h+=luPanel('Financials','YFINANCE LIVE','bc', finsBody);
-  }
-
-  // Earnings history. Each row's estimate/actual/surprise_pct/beat can be
-  // null when a company didn't release guidance for that quarter (we hit
-  // this on FNKO — a single null guidance quarter was crashing the whole
-  // page render because .toFixed() throws on null). Use _luNumOrDash to
-  // coerce safely.
-  function _luNumOrDash(n, digits, prefix){
-    if(n==null || (typeof n==='number' && !isFinite(n))) return '--';
-    return (prefix||'') + n.toFixed(digits==null?2:digits);
-  }
-  var eh=fins.earningsHistory||[];
-  var ehHtml='';
-  if(eh.length){
-    var beats=eh.filter(function(e){return e && e.beat===true;}).length;
-    var lastE=eh[eh.length-1]||{};
-    var lastSurpriseTxt = (lastE.surprise_pct==null) ? '--'
-      : ((lastE.surprise_pct>0?'+':'') + lastE.surprise_pct.toFixed(1) + '%');
-    ehHtml='<div style="font-family:var(--fm);font-size:10px;color:var(--t3);margin-bottom:10px">'
-      +(beats)+'/'+eh.length+' beats  |  Last surprise: '+lastSurpriseTxt
-      +(fins.nextEarningsDate?' |  Next: '+fins.nextEarningsDate:'')+'</div>'
-      +'<div style="height:90px;margin-bottom:10px"><canvas id="lu-earnings-chart"></canvas></div>'
-      +'<table class="tbl" style="width:100%"><thead><tr><th>Quarter</th><th>Est.</th><th>Actual</th><th>Surprise</th></tr></thead><tbody>'
-      +eh.slice(-6).map(function(e){
-        if(!e) return '';
-        var beatCls = e.beat===true ? 'beat' : (e.beat===false ? 'miss' : '');
-        var dateTxt = (e.date && typeof e.date==='string') ? e.date.substring(0,7) : '--';
-        var surpriseTxt = (e.surprise_pct==null) ? '--'
-          : ((e.surprise_pct>0?'+':'') + e.surprise_pct.toFixed(1) + '%');
-        return '<tr><td>'+dateTxt+'</td>'
-          +'<td>'+_luNumOrDash(e.estimate, 2, '$')+'</td>'
-          +'<td class="'+beatCls+'">'+_luNumOrDash(e.actual, 2, '$')+'</td>'
-          +'<td class="'+beatCls+'">'+surpriseTxt+'</td></tr>';
-      }).join('')+'</tbody></table>';
-  }
-  // Only render the Earnings History panel when there's actual data — a
-  // panel that says "No earnings history available" wastes screen real
-  // estate without telling the analyst anything they didn't already know.
-  if(eh.length){
-    h+=luPanel('Earnings History',fins.nextEarningsDate?'NEXT: '+fins.nextEarningsDate:'HISTORY','bp',ehHtml);
-  }
-  h+='</div>';
+  // Section 03 (Financials) was removed per user request — the FMP /quote and
+  // yfinance.info endpoints are throttled too often on the free tier to render
+  // a useful financial fundamentals section, and the dashboard's primary value
+  // is in the social/demand intelligence anyway. Numbering picks up at 03 with
+  // Demand Intelligence; the Peer Comparison section still surfaces basic
+  // financials per peer when available.
+  //
+  // Variables that other sections still expect (eh, revHist) are kept as
+  // safe empty defaults so the chart-rendering block below doesn't reference
+  // undefined identifiers.
+  var revHist = fins.revenueHistory || [];
+  var eh = fins.earningsHistory || [];
 
   // DEMAND INTELLIGENCE section
   // Section 04: every individual demand source.
@@ -3334,8 +3242,6 @@ async function runLookup(){
     + '<div class="lu-export-bar">'
     +   '<span class="lu-export-lbl">PNG CHARTS</span>'
     +   '<button class="lu-tool-btn" onclick="luDownloadPng(\'lu-unified\',\'' + ticker + '_unified.png\')">Unified timeline</button>'
-    +   '<button class="lu-tool-btn" onclick="luDownloadPng(\'lu-rev\',\'' + ticker + '_revenue.png\')">Revenue</button>'
-    +   (eh.length?'<button class="lu-tool-btn" onclick="luDownloadPng(\'lu-earnings-chart\',\'' + ticker + '_earnings.png\')">Earnings</button>':'')
     +   '<button class="lu-tool-btn" onclick="luDownloadPng(\'lu-reddit-chart\',\'' + ticker + '_reddit.png\')">Reddit</button>'
     +   '<button class="lu-tool-btn" onclick="luDownloadPng(\'lu-yt-chart\',\'' + ticker + '_youtube.png\')">YouTube</button>'
     +   '<button class="lu-tool-btn" onclick="luDownloadPng(\'lu-twits-chart\',\'' + ticker + '_stocktwits.png\')">StockTwits</button>'
@@ -3355,8 +3261,6 @@ async function runLookup(){
     +   '<button class="lu-tool-btn" onclick="luCsvByKey(\'wikipedia\',\'' + ticker + '\',\'wikipedia\')">Wikipedia</button>'
     +   '<button class="lu-tool-btn" onclick="luCsvByKey(\'sec\',\'' + ticker + '\',\'sec\')">SEC</button>'
     +   '<button class="lu-tool-btn" onclick="luCsvByKey(\'news\',\'' + ticker + '\',\'news\')">News</button>'
-    +   '<button class="lu-tool-btn" onclick="luCsvByKey(\'revenueHistory\',\'' + ticker + '\',\'revenue_history\')">Revenue history</button>'
-    +   (eh.length?'<button class="lu-tool-btn" onclick="luCsvByKey(\'earningsHistory\',\'' + ticker + '\',\'earnings_history\')">Earnings history</button>':'')
     + '</div>'
     + '</div></div>';
 
@@ -3761,71 +3665,9 @@ async function runLookup(){
     }
     });  // end _try('unified')
 
-    // Revenue history bar chart
-    _try('revenue', function(){
-    if(revHist.length){
-      luBar('lu-rev',
-        revHist.map(function(r){return 'FY'+r.year;}),
-        revHist.map(function(r){return r.value/1e6;}),
-        revHist.map(function(r,i){return i===revHist.length-1?'rgba(0,229,255,.6)':'rgba(0,229,255,.3)';}),
-        'Revenue $M'
-      );
-    }
-    });  // end _try('revenue')
-
-    // Margins comparison bar chart — green = profitable, red = losing money.
-    _try('margins', function(){
-    // The visual is more useful than the three separate %s in the grid below
-    // because you can see at a glance: how much margin gets eaten between
-    // gross → operating → net.
-    var mLabels=[], mValues=[], mColors=[];
-    function _pushM(lbl, val){
-      if(val==null) return;
-      mLabels.push(lbl);
-      mValues.push(val*100);
-      mColors.push(val>0 ? 'rgba(0,255,157,.55)' : 'rgba(255,68,102,.55)');
-    }
-    _pushM('Gross',  fins.grossMargin);
-    _pushM('Operating', fins.operatingMargin);
-    _pushM('Net',   fins.netMargin);
-    if(mLabels.length){
-      _luMk('lu-margins',{type:'bar',data:{
-        labels:mLabels,
-        datasets:[{data:mValues,backgroundColor:mColors,borderWidth:0,borderRadius:3}]
-      },options:{
-        responsive:true,maintainAspectRatio:false,
-        plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return c.parsed.y.toFixed(1)+'%';}}}},
-        scales:{
-          x:{grid:{display:false},ticks:{font:{family:"'DM Mono',monospace",size:10},color:'#7c93a8'}},
-          y:{grid:{color:'rgba(28,42,56,.5)'},ticks:{font:{family:"'DM Mono',monospace",size:9},color:'#4a6070',callback:function(v){return v+'%';}}}
-        }
-      }});
-    }
-
-    });  // end _try('margins')
-
-    // Earnings surprise bar chart — guard against null date/beat fields
-    // (companies that skipped guidance for a quarter have nulls in these).
-    _try('earnings', function(){
-    if(eh&&eh.length){
-      _luMk('lu-earnings-chart',{type:'bar',data:{
-        labels:eh.map(function(e){return (e && typeof e.date==='string')?e.date.substring(0,7):'--';}),
-        datasets:[{
-          data:eh.map(function(e){return e && e.surprise_pct!=null ? e.surprise_pct : null;}),
-          backgroundColor:eh.map(function(e){return (e && e.beat===true)?'rgba(0,255,157,.5)':'rgba(255,68,102,.5)';}),
-          borderWidth:0,borderRadius:2
-        }]
-      },options:{
-        responsive:true,maintainAspectRatio:false,
-        plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return c.parsed.y.toFixed(1)+'% surprise';}}}},
-        scales:{
-          x:{grid:{display:false},ticks:{font:{family:"'DM Mono',monospace",size:9},color:'#4a6070'}},
-          y:{grid:{color:'rgba(28,42,56,.5)'},ticks:{font:{family:"'DM Mono',monospace",size:9},color:'#4a6070',callback:function(v){return v+'%';}}}
-        }
-      }});
-    }
-
-    });  // end _try('earnings')
+    // Revenue / Margins / Earnings chart blocks removed alongside the
+    // Section 03 Financials section per user request — those canvases no
+    // longer exist in the DOM, so any rendering call would be a no-op anyway.
 
     // Reddit weekly mention bars
     _try('reddit', function(){

@@ -2899,29 +2899,52 @@ async function runLookup(){
   // Financials + Earnings side by side
   h+='<div class="g2" style="margin-bottom:14px">';
 
-  // Financials with revenue chart + a margins comparison bar chart
+  // Financials with revenue chart + a margins comparison bar chart.
+  // When FMP /quote is throttled AND yfinance.info is blocked, every metric
+  // tile would show "--" with no useful info. In that case we skip the tile
+  // grid entirely and keep just the revenue chart (which comes from FMP's
+  // /income-statement endpoint, a separate rate-limit pool that usually
+  // still works). Cleaner than a wall of empty placeholders.
   var revHist=fins.revenueHistory||[];
   var hasMargins = fins.grossMargin!=null || fins.operatingMargin!=null || fins.netMargin!=null;
-  h+=luPanel('Financials','YFINANCE LIVE','bc',
-    (revHist.length?'<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Annual revenue trajectory ($M)</div>'
-      +'<div style="height:160px;margin-bottom:14px"><canvas id="lu-rev"></canvas></div>':'')
-    +(hasMargins?'<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Profitability — gross vs operating vs net margin</div>'
-      +'<div style="height:130px;margin-bottom:14px"><canvas id="lu-margins"></canvas></div>':'')
-    +'<div class="fgrid">'
-    +[['Market Cap',luFmt(fins.marketCap)],['Revenue TTM',luFmt(fins.revenue)],
-      ['Rev Growth',fins.revenueGrowth?(fins.revenueGrowth*100).toFixed(1)+'%':'--'],
-      ['Gross Margin',fins.grossMargin?luPct(fins.grossMargin):'--'],
-      ['Op Margin',fins.operatingMargin?luPct(fins.operatingMargin):'--'],
-      ['Net Margin',fins.netMargin?luPct(fins.netMargin):'--'],
-      ['Fwd P/E',fins.forwardPE?fins.forwardPE.toFixed(1)+'x':'--'],
-      ['EV/EBITDA',fins.enterpriseToEbitda?fins.enterpriseToEbitda.toFixed(1)+'x':'--'],
-      ['EV/Rev',fins.enterpriseToRevenue?fins.enterpriseToRevenue.toFixed(2)+'x':'--'],
-      ['P/Book',fins.priceToBook?fins.priceToBook.toFixed(2)+'x':'--'],
-      ['EPS',fins.eps?'$'+fins.eps:'--'],
-      ['FCF',luFmt(fins.freeCashflow)]
-    ].map(function(p){return '<div class="fcard"><div class="fcard-lbl">'+p[0]+'</div><div class="fcard-val">'+p[1]+'</div></div>';}).join('')
-    +'</div>'
-  );
+  var hasAnyMetric = fins.marketCap!=null || fins.revenue!=null || fins.revenueGrowth!=null
+    || fins.forwardPE!=null || fins.enterpriseToEbitda!=null || fins.eps!=null
+    || fins.freeCashflow!=null || hasMargins;
+  var finsBody = '';
+  if(revHist.length){
+    finsBody += '<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Annual revenue trajectory ($M)</div>'
+      + '<div style="height:160px;margin-bottom:14px"><canvas id="lu-rev"></canvas></div>';
+  }
+  if(hasMargins){
+    finsBody += '<div style="font-family:var(--fm);font-size:9px;color:var(--t3);margin-bottom:6px">Profitability — gross vs operating vs net margin</div>'
+      + '<div style="height:130px;margin-bottom:14px"><canvas id="lu-margins"></canvas></div>';
+  }
+  if(hasAnyMetric){
+    finsBody += '<div class="fgrid">'
+      + [['Market Cap',luFmt(fins.marketCap)],['Revenue TTM',luFmt(fins.revenue)],
+         ['Rev Growth',fins.revenueGrowth?(fins.revenueGrowth*100).toFixed(1)+'%':'--'],
+         ['Gross Margin',fins.grossMargin?luPct(fins.grossMargin):'--'],
+         ['Op Margin',fins.operatingMargin?luPct(fins.operatingMargin):'--'],
+         ['Net Margin',fins.netMargin?luPct(fins.netMargin):'--'],
+         ['Fwd P/E',fins.forwardPE?fins.forwardPE.toFixed(1)+'x':'--'],
+         ['EV/EBITDA',fins.enterpriseToEbitda?fins.enterpriseToEbitda.toFixed(1)+'x':'--'],
+         ['EV/Rev',fins.enterpriseToRevenue?fins.enterpriseToRevenue.toFixed(2)+'x':'--'],
+         ['P/Book',fins.priceToBook?fins.priceToBook.toFixed(2)+'x':'--'],
+         ['EPS',fins.eps?'$'+fins.eps:'--'],
+         ['FCF',luFmt(fins.freeCashflow)]
+        ].map(function(p){return '<div class="fcard"><div class="fcard-lbl">'+p[0]+'</div><div class="fcard-val">'+p[1]+'</div></div>';}).join('')
+      + '</div>';
+  } else if(!revHist.length){
+    // Truly empty — nothing to show. Skip rendering the panel altogether.
+    finsBody = '';
+  } else {
+    // Have revenue chart but no metric tiles — add a small note instead of
+    // an empty 12-cell grid of "--" placeholders.
+    finsBody += '<div style="font-family:var(--fm);font-size:11px;color:var(--t3);padding:6px 0;line-height:1.6">Detailed metric tiles unavailable — data sources throttled. Revenue trajectory above still meaningful.</div>';
+  }
+  if(finsBody){
+    h+=luPanel('Financials','YFINANCE LIVE','bc', finsBody);
+  }
 
   // Earnings history. Each row's estimate/actual/surprise_pct/beat can be
   // null when a company didn't release guidance for that quarter (we hit
@@ -3351,7 +3374,13 @@ async function runLookup(){
     var peersEl = document.getElementById('lu-peers');
     if(!peersEl) return;
     var primaryStockSeries = (soc.series && soc.series.stock) || [];
-    fetch(RENDER + '/api/peers?ticker=' + encodeURIComponent(ticker))
+    // Pass company name + sector as context so Claude disambiguates ambiguous
+    // tickers correctly (COMP without context comes back with toy peers; with
+    // "Compass, Inc. / Real Estate" it returns RDFN/ZG/EXPI).
+    var peerCtxParams = '';
+    if(fins.longName) peerCtxParams += '&company=' + encodeURIComponent(fins.longName);
+    if(fins.sector)   peerCtxParams += '&sector='  + encodeURIComponent(fins.sector);
+    fetch(RENDER + '/api/peers?ticker=' + encodeURIComponent(ticker) + peerCtxParams)
       .then(function(r){ return r.ok ? r.json() : Promise.reject(new Error('HTTP '+r.status)); })
       .then(function(p){
         if(!p || !p.peers || !p.peers.length){
@@ -3374,10 +3403,25 @@ async function runLookup(){
               .then(function(r){ return r.ok ? r.json() : {data:[]}; })
               .catch(function(){ return {data:[]}; })
           : Promise.resolve({data:[]});
-        return Promise.all([Promise.all(finFetches), sectorHistP]).then(function(both){
-          var finResults = both[0];
-          var sectorHist = (both[1] && both[1].data) || [];
-          peersEl.innerHTML = _peerRender(ticker, p, finResults, primaryStockSeries, sectorHist);
+        // ALSO kick off a lightweight social-snapshot fetch for all the
+        // demand-comparable tickers (primary + peers; sector ETF makes no
+        // sense socially so skip). This is the whole point of the dashboard
+        // — financial multiples are secondary to demand signals.
+        var socialTickers = [ticker].concat(p.peers);
+        var socialCompanies = socialTickers.map(function(t){
+          // Frontend doesn't know peer company names yet, so we can only
+          // pass the primary's. Wikipedia falls back to ticker for the rest.
+          return t === ticker ? (fins.longName || '') : '';
+        });
+        var socialP = fetch(RENDER + '/api/peer-social?tickers=' + socialTickers.join(',')
+                          + '&companies=' + encodeURIComponent(socialCompanies.join(',')))
+          .then(function(r){ return r.ok ? r.json() : {results:[]}; })
+          .catch(function(){ return {results:[]}; });
+        return Promise.all([Promise.all(finFetches), sectorHistP, socialP]).then(function(all){
+          var finResults = all[0];
+          var sectorHist = (all[1] && all[1].data) || [];
+          var socialResults = (all[2] && all[2].results) || [];
+          peersEl.innerHTML = _peerRender(ticker, p, finResults, primaryStockSeries, sectorHist, socialResults);
           // Draw the relative-performance chart AFTER innerHTML lands so the
           // canvas exists. Both series normalised to 100 at start so the
           // axis is comparable even when prices differ by 100x.
@@ -3438,12 +3482,17 @@ async function runLookup(){
     return '<div class="panel"><div class="panel-h"><div class="ptitle">Peer Comparison</div><span class="badge bo">UNAVAILABLE</span></div><div class="panel-b"><div style="font-family:var(--fm);font-size:11px;color:var(--t3);padding:8px 0">'+msg+'</div></div></div>';
   }
 
-  function _peerRender(primaryTicker, peerInfo, results, primaryStockSeries, sectorStockSeries){
+  function _peerRender(primaryTicker, peerInfo, results, primaryStockSeries, sectorStockSeries, socialResults){
     // results[0] = primary ticker, results[1..n] = peers, results[last] = sector ETF (if present)
     var sectorEtfPresent = !!peerInfo.sector_etf;
     var primary = results[0] || {info:{}};
     var peers = results.slice(1, sectorEtfPresent ? results.length - 1 : results.length);
     var sector = sectorEtfPresent ? results[results.length - 1] : null;
+
+    // Index social snapshot results by ticker for O(1) lookup per card.
+    // socialResults from /api/peer-social: [{ticker, wikipedia_avg_wk, stocktwits_avg_wk, sec_avg_wk, bullish_ratio}]
+    var socialByTicker = {};
+    (socialResults || []).forEach(function(r){ if(r && r.ticker) socialByTicker[r.ticker] = r; });
 
     function _fmtPct(v, digits){
       if(v==null || !isFinite(v)) return '--';
@@ -3454,33 +3503,77 @@ async function runLookup(){
       if(v==null || !isFinite(v) || v<=0 || v>200) return '--';
       return v.toFixed(1) + 'x';
     }
+    function _fmtNum(v){
+      if(v==null || !isFinite(v)) return '--';
+      if(v >= 1000) return Math.round(v).toLocaleString();
+      return v.toFixed(v<10?1:0);
+    }
     function _card(t, info, role){
       var name = info.longName || info.shortName || t;
       var s = info.sector || '';
-      var price = info.currentPrice;
-      var mcap = info.marketCap;
-      var revG = info.revenueGrowth;
-      var gm = info.grossMargins;
-      var nm = info.profitMargins;
-      var fpe = info.forwardPE;
+      var social = socialByTicker[t] || {};
+      var hasSocial = social.wikipedia_avg_wk!=null || social.stocktwits_avg_wk!=null || social.sec_avg_wk!=null;
       var roleLabel = role==='primary' ? 'YOUR TICKER'
                     : role==='sector' ? 'SECTOR BENCHMARK'
                     : 'PEER';
       var roleColor = role==='primary' ? 'var(--cyan)'
                     : role==='sector' ? '#7b61ff'
                     : 'var(--t2)';
+      // SECTOR ETFs have no meaningful social signal (they're indexes, not
+      // companies). Show only price + market cap for them.
+      var isEtf = role === 'sector';
+
+      // Social block (the thing this dashboard is actually about — Wikipedia
+      // pageviews, StockTwits chatter, SEC filing cadence). For sector ETF
+      // skip it; for everyone else include it even if the values are blank
+      // (with "--" placeholders) so the layout is consistent across cards.
+      var socialBlock = '';
+      if(!isEtf){
+        var bull = social.bullish_ratio;
+        var bullTxt = (bull!=null) ? (Math.round(bull*100) + '% bullish') : '--';
+        var bullColor = (bull!=null && bull>=0.6) ? 'var(--green)'
+                      : (bull!=null && bull<=0.4) ? 'var(--red)'
+                      : 'var(--t2)';
+        socialBlock = '<div style="margin-top:12px;padding-top:10px;border-top:1px dashed rgba(0,229,255,.18)">'
+          + '<div style="font-family:var(--fm);font-size:9px;letter-spacing:.12em;color:var(--cyan);margin-bottom:6px;font-weight:700">DEMAND SIGNALS · LAST 12 WEEKS AVG</div>'
+          + '<div class="comp-stats">'
+          +   '<div><span class="lbl">Wikipedia views/wk</span><b>'+_fmtNum(social.wikipedia_avg_wk)+'</b></div>'
+          +   '<div><span class="lbl">StockTwits msgs/wk</span><b>'+_fmtNum(social.stocktwits_avg_wk)+'</b></div>'
+          +   '<div><span class="lbl">SEC filings/wk</span><b>'+_fmtNum(social.sec_avg_wk)+'</b></div>'
+          +   '<div><span class="lbl">Sentiment</span><b style="color:'+bullColor+'">'+bullTxt+'</b></div>'
+          + '</div>'
+          + (hasSocial ? '' : '<div style="font-family:var(--fm);font-size:10px;color:var(--t3);margin-top:6px">(fetching social signals…)</div>')
+          + '</div>';
+      }
+
+      // Financial block — kept compact since fundamentals aren't this
+      // dashboard's main job. Show only if at least one value is present;
+      // otherwise omit entirely so blank cards don't dominate visually.
+      var price = info.currentPrice;
+      var mcap = info.marketCap;
+      var revG = info.revenueGrowth;
+      var nm = info.profitMargins;
+      var fpe = info.forwardPE;
+      var hasFins = price!=null || mcap!=null || revG!=null || nm!=null || fpe!=null;
+      var finsBlock = '';
+      if(hasFins){
+        finsBlock = '<div class="comp-stats" style="margin-top:8px">'
+          +   '<div><span class="lbl">Price</span><b>'+(price?'$'+price.toFixed(2):'--')+'</b></div>'
+          +   '<div><span class="lbl">Market Cap</span><b>'+luFmt(mcap)+'</b></div>'
+          +   (isEtf ? '' : '<div><span class="lbl">Rev Growth</span><b>'+_fmtPct(revG)+'</b></div>')
+          +   (isEtf ? '' : '<div><span class="lbl">Net Margin</span><b>'+_fmtPct(nm)+'</b></div>')
+          +   '<div><span class="lbl">Fwd P/E</span><b>'+_fmtX(fpe)+'</b></div>'
+          + '</div>';
+      } else if(!isEtf) {
+        finsBlock = '<div style="font-family:var(--fm);font-size:10px;color:var(--t3);margin-top:6px">Financial fundamentals throttled — check back after FMP quota resets.</div>';
+      }
+
       return '<div class="comp-card '+(role==='primary'?'primary':'')+'" style="border-left:2px solid '+roleColor+'">'
         + '<div style="font-family:var(--fm);font-size:9px;letter-spacing:.12em;color:'+roleColor+';margin-bottom:6px">'+roleLabel+'</div>'
         + '<div class="comp-card-ticker">'+t+'</div>'
         + '<div class="comp-card-name">'+name+(s?' · '+s:'')+'</div>'
-        + '<div class="comp-stats">'
-        +   '<div><span class="lbl">Price</span><b>'+(price?'$'+price.toFixed(2):'--')+'</b></div>'
-        +   '<div><span class="lbl">Market Cap</span><b>'+luFmt(mcap)+'</b></div>'
-        +   '<div><span class="lbl">Rev Growth</span><b>'+_fmtPct(revG)+'</b></div>'
-        +   '<div><span class="lbl">Gross Margin</span><b>'+_fmtPct(gm)+'</b></div>'
-        +   '<div><span class="lbl">Net Margin</span><b>'+_fmtPct(nm)+'</b></div>'
-        +   '<div><span class="lbl">Fwd P/E</span><b>'+_fmtX(fpe)+'</b></div>'
-        + '</div>'
+        + socialBlock
+        + finsBlock
         + '</div>';
     }
     // Sector P/E benchmark callout — compares primary's fwd P/E to sector ETF's

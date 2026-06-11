@@ -364,11 +364,18 @@ def api_peers():
     ticker = (request.args.get("ticker") or "").strip().upper()
     if not ticker:
         return jsonify({"error": "ticker required"}), 400
+    # Optional company name + sector hints from the frontend. These make a huge
+    # difference when the ticker is ambiguous — e.g. COMP without context could
+    # be Compass Inc. (real estate) or a long-delisted mining co. With "Compass,
+    # Inc. — Real Estate Services" as context, Claude returns RDFN/ZG/EXPI
+    # instead of toy/consumer names.
+    company_hint = (request.args.get("company") or "").strip()
+    sector_hint = (request.args.get("sector") or "").strip()
+    cache_key = f"{ticker}|{company_hint}|{sector_hint}".upper()
 
-    # Cache hit — unless caller explicitly asks for a refresh (e.g. after a
-    # prompt tweak or when investigating bad peers like "MNT" instead of "MAT").
+    # Cache hit — unless caller explicitly asks for a refresh.
     if request.args.get("refresh") not in ("1", "true", "yes"):
-        cached = _PEER_CACHE.get(ticker)
+        cached = _PEER_CACHE.get(cache_key)
         if cached and cached["expires"] > time.time():
             return jsonify({**cached["data"], "cached": True})
 
@@ -376,8 +383,17 @@ def api_peers():
     if not api_key:
         return jsonify({"error": "ANTHROPIC_API_KEY not set on the server"}), 503
 
+    company_context = ""
+    if company_hint or sector_hint:
+        parts = []
+        if company_hint:
+            parts.append(f"company name '{company_hint}'")
+        if sector_hint:
+            parts.append(f"sector '{sector_hint}'")
+        company_context = f" ({', '.join(parts)})"
+
     prompt = (
-        f"For the US-listed ticker {ticker}, return EXACTLY this JSON structure "
+        f"For the US-listed ticker {ticker}{company_context}, return EXACTLY this JSON structure "
         f"with no surrounding text or markdown fence:\n"
         f"{{\n"
         f'  "peers": ["TKR1", "TKR2", "TKR3"],\n'
@@ -462,10 +478,87 @@ def api_peers():
             "sector_etf": sector_etf.strip().upper(),
             "sector_name": sector_name.strip(),
         }
-        _PEER_CACHE[ticker] = {"data": out, "expires": time.time() + _PEER_TTL_SECONDS}
+        _PEER_CACHE[cache_key] = {"data": out, "expires": time.time() + _PEER_TTL_SECONDS}
         return jsonify({**out, "cached": False})
     except (json.JSONDecodeError, IndexError, AttributeError, KeyError) as exc:
         return jsonify({"error": f"Could not parse model response: {exc}"}), 502
+
+
+@app.route("/api/peer-social")
+def api_peer_social():
+    """Fast lightweight social snapshot for peer comparison.
+
+    Returns aggregate social-signal summaries for up to 8 tickers without the
+    full /api/full payload. Used by the Peer Comparison section to surface
+    Wikipedia views, StockTwits volume, SEC filings — the stuff this dashboard
+    is actually for — instead of just financial fundamentals.
+
+    Per ticker: {ticker, wikipedia_avg_wk, stocktwits_avg_wk, sec_avg_wk,
+    health_score}. Fetches in parallel internally so total wall-clock is
+    bounded by the slowest single fetcher (~10s), not N × that.
+    """
+    tickers_raw = (request.args.get("tickers") or "").strip().upper()
+    if not tickers_raw:
+        return jsonify({"error": "tickers required (comma-separated)"}), 400
+    tickers = [t for t in tickers_raw.split(",") if t][:8]
+    company_hints_raw = request.args.get("companies") or ""
+    company_hints = [c.strip() for c in company_hints_raw.split(",")]
+    # Pad hints to length of tickers so the index lookup never goes out of range
+    while len(company_hints) < len(tickers):
+        company_hints.append("")
+
+    # 12-week lookback is enough for a meaningful average without the slow
+    # paginated Reddit fetcher dominating. Use yesterday as end so we don't
+    # collide with partially-updated daily series.
+    end = date.today()
+    start = end - timedelta(days=12 * 7)
+    start_s = start.isoformat()
+    end_s = end.isoformat()
+
+    def _one(ticker: str, company: str) -> dict:
+        """Fetch the three cheap-and-cheerful social signals for one ticker."""
+        from lib.wikipedia import fetch_wikipedia_daily
+        from lib.stocktwits import fetch_stocktwits_daily
+        from lib.sec import fetch_sec_filings_weekly
+
+        out: dict = {"ticker": ticker}
+        # Wikipedia views — needs a company name. If we don't have a hint, fall
+        # back to the ticker itself (low recall but usable for tickers that ARE
+        # the brand, like CROX/BBW).
+        wiki_term = company or ticker
+        try:
+            wiki_df, wiki_title = fetch_wikipedia_daily(wiki_term, start_s, end_s)
+            if wiki_df is not None and not wiki_df.empty:
+                out["wikipedia_avg_wk"] = round(float(wiki_df["views"].mean()) * 7, 0)
+                out["wikipedia_title"] = wiki_title
+        except Exception as exc:  # noqa: BLE001
+            print(f"[peer-social] {ticker} wiki: {exc}")
+
+        try:
+            st_df = fetch_stocktwits_daily(ticker, start_s, end_s)
+            if st_df is not None and not st_df.empty:
+                out["stocktwits_avg_wk"] = round(float(st_df["count"].sum()) / 12, 1)
+                tagged = float(st_df["bullish"].sum()) + float(st_df["bearish"].sum())
+                if tagged > 0:
+                    out["bullish_ratio"] = round(float(st_df["bullish"].sum()) / tagged, 3)
+        except Exception as exc:  # noqa: BLE001
+            print(f"[peer-social] {ticker} stocktwits: {exc}")
+
+        try:
+            sec_df = fetch_sec_filings_weekly(ticker, start_s, end_s)
+            if sec_df is not None and not sec_df.empty:
+                out["sec_avg_wk"] = round(float(sec_df["count"].mean()), 1)
+        except Exception as exc:  # noqa: BLE001
+            print(f"[peer-social] {ticker} sec: {exc}")
+
+        return out
+
+    # Fan out across tickers — each ticker's fetchers also run in parallel
+    # internally, so this gets parallelism in both dimensions.
+    with ThreadPoolExecutor(max_workers=min(8, len(tickers))) as pool:
+        results = list(pool.map(_one, tickers, company_hints))
+
+    return jsonify({"tickers": tickers, "results": results})
 
 
 def _run_generate(

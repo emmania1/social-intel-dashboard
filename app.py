@@ -365,10 +365,12 @@ def api_peers():
     if not ticker:
         return jsonify({"error": "ticker required"}), 400
 
-    # Cache hit
-    cached = _PEER_CACHE.get(ticker)
-    if cached and cached["expires"] > time.time():
-        return jsonify({**cached["data"], "cached": True})
+    # Cache hit — unless caller explicitly asks for a refresh (e.g. after a
+    # prompt tweak or when investigating bad peers like "MNT" instead of "MAT").
+    if request.args.get("refresh") not in ("1", "true", "yes"):
+        cached = _PEER_CACHE.get(ticker)
+        if cached and cached["expires"] > time.time():
+            return jsonify({**cached["data"], "cached": True})
 
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
@@ -382,9 +384,19 @@ def api_peers():
         f'  "sector_etf": "XLY",\n'
         f'  "sector_name": "Consumer Discretionary"\n'
         f"}}\n\n"
+        f"CRITICAL — peers MUST be real, currently-traded US-listed STOCK SYMBOLS, "
+        f"not abbreviations or company-name approximations. Examples of correct vs wrong:\n"
+        f"  - Mattel: CORRECT 'MAT' / WRONG 'MNT' or 'MATTEL'\n"
+        f"  - Hasbro: CORRECT 'HAS' / WRONG 'HASBRO' or 'HSBRO'\n"
+        f"  - JAKKS Pacific: CORRECT 'JAKK' / WRONG 'JAKKS'\n"
+        f"  - Build-A-Bear: CORRECT 'BBW' / WRONG 'BAB' or 'BUILD'\n"
+        f"  - Crocs: CORRECT 'CROX' / WRONG 'CRC'\n"
+        f"If you are not certain of the exact ticker symbol used on NYSE/NASDAQ, "
+        f"omit that peer rather than guess. Better to return fewer real tickers than wrong ones.\n\n"
         f"Rules:\n"
         f"- peers: exactly 3 closest US-listed public competitors by business model "
-        f"and end market. Prefer pure-plays over conglomerates. NEVER include the input ticker itself.\n"
+        f"and end market. Prefer pure-plays over conglomerates. NEVER include the input ticker itself. "
+        f"NEVER use the full company name as a peer entry — only the exchange ticker symbol.\n"
         f'- sector_etf: the single most relevant SPDR sector ETF '
         f'(XLY consumer discretionary, XLP consumer staples, XLV health care, XLF financials, '
         f'XLE energy, XLI industrials, XLB materials, XLU utilities, XLK technology, '
@@ -428,7 +440,22 @@ def api_peers():
         # Sanity check shape so a malformed model response can't poison the cache
         if not (isinstance(peers, list) and len(peers) == 3 and all(isinstance(p, str) for p in peers)):
             return jsonify({"error": f"Bad peers shape from model: {text[:200]}"}), 502
-        peers = [p.strip().upper() for p in peers if p.strip().upper() != ticker][:3]
+        # Strict ticker normalisation. Real US listed tickers are 1-5 chars,
+        # letters only (some have a `.` for share class but we treat those as
+        # invalid here to keep this simple). Drop anything that looks like a
+        # company name slip ("HASBRO", "JAKKS", "MATTEL") rather than ship
+        # broken peers downstream.
+        import re as _re
+        clean: list[str] = []
+        for p in peers:
+            t = p.strip().upper()
+            if not t or t == ticker:
+                continue
+            if not _re.fullmatch(r"[A-Z]{1,5}", t):
+                print(f"[peers] dropped invalid ticker '{t}' for {ticker}")
+                continue
+            clean.append(t)
+        peers = clean[:3]
         out = {
             "ticker": ticker,
             "peers": peers,
